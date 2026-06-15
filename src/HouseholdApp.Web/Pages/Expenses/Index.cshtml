@@ -41,22 +41,88 @@ else
 {
     @foreach (var e in Model.Expenses)
     {
-        <div class="list-row" style="@(e.IsVoided ? "opacity:0.5" : "")">
-            <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">💳</div>
-            <div class="list-row-body">
-                <div class="list-row-name" style="@(e.IsVoided ? "text-decoration:line-through; color:var(--text-muted)" : "")">@e.Description</div>
-                <div class="list-row-meta">@e.Date.ToString("d")</div>
+        var hasMultiplePayers = e.FundingSources.Count > 1;
+        var paidLabel = hasMultiplePayers
+            ? L["Expenses.Breakdown.PaidPlural"].Value
+            : L["Expenses.Breakdown.PaidSingular"].Value;
+        var rowId = $"exp-{e.Id:N}";
+
+        <div class="expense-row-wrap @(e.IsVoided ? "is-voided" : "")" id="@rowId"
+             style="@(e.IsVoided ? "opacity:0.5" : "")">
+            <div class="expense-row-header"
+                 onclick="document.getElementById('@rowId').classList.toggle('expanded')">
+                <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">💳</div>
+                <div class="list-row-body">
+                    <div class="list-row-name"
+                         style="@(e.IsVoided ? "text-decoration:line-through; color:var(--text-muted)" : "")">
+                        @e.Description
+                    </div>
+                    <div class="list-row-meta">
+                        @e.Date.ToString("d")
+                        @if (e.FundingSources.Any())
+                        {
+                            <span style="color:var(--text-muted);margin:0 2px">·</span>
+                            @foreach (var f in e.FundingSources)
+                            {
+                                <span class="payer-chip">
+                                    <span class="payer-init">@f.DisplayName[0]</span>
+                                    @(hasMultiplePayers ? f.DisplayName.Split(' ')[0] : f.DisplayName)
+                                </span>
+                            }
+                            <span class="payer-paid-label">@paidLabel</span>
+                        }
+                    </div>
+                </div>
+                <div class="expense-row-right">
+                    <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">
+                        R$ @((e.TotalCents / 100m).ToString("F2"))
+                    </span>
+                    @if (!e.IsVoided && e.FundingSources.Any())
+                    {
+                        <span class="expand-arrow">▾</span>
+                    }
+                </div>
             </div>
-            <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">
-                R$ @((e.TotalCents / 100m).ToString("F2"))
-            </span>
+
             @if (!e.IsVoided)
             {
-                <form method="post" asp-page-handler="Void" style="display:inline">
-                    <input type="hidden" name="expenseId" value="@e.Id" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="Void this expense?">@L["Expenses.VoidEntry"]</button>
-                </form>
+                <div class="expense-breakdown">
+                    <div class="expense-breakdown-cols">
+                        <div>
+                            <div class="expense-breakdown-label">@L["Expenses.Breakdown.WhoPaid"]</div>
+                            @foreach (var f in e.FundingSources)
+                            {
+                                <div class="expense-breakdown-entry">
+                                    <span class="expense-breakdown-person">
+                                        <span class="expense-breakdown-avatar">@f.DisplayName[0]</span>
+                                        @f.DisplayName
+                                    </span>
+                                    <span class="expense-breakdown-paid">R$ @((f.Cents / 100m).ToString("F2"))</span>
+                                </div>
+                            }
+                        </div>
+                        <div>
+                            <div class="expense-breakdown-label">@L["Expenses.Breakdown.HowSplit"]</div>
+                            @foreach (var a in e.Allocations)
+                            {
+                                <div class="expense-breakdown-entry">
+                                    <span class="expense-breakdown-person">
+                                        <span class="expense-breakdown-avatar">@a.DisplayName[0]</span>
+                                        @a.DisplayName
+                                    </span>
+                                    <span class="expense-breakdown-owe">R$ @((a.Cents / 100m).ToString("F2"))</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="expense-breakdown-footer">
+                        <form method="post" asp-page-handler="Void" style="display:inline">
+                            <input type="hidden" name="expenseId" value="@e.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    data-confirm="Void this expense?">@L["Expenses.VoidEntry"]</button>
+                        </form>
+                    </div>
+                </div>
             }
         </div>
     }
