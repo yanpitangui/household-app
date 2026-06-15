@@ -47,7 +47,7 @@ else
             : L["Expenses.Breakdown.PaidSingular"].Value;
         var rowId = $"exp-{e.Id:N}";
 
-        <div class="expense-row-wrap @(e.IsVoided ? "is-voided" : "")" id="@rowId"
+        <div class="expense-row-wrap" id="@rowId"
              style="@(e.IsVoided ? "opacity:0.5" : "")">
             <div class="expense-row-header"
                  onclick="document.getElementById('@rowId').classList.toggle('expanded')">
