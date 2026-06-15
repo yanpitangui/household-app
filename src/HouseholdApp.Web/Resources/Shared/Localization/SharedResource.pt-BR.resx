@@ -149,6 +149,7 @@
   <data name="Expenses.Breakdown.HowSplit"><value>Divisão</value></data>
   <data name="Expenses.Breakdown.PaidSingular"><value>pagou</value></data>
   <data name="Expenses.Breakdown.PaidPlural"><value>pagaram</value></data>
+  <data name="Expenses.Breakdown.VoidConfirm"><value>Anular esta despesa?</value></data>
 
   <!-- Households -->
   <data name="Households.MyHouseholds"><value>Minhas casas</value></data>

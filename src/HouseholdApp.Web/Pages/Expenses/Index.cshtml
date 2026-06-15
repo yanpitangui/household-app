@@ -65,7 +65,7 @@ else
                             @foreach (var f in e.FundingSources)
                             {
                                 <span class="payer-chip">
-                                    <span class="payer-init">@f.DisplayName[0]</span>
+                                    <span class="payer-init">@(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')</span>
                                     @(hasMultiplePayers ? f.DisplayName.Split(' ')[0] : f.DisplayName)
                                 </span>
                             }
@@ -94,7 +94,7 @@ else
                             {
                                 <div class="expense-breakdown-entry">
                                     <span class="expense-breakdown-person">
-                                        <span class="expense-breakdown-avatar">@f.DisplayName[0]</span>
+                                        <span class="expense-breakdown-avatar">@(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')</span>
                                         @f.DisplayName
                                     </span>
                                     <span class="expense-breakdown-paid">R$ @((f.Cents / 100m).ToString("F2"))</span>
@@ -107,7 +107,7 @@ else
                             {
                                 <div class="expense-breakdown-entry">
                                     <span class="expense-breakdown-person">
-                                        <span class="expense-breakdown-avatar">@a.DisplayName[0]</span>
+                                        <span class="expense-breakdown-avatar">@(a.DisplayName.Length > 0 ? a.DisplayName[0] : '?')</span>
                                         @a.DisplayName
                                     </span>
                                     <span class="expense-breakdown-owe">R$ @((a.Cents / 100m).ToString("F2"))</span>
@@ -119,7 +119,7 @@ else
                         <form method="post" asp-page-handler="Void" style="display:inline">
                             <input type="hidden" name="expenseId" value="@e.Id" />
                             <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    data-confirm="Void this expense?">@L["Expenses.VoidEntry"]</button>
+                                    data-confirm="@L["Expenses.Breakdown.VoidConfirm"]">@L["Expenses.VoidEntry"]</button>
                         </form>
                     </div>
                 </div>
