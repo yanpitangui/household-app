@@ -1,7 +1,15 @@
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
 
+public sealed record ExpenseListParticipantDto(Guid UserId, string DisplayName, long Cents);
+
 public sealed record ExpenseListItem(
-    Guid Id, string Description, DateTimeOffset Date, long TotalCents, bool IsVoided);
+    Guid Id,
+    string Description,
+    DateTimeOffset Date,
+    long TotalCents,
+    bool IsVoided,
+    IReadOnlyList<ExpenseListParticipantDto> FundingSources,
+    IReadOnlyList<ExpenseListParticipantDto> Allocations);
 
 public sealed record ExpenseDetail(
     Guid Id, Guid ExpenseGroupId, string Description, DateTimeOffset Date,
