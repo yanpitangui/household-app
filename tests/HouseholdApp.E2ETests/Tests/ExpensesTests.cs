@@ -48,4 +48,38 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         await Assert.That(await page.Locator(".page-heading:has-text('Recurring Expenses')").IsVisibleAsync()).IsTrue();
     }
+
+    [Test]
+    public async Task Recorded_expense_shows_payer_chip_on_list()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+
+        // Create an expense group first (required for Record page)
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Expenses/Groups");
+        await page.FillAsync("input[name='NewName']", "Food");
+        await page.ClickAsync("button:has-text('+ Create')");
+        await page.Locator("text=Food").WaitForAsync();
+
+        // Navigate to Record page
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Expenses/Record");
+
+        // Fill the form — payer is the current user (first/only member)
+        await page.FillAsync("input[name='Description']", "Test Groceries");
+        await page.FillAsync("input[name='AmountReais']", "100");
+
+        // Select the group
+        var groupSelect = page.Locator("select[name='GroupId']");
+        await groupSelect.SelectOptionAsync(new SelectOptionValue { Label = "Food" });
+
+        // Submit
+        await page.ClickAsync("button[type='submit']:has-text('Record')");
+        await page.WaitForURLAsync($"**/h/{householdId}/Expenses");
+
+        // Payer chip must appear in the expense row
+        await Assert.That(
+            await page.Locator(".payer-chip").First.IsVisibleAsync()
+        ).IsTrue();
+    }
 }
