@@ -1,0 +1,41 @@
+## AI assistance files
+CLAUDE.md
+CONTEXT.md
+docs/adr/
+
+## .NET build output
+[Oo]bj/
+[Bb]in/
+*.user
+*.suo
+.vs/
+.idea/
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/repositories.config
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+
+## Logs
+*.log
+logs/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Secrets
+appsettings.*.local.json
+secrets.json
+
+.claude/

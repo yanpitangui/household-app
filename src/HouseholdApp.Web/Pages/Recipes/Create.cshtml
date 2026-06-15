@@ -1,0 +1,64 @@
+@page "/h/{householdId:guid}/Recipes/Create"
+@model HouseholdApp.Web.Pages.Recipes.CreateRecipeModel
+@{
+    ViewData["Title"] = "Add Recipe";
+}
+
+<div class="page-heading">
+    <span>@L["Recipes.AddRecipeHeading"]</span>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
+</div>
+
+<div class="app-card">
+    <form method="post">
+
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <label asp-for="Title" class="form-label">@L["Recipes.RecipeTitle"]</label>
+                <input asp-for="Title" class="form-control" placeholder="Recipe name" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Servings" class="form-label">@L["Recipes.Servings"]</label>
+                <input asp-for="Servings" type="number" min="1" class="form-control" />
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label">@L["Recipes.Description"]</label>
+            <input asp-for="Description" class="form-control" placeholder="Short description" />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="SourceUrl" class="form-label">@L["Recipes.SourceUrl"]</label>
+            <input asp-for="SourceUrl" type="url" class="form-control" placeholder="https://..." />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="IngredientsText" class="form-label">
+                @L["Recipes.Ingredients"]
+                <small style="color:var(--text-muted); font-weight:400">@L["Recipes.IngredientsHint"] <code style="font-size:11px; color:var(--text-secondary)">name, quantity, unit</code></small>
+            </label>
+            <textarea asp-for="IngredientsText" class="form-control font-monospace" rows="8"
+                      placeholder="Flour, 2, cups&#10;Eggs, 3&#10;Sugar, 1, cup"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="InstructionsText" class="form-label">
+                @L["Recipes.Instructions"]
+                <small style="color:var(--text-muted); font-weight:400">@L["Recipes.InstructionsHint"]</small>
+            </label>
+            <textarea asp-for="InstructionsText" class="form-control" rows="8"
+                      placeholder="Preheat oven to 180°C&#10;Mix flour and sugar&#10;Bake for 30 minutes"></textarea>
+        </div>
+
+        <div class="mb-4">
+            <label asp-for="Notes" class="form-label">@L["Recipes.Notes"]</label>
+            <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">@L["Action.Save"]</button>
+            <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
+        </div>
+    </form>
+</div>

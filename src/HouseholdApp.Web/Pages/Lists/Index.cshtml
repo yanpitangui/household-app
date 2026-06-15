@@ -1,0 +1,41 @@
+@page "/h/{householdId:guid}/Lists"
+@model HouseholdApp.Web.Pages.Lists.ListsIndexModel
+@{
+    ViewData["Title"] = "Lists";
+}
+
+<div class="page-heading">
+    <span>@L["Nav.Lists"]</span>
+</div>
+
+<div class="app-card mb-4">
+    <form method="post" class="d-flex gap-2">
+        <input asp-for="NewListName" class="form-control" placeholder="@L["Lists.NewListPlaceholder"]" />
+        <button type="submit" class="btn btn-primary">@L["Action.Create"]</button>
+    </form>
+</div>
+
+@if (!Model.Lists.Any())
+{
+    <p class="section-title">@L["Common.NoItemsYet"]</p>
+}
+else
+{
+    @foreach (var list in Model.Lists)
+    {
+        var pct = list.TotalItems > 0 ? (list.CompletedItems * 100 / list.TotalItems) : 0;
+        <a asp-page="List" asp-route-householdId="@Model.HouseholdId" asp-route-listId="@list.Id" class="list-row">
+            <div class="list-row-icon" style="background:rgba(245,158,11,0.12)">🛒</div>
+            <div class="list-row-body">
+                <div class="list-row-name">@list.Name</div>
+                <div class="list-row-meta">@string.Format(L["Lists.ItemsCount"], list.CompletedItems, list.TotalItems)</div>
+            </div>
+            <span class="list-row-badge" style="background:rgba(245,158,11,0.15); color:var(--accent-lists)">@pct%</span>
+            <form method="post" asp-page-handler="DeleteList" style="display:contents" onclick="event.stopPropagation()">
+                <input type="hidden" name="listId" value="@list.Id" />
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="event.stopPropagation(); return confirm('Delete this list?')">@L["Action.Delete"]</button>
+            </form>
+        </a>
+    }
+}

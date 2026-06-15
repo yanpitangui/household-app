@@ -1,0 +1,46 @@
+@page "/h/{householdId:guid}/Recipes"
+@model HouseholdApp.Web.Pages.Recipes.RecipesIndexModel
+@{
+    ViewData["Title"] = "Recipes";
+}
+
+<div class="page-heading">
+    <span>@L["Nav.Recipes"]</span>
+    <a asp-page="Create" asp-route-householdId="@Model.HouseholdId" class="btn btn-primary btn-sm">@L["Recipes.AddRecipe"]</a>
+</div>
+
+@if (!Model.Recipes.Any())
+{
+    <p class="section-title">@L["Common.NoItemsYet"]</p>
+}
+else
+{
+    @foreach (var r in Model.Recipes)
+    {
+        <div class="list-row" style="align-items:flex-start">
+            <div class="list-row-icon" style="background:rgba(255,107,74,0.12)">🍳</div>
+            <div class="list-row-body">
+                <div class="list-row-name">@r.Title</div>
+                @if (r.Description is not null)
+                {
+                    <div class="list-row-meta">@r.Description</div>
+                }
+                @if (r.Servings.HasValue)
+                {
+                    <div class="list-row-meta">@r.Servings @L["Recipes.ServingsLabel"]</div>
+                }
+            </div>
+            <div class="d-flex gap-1 align-items-center">
+                @if (r.SourceUrl is not null)
+                {
+                    <a href="@r.SourceUrl" target="_blank" class="btn btn-sm btn-outline-secondary">@L["Recipes.SourceLink"]</a>
+                }
+                <form method="post" asp-page-handler="Delete">
+                    <input type="hidden" name="recipeId" value="@r.Id" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Delete this recipe?">@L["Action.Delete"]</button>
+                </form>
+            </div>
+        </div>
+    }
+}

@@ -1,0 +1,42 @@
+@model HouseholdApp.Application.Modules.Lists.Application.Ports.ListDetail
+
+<div id="items-list">
+    @if (!Model.Items.Any())
+    {
+        <p class="section-title">@L["Lists.NoItems"]</p>
+    }
+    else
+    {
+        <div class="app-card">
+            @foreach (var item in Model.Items.OrderBy(i => i.IsCompleted).ThenBy(i => i.SortOrder))
+            {
+                <div class="check-item @(item.IsCompleted ? "done" : "")">
+                    @if (!item.IsCompleted)
+                    {
+                        <button class="check-box"
+                                hx-post="?handler=CompleteItem"
+                                hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
+                                hx-target="#items-list"
+                                hx-swap="outerHTML"
+                                style="border:none; background:none; padding:0">✓</button>
+                    }
+                    else
+                    {
+                        <div class="check-box checked">✓</div>
+                    }
+                    <span class="check-item-text" style="flex:1; font-size:14px; color:var(--text-secondary)">@item.Name</span>
+                    @if (item.Category is not null)
+                    {
+                        <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">@item.Category</span>
+                    }
+                    <button class="btn btn-sm btn-outline-danger"
+                            hx-post="?handler=RemoveItem"
+                            hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
+                            hx-target="#items-list"
+                            hx-swap="outerHTML"
+                            hx-confirm="Remove item?">✕</button>
+                </div>
+            }
+        </div>
+    }
+</div>

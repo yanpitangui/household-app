@@ -1,0 +1,19 @@
+@page "/Households/Dropdown"
+@model HouseholdApp.Web.Pages.Households.HouseholdDropdownModel
+@{ Layout = null; }
+@foreach (var hh in Model.Households)
+{
+    <li>
+        <a class="dropdown-item" href="/h/@hh.Id"
+           style="border-radius:10px;font-size:13px;font-weight:500;padding:8px 12px;@(hh.Id == Model.CurrentId ? "color:var(--accent-home)" : "color:var(--text-secondary)")">
+            @(hh.Id == Model.CurrentId ? "● " : "○ ")@hh.Name
+        </a>
+    </li>
+}
+<li><hr class="dropdown-divider" style="border-color:var(--border-color);margin:4px 0"></li>
+<li>
+    <a class="dropdown-item" href="/Households/Index"
+       style="border-radius:10px;color:var(--text-muted);font-size:12px;padding:8px 12px">
+        Manage households
+    </a>
+</li>

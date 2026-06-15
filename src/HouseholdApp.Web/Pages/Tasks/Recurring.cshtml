@@ -1,0 +1,86 @@
+@page "/h/{householdId:guid}/Tasks/Recurring"
+@model HouseholdApp.Web.Pages.Tasks.RecurringTasksModel
+@{
+    ViewData["Title"] = "Recurring Tasks";
+}
+
+<div class="page-heading">
+    <span>@L["Tasks.RecurringTitle"]</span>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+</div>
+
+<div class="app-card mb-4">
+    <div class="section-title" style="margin-top:0">@L["Tasks.NewRecurring"]</div>
+    <form method="post" asp-page-handler="Create">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label">@L["Tasks.Title"]</label>
+                <input asp-for="NewTitle" class="form-control" placeholder="Task name..." />
+                <span asp-validation-for="NewTitle" class="text-danger" style="font-size:12px"></span>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">@L["Tasks.AssignTo"]</label>
+                <select asp-for="NewAssignedTo" class="form-select">
+                    <option value="">-- Unassigned --</option>
+                    @foreach (var m in Model.Members)
+                    {
+                        <option value="@m.UserId">@m.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">@L["Tasks.CronExpression"]</label>
+                <input asp-for="NewCronExpression" class="form-control" placeholder="0 9 * * 1" />
+                <span asp-validation-for="NewCronExpression" class="text-danger" style="font-size:12px"></span>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">+ @L["Action.Create"]</button>
+            </div>
+            <div class="col-12">
+                <label class="form-label">@L["Tasks.DescriptionOptional"]</label>
+                <input asp-for="NewDescription" class="form-control" placeholder="Details..." />
+            </div>
+        </div>
+    </form>
+</div>
+
+@if (!Model.RecurringTasks.Any())
+{
+    <p class="section-title">@L["Common.NoItemsYet"]</p>
+}
+else
+{
+    @foreach (var t in Model.RecurringTasks)
+    {
+        <div class="list-row" style="align-items:flex-start">
+            <div class="list-row-icon" style="background:rgba(16,185,129,0.12)">✅</div>
+            <div class="list-row-body">
+                <div class="list-row-name" style="@(!t.IsActive ? "color:var(--text-muted)" : "")">@t.Title</div>
+                @if (t.Description is not null)
+                {
+                    <div class="list-row-meta">@t.Description</div>
+                }
+                <div class="list-row-meta">
+                    <code style="font-size:11px; color:var(--text-secondary)">@t.CronExpression</code>
+                    @if (t.DefaultAssignedTo.HasValue)
+                    {
+                        <span class="ms-2">→ @(Model.Members.FirstOrDefault(m => m.UserId == t.DefaultAssignedTo.Value)?.DisplayName ?? "?")</span>
+                    }
+                </div>
+            </div>
+            @if (t.IsActive)
+            {
+                <span class="list-row-badge" style="background:rgba(16,185,129,0.12); color:var(--accent-tasks)">@L["Tasks.Active"]</span>
+                <form method="post" asp-page-handler="Deactivate" style="display:inline">
+                    <input type="hidden" name="recurringTaskId" value="@t.Id" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Deactivate this recurring task?">@L["Tasks.Deactivate"]</button>
+                </form>
+            }
+            else
+            {
+                <span class="list-row-badge" style="background:rgba(74,56,40,0.3); color:var(--text-muted)">@L["Tasks.Inactive"]</span>
+            }
+        </div>
+    }
+}

@@ -1,0 +1,28 @@
+@page
+@model HouseholdApp.Web.Pages.Households.HouseholdsIndexModel
+@{
+    ViewData["Title"] = "My Households";
+}
+
+<div class="page-heading">
+    <span>@L["Households.MyHouseholds"]</span>
+    <a asp-page="Create" class="btn btn-primary btn-sm">@L["Households.CreateNew"]</a>
+</div>
+
+@if (!Model.Households.Any())
+{
+    <div class="alert alert-info">@L["Households.NoHouseholds"]</div>
+}
+else
+{
+    @foreach (var h in Model.Households)
+    {
+        <a asp-page="Detail" asp-route-id="@h.Id" class="household-list-item">
+            <div>
+                <div style="font-family:var(--font-display); font-size:16px; font-weight:600; color:var(--text-primary)">@h.Name</div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px">@string.Format(L["Households.MembersCount"], h.MemberCount) · @L["Households.Created"] @h.CreatedAt.ToString("d")</div>
+            </div>
+            <span style="color:var(--text-muted); font-size:18px">›</span>
+        </a>
+    }
+}

@@ -1,0 +1,33 @@
+@page "/h/{householdId:guid}/Lists/{listId:guid}"
+@model HouseholdApp.Web.Pages.Lists.ListModel
+@{
+    ViewData["Title"] = Model.List?.Name ?? "List";
+}
+
+@if (Model.List is null)
+{
+    <p>List not found.</p>
+    return;
+}
+
+<div class="page-heading">
+    <span>@Model.List.Name</span>
+    <a href="javascript:history.back()" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+</div>
+
+<div class="app-card mb-4">
+    <form hx-post="?handler=AddItem"
+          hx-target="#items-list"
+          hx-swap="outerHTML"
+          hx-on::after-request="this.reset()"
+          class="d-flex gap-2 flex-wrap">
+        <input type="hidden" name="ListId" value="@Model.List.Id" />
+        <input name="ItemName" class="form-control" placeholder="@L["Lists.AddItemPlaceholder"]" style="min-width:160px; flex:1" required />
+        <input name="Category" class="form-control" placeholder="@L["Lists.CategoryPlaceholder"]" style="min-width:130px; flex:0 0 auto" />
+        <button type="submit" class="btn btn-primary">@L["Lists.AddItem"]</button>
+    </form>
+</div>
+
+<div id="items-list">
+    @await Html.PartialAsync("_ItemsList", Model.List)
+</div>

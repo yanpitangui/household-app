@@ -1,0 +1,54 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Household";
+    Layout = "_Layout";
+}
+
+<div style="min-height: calc(100dvh - var(--header-height)); display:flex; flex-direction:column; justify-content:center; padding: 40px 0 60px;">
+
+    <div style="text-align:center; margin-bottom:40px;">
+        <div style="font-size:52px; margin-bottom:20px;">🏡</div>
+        <h1 style="font-family:var(--font-display); font-size:clamp(2rem,8vw,3.2rem); font-weight:600; color:var(--text-primary); line-height:1.1; margin-bottom:12px;">
+            @Html.Raw(L["Landing.Tagline"].Value.Replace("household", "<em style=\"color:var(--accent-home)\">household</em>"))
+        </h1>
+        <p style="font-size:15px; color:var(--text-secondary); max-width:300px; margin:0 auto; line-height:1.6;">
+            @L["Landing.Subtitle"]
+        </p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:36px;">
+        <div class="feature-card" style="pointer-events:none">
+            <div class="feature-card-pip" style="background:var(--accent-lists)"></div>
+            <div class="feature-card-title">@L["Feature.Lists.Title"]</div>
+            <div class="feature-card-subtitle">@L["Feature.Lists.Subtitle"]</div>
+            <div class="feature-card-icon">🛒</div>
+        </div>
+        <div class="feature-card" style="pointer-events:none">
+            <div class="feature-card-pip" style="background:var(--accent-tasks)"></div>
+            <div class="feature-card-title">@L["Feature.Tasks.Title"]</div>
+            <div class="feature-card-subtitle">@L["Feature.Tasks.Subtitle"]</div>
+            <div class="feature-card-icon">✅</div>
+        </div>
+        <div class="feature-card" style="pointer-events:none">
+            <div class="feature-card-pip" style="background:var(--accent-recipes)"></div>
+            <div class="feature-card-title">@L["Feature.Recipes.Title"]</div>
+            <div class="feature-card-subtitle">@L["Feature.Recipes.Subtitle"]</div>
+            <div class="feature-card-icon">🍳</div>
+        </div>
+        <div class="feature-card" style="pointer-events:none">
+            <div class="feature-card-pip" style="background:var(--accent-expenses)"></div>
+            <div class="feature-card-title">@L["Feature.Expenses.Title"]</div>
+            <div class="feature-card-subtitle">@L["Feature.Expenses.Subtitle"]</div>
+            <div class="feature-card-icon">💳</div>
+        </div>
+    </div>
+
+    <div style="text-align:center;">
+        <a href="/login" hx-boost="false" class="btn btn-primary" style="padding:14px 40px; font-size:16px; border-radius:14px; font-family:var(--font-display); font-weight:600; font-style:italic; letter-spacing:0.3px;">
+            @L["Auth.GetStarted"] →
+        </a>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:14px;">@L["Auth.SignInPrompt"]</p>
+    </div>
+
+</div>

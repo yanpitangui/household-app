@@ -1,0 +1,11 @@
+entity user {}
+
+entity household {
+    relation owner  @user;
+    relation admin  @user;
+    relation member @user;
+
+    permission view         := owner or admin or member;
+    permission manage       := owner or admin;
+    permission manage_roles := owner;
+}

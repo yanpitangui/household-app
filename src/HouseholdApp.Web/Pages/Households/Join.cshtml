@@ -1,0 +1,26 @@
+@page
+@model HouseholdApp.Web.Pages.Households.JoinHouseholdModel
+@{
+    ViewData["Title"] = "Join Household";
+}
+
+<h1>Join Household</h1>
+
+@if (Model.Token is null)
+{
+    <div class="alert alert-danger">Invalid or missing invitation token.</div>
+}
+else if (Model.AlreadyJoined)
+{
+    <div class="alert alert-info">You have joined the household.</div>
+    <a asp-page="Index" class="btn btn-primary">Go to My Households</a>
+}
+else
+{
+    <p>You have been invited to join a household. Click below to accept.</p>
+    <form method="post">
+        <input type="hidden" asp-for="Token" />
+        <button type="submit" class="btn btn-success">Accept Invitation</button>
+        <a asp-page="Index" class="btn btn-outline-secondary ms-2">Decline</a>
+    </form>
+}

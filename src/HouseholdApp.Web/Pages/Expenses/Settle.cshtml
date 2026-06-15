@@ -1,0 +1,51 @@
+@page "/h/{householdId:guid}/Expenses/Settle"
+@model HouseholdApp.Web.Pages.Expenses.SettleModel
+@{
+    ViewData["Title"] = "Settle Up";
+}
+
+<div class="page-heading">
+    <span>@L["Expenses.SettleUpHeading"]</span>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
+</div>
+
+<div class="app-card">
+    <form method="post">
+
+        <div class="mb-3">
+            <label asp-for="PayerId" class="form-label">@L["Expenses.Payer"]</label>
+            <select asp-for="PayerId" class="form-select">
+                @foreach (var m in Model.Members)
+                {
+                    <option value="@m.UserId">@m.DisplayName</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="RecipientId" class="form-label">@L["Expenses.PaidTo"]</label>
+            <select asp-for="RecipientId" class="form-select">
+                @foreach (var m in Model.Members)
+                {
+                    <option value="@m.UserId">@m.DisplayName</option>
+                }
+            </select>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col">
+                <label asp-for="AmountReais" class="form-label">@L["Expenses.Amount"]</label>
+                <input asp-for="AmountReais" type="number" step="0.01" min="0.01" class="form-control" />
+            </div>
+            <div class="col">
+                <label asp-for="Date" class="form-label">@L["Expenses.Date"]</label>
+                <input asp-for="Date" type="date" class="form-control" />
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">@L["Expenses.RecordSettlement"]</button>
+            <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
+        </div>
+    </form>
+</div>

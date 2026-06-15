@@ -1,0 +1,16 @@
+{
+  "name": "Household",
+  "short_name": "Household",
+  "description": "Manage your household — lists, tasks, recipes, and shared expenses",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#110e0c",
+  "theme_color": "#110e0c",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

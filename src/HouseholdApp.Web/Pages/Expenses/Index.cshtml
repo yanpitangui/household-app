@@ -1,0 +1,63 @@
+@page "/h/{householdId:guid}/Expenses"
+@model HouseholdApp.Web.Pages.Expenses.ExpensesIndexModel
+@{
+    ViewData["Title"] = "Expenses";
+}
+
+<div class="page-heading">
+    <span>@L["Nav.Expenses"]</span>
+    <div class="d-flex gap-2">
+        <a asp-page="Record" asp-route-householdId="@Model.HouseholdId" class="btn btn-primary btn-sm">@L["Expenses.RecordExpense"]</a>
+        <a asp-page="Settle" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary btn-sm">@L["Expenses.SettleUp"]</a>
+        <a asp-page="Groups" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary btn-sm">@L["Expenses.Groups"]</a>
+        <a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary btn-sm">@L["Expenses.Recurring"]</a>
+    </div>
+</div>
+
+@if (Model.Balances.Any())
+{
+    <div class="household-hero mb-4">
+        <div class="household-hero-label">@L["Expenses.Balances"]</div>
+        @foreach (var b in Model.Balances)
+        {
+            var amtColor = b.Cents > 0 ? "var(--accent-tasks)" : b.Cents < 0 ? "#f87171" : "var(--text-muted)";
+            var label = b.Cents > 0 ? L["Expenses.IsOwed"].Value : b.Cents < 0 ? L["Expenses.Owes"].Value : L["Expenses.Settled"].Value;
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-color)">
+                <span style="color:var(--text-secondary); font-size:14px">@b.DisplayName</span>
+                <span style="color:@amtColor; font-weight:600; font-size:14px">
+                    @(b.Cents >= 0 ? "+" : "")R$ @((Math.Abs(b.Cents) / 100m).ToString("F2"))
+                    <span style="color:var(--text-muted); font-weight:400; font-size:12px">@label</span>
+                </span>
+            </div>
+        }
+    </div>
+}
+
+@if (!Model.Expenses.Any())
+{
+    <p class="section-title">@L["Common.NoItemsYet"]</p>
+}
+else
+{
+    @foreach (var e in Model.Expenses)
+    {
+        <div class="list-row" style="@(e.IsVoided ? "opacity:0.5" : "")">
+            <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">💳</div>
+            <div class="list-row-body">
+                <div class="list-row-name" style="@(e.IsVoided ? "text-decoration:line-through; color:var(--text-muted)" : "")">@e.Description</div>
+                <div class="list-row-meta">@e.Date.ToString("d")</div>
+            </div>
+            <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">
+                R$ @((e.TotalCents / 100m).ToString("F2"))
+            </span>
+            @if (!e.IsVoided)
+            {
+                <form method="post" asp-page-handler="Void" style="display:inline">
+                    <input type="hidden" name="expenseId" value="@e.Id" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Void this expense?">@L["Expenses.VoidEntry"]</button>
+                </form>
+            }
+        </div>
+    }
+}

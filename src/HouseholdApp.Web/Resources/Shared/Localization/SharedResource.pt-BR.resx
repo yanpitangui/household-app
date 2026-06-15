@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- Navigation -->
+  <data name="Nav.Home"><value>Início</value></data>
+  <data name="Nav.Lists"><value>Listas</value></data>
+  <data name="Nav.Tasks"><value>Tarefas</value></data>
+  <data name="Nav.Recipes"><value>Receitas</value></data>
+  <data name="Nav.Expenses"><value>Despesas</value></data>
+
+  <!-- Auth -->
+  <data name="Auth.Login"><value>Entrar</value></data>
+  <data name="Auth.Logout"><value>Sair</value></data>
+  <data name="Auth.GetStarted"><value>Começar</value></data>
+  <data name="Auth.SignInPrompt"><value>Entre com sua conta para continuar</value></data>
+
+  <!-- Landing -->
+  <data name="Landing.Tagline"><value>Tudo que sua casa precisa.</value></data>
+  <data name="Landing.Subtitle"><value>Listas, tarefas, receitas e despesas compartilhadas — tudo em um só lugar para todos em casa.</value></data>
+
+  <!-- Feature cards -->
+  <data name="Feature.Lists.Title"><value>Listas</value></data>
+  <data name="Feature.Lists.Subtitle"><value>Compras e mais</value></data>
+  <data name="Feature.Tasks.Title"><value>Tarefas</value></data>
+  <data name="Feature.Tasks.Subtitle"><value>Afazeres domésticos</value></data>
+  <data name="Feature.Recipes.Title"><value>Receitas</value></data>
+  <data name="Feature.Recipes.Subtitle"><value>Biblioteca de refeições</value></data>
+  <data name="Feature.Expenses.Title"><value>Despesas</value></data>
+  <data name="Feature.Expenses.Subtitle"><value>Finanças compartilhadas</value></data>
+
+  <!-- Dashboard -->
+  <data name="Dashboard.YourHousehold"><value>Sua Casa</value></data>
+  <data name="Dashboard.Members"><value>Membros</value></data>
+  <data name="Dashboard.Invite"><value>Convidar</value></data>
+  <data name="Dashboard.GenerateInvite"><value>Gerar link de convite</value></data>
+  <data name="Dashboard.InviteSingleUse"><value>Convite de uso único:</value></data>
+  <data name="Dashboard.Copy"><value>Copiar</value></data>
+  <data name="Dashboard.Remove"><value>Remover</value></data>
+
+  <!-- Common actions -->
+  <data name="Action.Create"><value>Criar</value></data>
+  <data name="Action.Delete"><value>Excluir</value></data>
+  <data name="Action.Save"><value>Salvar</value></data>
+  <data name="Action.Cancel"><value>Cancelar</value></data>
+  <data name="Action.Confirm"><value>Confirmar</value></data>
+  <data name="Action.Back"><value>Voltar</value></data>
+  <data name="Action.Open"><value>Abrir</value></data>
+  <data name="Action.Edit"><value>Editar</value></data>
+
+  <!-- Common states -->
+  <data name="Common.NoItemsYet"><value>Nada aqui ainda.</value></data>
+  <data name="Common.Loading"><value>Carregando…</value></data>
+
+  <!-- Lists -->
+  <data name="Lists.NewListPlaceholder"><value>Nome da nova lista...</value></data>
+  <data name="Lists.NoItems"><value>Nenhum item ainda.</value></data>
+  <data name="Lists.AddItemPlaceholder"><value>Nome do item...</value></data>
+  <data name="Lists.CategoryPlaceholder"><value>Categoria (opcional)</value></data>
+  <data name="Lists.AddItem"><value>+ Adicionar</value></data>
+  <data name="Lists.ItemsCount"><value>{0} / {1} itens</value></data>
+
+  <!-- Tasks -->
+  <data name="Tasks.Recurring"><value>Recorrentes</value></data>
+  <data name="Tasks.Title"><value>Título</value></data>
+  <data name="Tasks.AssignTo"><value>Atribuir a</value></data>
+  <data name="Tasks.DueDate"><value>Data de vencimento</value></data>
+  <data name="Tasks.AddTask"><value>+ Adicionar tarefa</value></data>
+  <data name="Tasks.Pending"><value>Pendente</value></data>
+  <data name="Tasks.All"><value>Todas</value></data>
+  <data name="Tasks.MarkDone"><value>✓ Concluída</value></data>
+  <data name="Tasks.Done"><value>Concluída</value></data>
+  <data name="Tasks.NewRecurring"><value>Nova tarefa recorrente</value></data>
+  <data name="Tasks.RecurringTitle"><value>Tarefas recorrentes</value></data>
+  <data name="Tasks.CronExpression"><value>Expressão cron</value></data>
+  <data name="Tasks.DescriptionOptional"><value>Descrição (opcional)</value></data>
+  <data name="Tasks.Active"><value>Ativa</value></data>
+  <data name="Tasks.Inactive"><value>Inativa</value></data>
+  <data name="Tasks.Deactivate"><value>Desativar</value></data>
+
+  <!-- Recipes -->
+  <data name="Recipes.AddRecipe"><value>+ Nova receita</value></data>
+  <data name="Recipes.Servings"><value>Porções</value></data>
+  <data name="Recipes.ServingsLabel"><value>porções</value></data>
+  <data name="Recipes.SourceLink"><value>Fonte ↗</value></data>
+  <data name="Recipes.AddRecipeHeading"><value>Adicionar receita</value></data>
+  <data name="Recipes.RecipeTitle"><value>Título</value></data>
+  <data name="Recipes.Description"><value>Descrição</value></data>
+  <data name="Recipes.SourceUrl"><value>URL da fonte</value></data>
+  <data name="Recipes.Ingredients"><value>Ingredientes</value></data>
+  <data name="Recipes.IngredientsHint"><value>— um por linha, formato: nome, quantidade, unidade</value></data>
+  <data name="Recipes.Instructions"><value>Instruções</value></data>
+  <data name="Recipes.InstructionsHint"><value>— um passo por linha</value></data>
+  <data name="Recipes.Notes"><value>Notas</value></data>
+
+  <!-- Expenses -->
+  <data name="Expenses.RecordExpense"><value>+ Registrar</value></data>
+  <data name="Expenses.SettleUp"><value>Acertar contas</value></data>
+  <data name="Expenses.Groups"><value>Grupos</value></data>
+  <data name="Expenses.Recurring"><value>Recorrentes</value></data>
+  <data name="Expenses.Balances"><value>SALDOS</value></data>
+  <data name="Expenses.IsOwed"><value>a receber</value></data>
+  <data name="Expenses.Owes"><value>deve</value></data>
+  <data name="Expenses.Settled"><value>acertado</value></data>
+  <data name="Expenses.VoidEntry"><value>Anular</value></data>
+  <data name="Expenses.RecordExpenseHeading"><value>Registrar despesa</value></data>
+  <data name="Expenses.Description"><value>Descrição</value></data>
+  <data name="Expenses.Date"><value>Data</value></data>
+  <data name="Expenses.Amount"><value>Valor (R$)</value></data>
+  <data name="Expenses.Group"><value>Grupo de despesas</value></data>
+  <data name="Expenses.Payer"><value>Pago por</value></data>
+  <data name="Expenses.Participants"><value>Dividir entre</value></data>
+  <data name="Expenses.EqualSplitHint"><value>Divisão igualitária entre os membros selecionados.</value></data>
+  <data name="Expenses.Record"><value>Registrar</value></data>
+  <data name="Expenses.SettleUpHeading"><value>Acertar contas</value></data>
+  <data name="Expenses.PaidTo"><value>Pago a</value></data>
+  <data name="Expenses.RecordSettlement"><value>Registrar acerto</value></data>
+  <data name="Expenses.GroupsHeading"><value>Grupos de despesas</value></data>
+  <data name="Expenses.NewGroup"><value>Novo grupo</value></data>
+  <data name="Expenses.GroupName"><value>Nome</value></data>
+  <data name="Expenses.GroupDescription"><value>Descrição (opcional)</value></data>
+  <data name="Expenses.RecurringHeading"><value>Despesas recorrentes</value></data>
+  <data name="Expenses.NewRecurring"><value>Nova despesa recorrente</value></data>
+  <data name="Expenses.CronExpression"><value>Expressão cron</value></data>
+  <data name="Expenses.SplitAmong"><value>Dividir entre</value></data>
+  <data name="Expenses.Active"><value>Ativa</value></data>
+  <data name="Expenses.Inactive"><value>Inativa</value></data>
+  <data name="Expenses.Deactivate"><value>Desativar</value></data>
+
+  <!-- Households -->
+  <data name="Households.MyHouseholds"><value>Minhas casas</value></data>
+  <data name="Households.CreateNew"><value>+ Nova casa</value></data>
+  <data name="Households.NoHouseholds"><value>Nenhuma casa ainda. Crie uma para começar.</value></data>
+  <data name="Households.MembersCount"><value>{0} membros</value></data>
+  <data name="Households.Created"><value>Criada</value></data>
+  <data name="Households.CreateHeading"><value>Criar casa</value></data>
+  <data name="Households.NameLabel"><value>Nome</value></data>
+
+  <!-- Settings -->
+  <data name="Settings.Title"><value>Configurações</value></data>
+  <data name="Settings.Language"><value>Idioma</value></data>
+</root>

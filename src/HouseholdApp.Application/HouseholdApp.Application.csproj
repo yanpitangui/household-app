@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.13.0" />
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Marten" Version="9.7.6" />
+    <PackageReference Include="TickerQ" Version="10.4.0" />
+    <PackageReference Include="TickerQ.Caching.StackExchangeRedis" Version="10.4.0" />
+    <PackageReference Include="Valtuutus.Data.Postgres" Version="0.10.1-beta" />
+    <PackageReference Include="Valtuutus.Lang.SourceGen" Version="0.10.1-beta" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Shared/Authorization/schema.vtt" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,218 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery _antiforgery
+@inject HouseholdApp.Application.Modules.Households.Application.Ports.IHouseholdQueries _householdQueries
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Household</title>
+    <meta name="request-verification-token" content="@_antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#110e0c" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+</head>
+@{
+    var householdId = Context.GetRouteValue("householdId")?.ToString()
+                   ?? Context.GetRouteValue("id")?.ToString();
+    var isHouseholdPage = householdId != null;
+    var path = Context.Request.Path.Value ?? "";
+    var activeSection = path.Contains("/Lists") ? "lists"
+                      : path.Contains("/Tasks") ? "tasks"
+                      : path.Contains("/Recipes") ? "recipes"
+                      : path.Contains("/Expenses") ? "expenses"
+                      : isHouseholdPage ? "home" : "";
+    string householdName;
+    if (ViewData["HouseholdName"]?.ToString() is { Length: > 0 } vdName)
+    {
+        householdName = vdName;
+    }
+    else if (isHouseholdPage && Guid.TryParse(householdId, out var hhGuid))
+    {
+        var hh = await _householdQueries.GetAsync(hhGuid);
+        householdName = hh?.Name ?? "My Household";
+    }
+    else
+    {
+        householdName = "My Household";
+    }
+    var displayName = User.GetDisplayName() ?? "";
+    var userInitial = displayName.Length > 0 ? displayName[0].ToString().ToUpper() : "?";
+    var userPicture = User.GetPicture();
+
+}
+<body hx-boost="true">
+<div class="app-shell">
+
+    @if (isHouseholdPage)
+    {
+        <header class="app-header">
+            <div class="app-header-inner">
+                <span class="app-avatar">
+                    @if (userPicture != null)
+                    {
+                        <img src="@userPicture" alt="@displayName" />
+                    }
+                    else
+                    {
+                        @userInitial
+                    }
+                </span>
+                <div class="app-header-title">
+                    <div class="dropdown">
+                        <button class="household-name-link dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false"
+                                hx-get="/Households/Dropdown?currentId=@householdId"
+                                hx-target="#hh-dropdown-items"
+                                hx-trigger="click once"
+                                style="border:none;background:none;cursor:pointer">
+                            @householdName
+                            <span class="household-name-chevron">▾</span>
+                        </button>
+                        <ul class="dropdown-menu" style="background:var(--card-bg);border-color:var(--border-color);min-width:200px;border-radius:14px;padding:6px;left:50%;transform:translateX(-50%)">
+                            <span id="hh-dropdown-items">
+                                <li><span style="color:var(--text-muted);font-size:12px;padding:8px 12px;display:block">Loading…</span></li>
+                            </span>
+                        </ul>
+                    </div>
+                </div>
+                <a href="/Settings" class="app-settings" title="Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                </a>
+            </div>
+        </header>
+    }
+    else
+    {
+        <header class="app-header">
+            <div class="app-header-inner">
+                <a class="app-brand" asp-page="/Index">Household</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <div style="display:flex;gap:14px;align-items:center">
+                        <span style="font-size:13px;color:var(--text-muted)">@displayName</span>
+                        <a asp-page="/Logout" hx-boost="false" style="font-size:13px;color:var(--text-secondary);text-decoration:none;font-weight:500">@L["Auth.Logout"]</a>
+                    </div>
+                }
+                else
+                {
+                    <a href="/login" hx-boost="false" style="font-size:13px;color:var(--accent-home);text-decoration:none;font-weight:600">@L["Auth.Login"]</a>
+                }
+            </div>
+        </header>
+    }
+
+    <div class="app-content @(isHouseholdPage ? "has-bottom-nav" : "")">
+        @if (TempData["Success"] is string success)
+        {
+            <div class="alert alert-success alert-dismissible mb-3">
+                @success
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] is string error)
+        {
+            <div class="alert alert-danger alert-dismissible mb-3">
+                @error
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    @if (isHouseholdPage)
+    {
+        <nav class="bottom-nav" aria-label="Main navigation">
+            <a href="/h/@householdId" class="bottom-nav-item @(activeSection == "home" ? "active" : "")">
+                <div class="bottom-nav-icon">⌂</div>
+                <span>@L["Nav.Home"]</span>
+            </a>
+            <a href="/h/@householdId/Lists" class="bottom-nav-item nav-lists @(activeSection == "lists" ? "active" : "")">
+                <div class="bottom-nav-icon">≡</div>
+                <span>@L["Nav.Lists"]</span>
+            </a>
+            <a href="/h/@householdId/Tasks" class="bottom-nav-item nav-tasks @(activeSection == "tasks" ? "active" : "")">
+                <div class="bottom-nav-icon">☑</div>
+                <span>@L["Nav.Tasks"]</span>
+            </a>
+            <a href="/h/@householdId/Recipes" class="bottom-nav-item nav-recipes @(activeSection == "recipes" ? "active" : "")">
+                <div class="bottom-nav-icon">⊕</div>
+                <span>@L["Nav.Recipes"]</span>
+            </a>
+            <a href="/h/@householdId/Expenses" class="bottom-nav-item nav-expenses @(activeSection == "expenses" ? "active" : "")">
+                <div class="bottom-nav-icon">◈</div>
+                <span>@L["Nav.Expenses"]</span>
+            </a>
+        </nav>
+    }
+
+</div>
+
+<dialog id="confirm-dialog">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+        <button id="confirm-cancel" class="btn btn-outline-secondary" type="button">@L["Action.Cancel"]</button>
+        <button id="confirm-ok" class="btn btn-outline-danger" type="button">@L["Action.Confirm"]</button>
+    </div>
+</dialog>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    htmx.on("htmx:configRequest", (e) => {
+        e.detail.headers["RequestVerificationToken"] =
+            document.querySelector("meta[name='request-verification-token']")?.content;
+    });
+
+    (function () {
+        const dialog = document.getElementById('confirm-dialog');
+        const msgEl = document.getElementById('confirm-message');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        let pendingResolve = null;
+
+        function showConfirm(message) {
+            msgEl.textContent = message;
+            dialog.showModal();
+            return new Promise(resolve => { pendingResolve = resolve; });
+        }
+
+        function settle(result) {
+            if (pendingResolve) { pendingResolve(result); pendingResolve = null; }
+        }
+
+        okBtn.addEventListener('click', () => dialog.close('ok'));
+        cancelBtn.addEventListener('click', () => dialog.close());
+        dialog.addEventListener('close', () => settle(dialog.returnValue === 'ok'));
+        dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+
+        // Intercept data-confirm buttons before form submission fires
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-confirm]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const ok = await showConfirm(btn.dataset.confirm);
+            if (ok && btn.form) btn.form.requestSubmit(btn);
+        }, true);
+
+        // Replace htmx native confirm (only when hx-confirm attribute is set)
+        htmx.on('htmx:confirm', async (e) => {
+            if (!e.detail.question) return;
+            e.preventDefault();
+            const ok = await showConfirm(e.detail.question);
+            if (ok) e.detail.issueRequest(true);
+        });
+    })();
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

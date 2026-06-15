@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <NuGetAuditMode>direct</NuGetAuditMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" Version="13.4.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
+    <PackageReference Include="TUnit" Version="1.54.0" />
+    <PackageReference Include="TUnit.Aspire" Version="1.54.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HouseholdApp.AppHost\HouseholdApp.AppHost.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="TUnit.Core" />
+    <Using Include="TUnit.Core.Interfaces" />
+    <Using Include="TUnit.Assertions" />
+    <Using Include="TUnit.Assertions.Extensions" />
+    <Using Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build">
+    <Exec Command="dotnet exec --runtimeconfig &quot;$(OutDir)$(AssemblyName).runtimeconfig.json&quot; --depsfile &quot;$(OutDir)$(AssemblyName).deps.json&quot; &quot;$(OutDir)Microsoft.Playwright.dll&quot; install chromium"
+          ContinueOnError="true"
+          StandardOutputImportance="Low" />
+  </Target>
+
+</Project>
