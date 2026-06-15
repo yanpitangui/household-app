@@ -22,8 +22,26 @@ internal sealed class ExpenseQueryService(
             query = query.Where(e => e.ExpenseGroupId == groupId.Value);
 
         var results = await query.OrderByDescending(e => e.Date).ToListAsync(ct);
-        return results.Select(e => new ExpenseListItem(e.Id, e.Description, e.Date, e.TotalCents, e.IsVoided))
-            .ToList();
+
+        var allUserIds = results
+            .SelectMany(e => e.FundingSources.Select(f => f.UserId)
+                .Concat(e.Allocations.Select(a => a.UserId)))
+            .Distinct();
+
+        var profiles = await userQuery.GetByIdsAsync(allUserIds, ct);
+        var nameMap = profiles.ToDictionary(p => p.Id, p => p.DisplayName);
+
+        return results.Select(e => new ExpenseListItem(
+            e.Id, e.Description, e.Date, e.TotalCents, e.IsVoided,
+            e.FundingSources
+                .Select(f => new ExpenseListParticipantDto(
+                    f.UserId, nameMap.GetValueOrDefault(f.UserId, "?"), f.Cents))
+                .ToList(),
+            e.Allocations
+                .Select(a => new ExpenseListParticipantDto(
+                    a.UserId, nameMap.GetValueOrDefault(a.UserId, "?"), a.Cents))
+                .ToList()
+        )).ToList();
     }
 
     public async Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default)
