@@ -145,6 +145,10 @@
   <data name="Expenses.Active"><value>Active</value></data>
   <data name="Expenses.Inactive"><value>Inactive</value></data>
   <data name="Expenses.Deactivate"><value>Deactivate</value></data>
+  <data name="Expenses.Breakdown.WhoPaid"><value>Who paid</value></data>
+  <data name="Expenses.Breakdown.HowSplit"><value>Split</value></data>
+  <data name="Expenses.Breakdown.PaidSingular"><value>paid</value></data>
+  <data name="Expenses.Breakdown.PaidPlural"><value>paid</value></data>
 
   <!-- Households -->
   <data name="Households.MyHouseholds"><value>My Households</value></data>

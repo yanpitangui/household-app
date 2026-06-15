@@ -145,6 +145,10 @@
   <data name="Expenses.Active"><value>Ativa</value></data>
   <data name="Expenses.Inactive"><value>Inativa</value></data>
   <data name="Expenses.Deactivate"><value>Desativar</value></data>
+  <data name="Expenses.Breakdown.WhoPaid"><value>Quem pagou</value></data>
+  <data name="Expenses.Breakdown.HowSplit"><value>Divisão</value></data>
+  <data name="Expenses.Breakdown.PaidSingular"><value>pagou</value></data>
+  <data name="Expenses.Breakdown.PaidPlural"><value>pagaram</value></data>
 
   <!-- Households -->
   <data name="Households.MyHouseholds"><value>Minhas casas</value></data>
