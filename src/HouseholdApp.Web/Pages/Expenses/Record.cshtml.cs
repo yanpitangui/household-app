@@ -75,8 +75,10 @@ public class RecordExpenseModel(
 
     private async Task LoadLookups()
     {
-        Groups = await expenseQueries.ListExpenseGroupsAsync(HouseholdId);
-        var detail = await householdQueries.GetAsync(HouseholdId);
-        Members = detail?.Members ?? [];
+        var groupsTask = expenseQueries.ListExpenseGroupsAsync(HouseholdId);
+        var membersTask = householdQueries.GetMembersAsync(HouseholdId);
+        await Task.WhenAll(groupsTask, membersTask);
+        Groups = groupsTask.Result;
+        Members = membersTask.Result;
     }
 }

@@ -58,7 +58,6 @@ public class SettleModel(
 
     private async Task LoadMembers()
     {
-        var detail = await householdQueries.GetAsync(HouseholdId);
-        Members = detail?.Members ?? [];
+        Members = await householdQueries.GetMembersAsync(HouseholdId);
     }
 }

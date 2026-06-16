@@ -23,6 +23,9 @@ using TickerQ.Dashboard.DependencyInjection;
 using TickerQ.DependencyInjection;
 using Valtuutus.Core.Configuration;
 using Valtuutus.Data.Postgres;
+using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Backplane.StackExchangeRedis;
+using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +62,13 @@ var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
 builder.Services.AddHealthChecks()
     .AddNpgSql(connStr)
     .AddRedis(redisMultiplexer);
+
+builder.Services.AddStackExchangeRedisCache(o => o.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redisMultiplexer));
+builder.Services.AddFusionCache()
+    .WithDefaultEntryOptions(o => o.Duration = TimeSpan.FromMinutes(5))
+    .WithSerializer(new FusionCacheSystemTextJsonSerializer())
+    .WithRegisteredDistributedCache()
+    .WithBackplane(new RedisBackplane(new RedisBackplaneOptions { ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redisMultiplexer) }));
 
 builder.Services.AddTickerQ(options => options
     .AddStackExchangeRedis(redis => redis.ConnectionMultiplexer = redisMultiplexer)

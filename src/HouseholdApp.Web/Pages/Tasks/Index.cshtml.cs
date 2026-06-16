@@ -69,9 +69,11 @@ public class TasksIndexModel(
 
     private async Task Load()
     {
-        Tasks = await taskQueries.ListAsync(HouseholdId, ShowCompleted);
-        var detail = await householdQueries.GetAsync(HouseholdId);
-        Members = detail?.Members ?? [];
+        var tasksTask = taskQueries.ListAsync(HouseholdId, ShowCompleted);
+        var membersTask = householdQueries.GetMembersAsync(HouseholdId);
+        await Task.WhenAll(tasksTask, membersTask);
+        Tasks = tasksTask.Result;
+        Members = membersTask.Result;
         MemberNames = Members.ToDictionary(m => m.UserId, m => m.DisplayName);
     }
 }

@@ -13,10 +13,14 @@ public static class HouseholdsModule
         services.AddScoped<IHouseholdRepository, HouseholdRepository>();
         services.AddScoped<IHouseholdCommands, HouseholdCommandService>();
         services.AddScoped<IHouseholdQueries, HouseholdQueryService>();
+        services.Decorate<IHouseholdQueries, CachingHouseholdQueryService>();
         services.AddEventHandler<HouseholdCreated, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdMemberJoined, HouseholdAuthorizationSyncHandler>();
+        services.AddEventHandler<HouseholdMemberJoined, HouseholdMemberCacheInvalidationHandler>();
         services.AddEventHandler<HouseholdMemberRemoved, HouseholdAuthorizationSyncHandler>();
+        services.AddEventHandler<HouseholdMemberRemoved, HouseholdMemberCacheInvalidationHandler>();
         services.AddEventHandler<HouseholdRoleChanged, HouseholdAuthorizationSyncHandler>();
+        services.AddEventHandler<HouseholdRoleChanged, HouseholdMemberCacheInvalidationHandler>();
         return services;
     }
 }

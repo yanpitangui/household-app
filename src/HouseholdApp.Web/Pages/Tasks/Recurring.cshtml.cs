@@ -61,8 +61,10 @@ public class RecurringTasksModel(
 
     private async Task Load()
     {
-        RecurringTasks = await taskQueries.ListRecurringAsync(HouseholdId);
-        var detail = await householdQueries.GetAsync(HouseholdId);
-        Members = detail?.Members ?? [];
+        var recurringTask = taskQueries.ListRecurringAsync(HouseholdId);
+        var membersTask = householdQueries.GetMembersAsync(HouseholdId);
+        await Task.WhenAll(recurringTask, membersTask);
+        RecurringTasks = recurringTask.Result;
+        Members = membersTask.Result;
     }
 }

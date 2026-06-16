@@ -84,10 +84,13 @@ public class RecurringExpensesModel(
 
     private async Task Load()
     {
-        RecurringExpenses = await expenseQueries.ListRecurringExpensesAsync(HouseholdId);
-        Groups = await expenseQueries.ListExpenseGroupsAsync(HouseholdId);
+        var recurringTask = expenseQueries.ListRecurringExpensesAsync(HouseholdId);
+        var groupsTask = expenseQueries.ListExpenseGroupsAsync(HouseholdId);
+        var membersTask = householdQueries.GetMembersAsync(HouseholdId);
+        await Task.WhenAll(recurringTask, groupsTask, membersTask);
+        RecurringExpenses = recurringTask.Result;
+        Groups = groupsTask.Result;
         GroupNames = Groups.ToDictionary(g => g.Id, g => g.Name);
-        var detail = await householdQueries.GetAsync(HouseholdId);
-        Members = detail?.Members ?? [];
+        Members = membersTask.Result;
     }
 }

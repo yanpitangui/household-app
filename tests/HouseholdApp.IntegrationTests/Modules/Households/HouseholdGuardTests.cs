@@ -29,6 +29,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         services.AddScoped<MutableCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<MutableCurrentUser>());
         services.AddPersistence();
+        services.AddFusionCache();
         services.AddHouseholdsModule();
         services.AddEventBus();
         services.AddValtuutusCore(schemaStream);

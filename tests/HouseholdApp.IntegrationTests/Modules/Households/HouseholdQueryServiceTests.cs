@@ -1,16 +1,14 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Households.Application.Operations;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
-using HouseholdApp.Application.Modules.Identity.Infrastructure;
 using HouseholdApp.IntegrationTests.Infrastructure;
-using Microsoft.Extensions.Time.Testing;
 
 namespace HouseholdApp.IntegrationTests.Modules.Households;
 
 [ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class HouseholdQueryServiceTests(PostgresFixture db)
 {
-    private readonly IHouseholdQueries _sut = new HouseholdQueryService(db.DataSource, new UserRepository(db.DataSource, new FakeTimeProvider()));
+    private readonly IHouseholdQueries _sut = new HouseholdQueryService(db.DataSource);
 
     [Test]
     public async Task ListForUserAsync_returns_households_user_belongs_to()

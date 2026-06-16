@@ -28,6 +28,7 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
         services.AddScoped<MutableCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<MutableCurrentUser>());
         services.AddPersistence();
+        services.AddFusionCache();
         services.AddHouseholdsModule();
         services.AddEventBus();
         services.AddInMemory();

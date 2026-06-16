@@ -11,5 +11,9 @@ public sealed record HouseholdMemberDto(Guid UserId, string DisplayName, string 
 public interface IHouseholdQueries
 {
     Task<IReadOnlyList<HouseholdSummary>> ListForUserAsync(Guid userId, CancellationToken ct = default);
+    Task<IReadOnlyList<HouseholdName>> ListNamesAsync(Guid userId, CancellationToken ct = default);
     Task<HouseholdDetail?> GetAsync(Guid householdId, CancellationToken ct = default);
+    Task<IReadOnlyList<HouseholdMemberDto>> GetMembersAsync(Guid householdId, CancellationToken ct = default);
 }
+
+public sealed record HouseholdName(Guid Id, string Name);
