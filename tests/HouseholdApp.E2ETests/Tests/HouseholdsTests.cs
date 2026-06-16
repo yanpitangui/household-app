@@ -2,7 +2,7 @@ using HouseholdApp.E2ETests.Infrastructure;
 
 namespace HouseholdApp.E2ETests.Tests;
 
-[ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
 public class HouseholdsTests(PlaywrightFixture pw)
 {
     [Test]
@@ -11,9 +11,9 @@ public class HouseholdsTests(PlaywrightFixture pw)
         await using var ctx = await pw.NewAuthenticatedContextAsync();
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/Households/Index");
+        await page.GotoAsync($"{pw.AppUrl}/households");
 
-        await Assert.That(page.Url).Contains("/Households/Index");
+        await Assert.That(page.Url).Contains("/households");
         await Assert.That(await page.TitleAsync()).Contains("Household");
     }
 
@@ -27,7 +27,7 @@ public class HouseholdsTests(PlaywrightFixture pw)
         // GotoAsync follows all HTTP redirects; check final URL
         await page.GotoAsync($"{pw.AppUrl}/");
 
-        await Assert.That(page.Url).Contains("/Households");
+        await Assert.That(page.Url).Contains("/households");
     }
 
     [Test]
@@ -57,7 +57,7 @@ public class HouseholdsTests(PlaywrightFixture pw)
         await pw.CreateHouseholdAsync(ctx, name);
 
         var page = await ctx.NewPageAsync();
-        await page.GotoAsync($"{pw.AppUrl}/Households/Index");
+        await page.GotoAsync($"{pw.AppUrl}/households");
 
         await Assert.That(await page.Locator($"text={name}").IsVisibleAsync()).IsTrue();
     }

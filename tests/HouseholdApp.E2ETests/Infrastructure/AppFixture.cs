@@ -77,6 +77,8 @@ public class AppFixture : AspireFixture<Projects.HouseholdApp_AppHost>
         builder.CreateResourceBuilder(web)
             .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
             .WithEnvironment("Oidc__Authority", FakeOidc.Url)
+            .WithEnvironment("Oidc__ClientId", "household-app")
+            .WithEnvironment("Oidc__ClientSecret", "test-secret")
             .WithEnvironment("ConnectionStrings__householdapp",
                 ReferenceExpression.Create($"{appDb.ConnectionStringExpression};SslMode=Disable"))
             .WithEnvironment("ConnectionStrings__postgres",

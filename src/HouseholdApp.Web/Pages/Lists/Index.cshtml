@@ -34,7 +34,8 @@ else
             <form method="post" asp-page-handler="DeleteList" style="display:contents" onclick="event.stopPropagation()">
                 <input type="hidden" name="listId" value="@list.Id" />
                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                        onclick="event.stopPropagation(); return confirm('Delete this list?')">@L["Action.Delete"]</button>
+                        data-confirm="Delete this list?"
+                        onclick="event.stopPropagation()">@L["Action.Delete"]</button>
             </form>
         </a>
     }

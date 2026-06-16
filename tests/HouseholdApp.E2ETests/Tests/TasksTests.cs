@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 
 namespace HouseholdApp.E2ETests.Tests;
 
-[ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
 public class TasksTests(PlaywrightFixture pw)
 {
     [Test]
@@ -13,7 +13,7 @@ public class TasksTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Tasks HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Tasks");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks");
 
         var taskTitle = $"Buy milk {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewTitle']", taskTitle);
@@ -31,7 +31,7 @@ public class TasksTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Tasks HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Tasks");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks");
 
         var taskTitle = $"Clean kitchen {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewTitle']", taskTitle);
@@ -45,7 +45,7 @@ public class TasksTests(PlaywrightFixture pw)
         await Assert.That(await page.Locator($"text={taskTitle}").IsVisibleAsync()).IsFalse();
 
         // Verify it shows in "All" view
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Tasks?showCompleted=true");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks?showCompleted=true");
         await page.Locator($"text={taskTitle}").WaitForAsync();
         await Assert.That(await page.Locator($"text={taskTitle}").IsVisibleAsync()).IsTrue();
     }
@@ -57,7 +57,7 @@ public class TasksTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Tasks HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Tasks");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks");
 
         var taskTitle = $"Delete me {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewTitle']", taskTitle);
@@ -65,8 +65,8 @@ public class TasksTests(PlaywrightFixture pw)
         // Wait for delete button to appear (proves task is in the list)
         await page.Locator("button:has-text('✕')").WaitForAsync();
 
-        page.Dialog += (_, e) => e.AcceptAsync();
         await page.ClickAsync("button:has-text('✕')");
+        await page.ClickAsync("#confirm-ok");
         await page.Locator($"text={taskTitle}").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden });
         await Assert.That(await page.Locator($"text={taskTitle}").IsVisibleAsync()).IsFalse();
     }
@@ -78,7 +78,7 @@ public class TasksTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ctx, $"RecTask HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/Tasks/Recurring");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks/recurring");
 
         await Assert.That(await page.Locator(".page-heading:has-text('Recurring Tasks')").IsVisibleAsync()).IsTrue();
     }

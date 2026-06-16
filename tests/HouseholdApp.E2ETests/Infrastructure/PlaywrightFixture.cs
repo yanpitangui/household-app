@@ -41,14 +41,14 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 
     private async Task LoginAsync(IPage page)
     {
-        Console.WriteLine($"[E2E] Navigating to {AppUrl}/Households/Index ...");
-        await page.GotoAsync($"{AppUrl}/Households/Index", new PageGotoOptions
+        Console.WriteLine($"[E2E] Navigating to {AppUrl}/households ...");
+        await page.GotoAsync($"{AppUrl}/households", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.Commit,
             Timeout = 60_000,
         });
         Console.WriteLine($"[E2E] Committed, current URL = {page.Url}");
-        await page.WaitForURLAsync($"{AppUrl}/Households/Index", new PageWaitForURLOptions { Timeout = 90_000 });
+        await page.WaitForURLAsync($"{AppUrl}/households", new PageWaitForURLOptions { Timeout = 90_000 });
         Console.WriteLine($"[E2E] Login complete");
     }
 
@@ -64,7 +64,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     public async Task<Guid> CreateHouseholdAsync(IBrowserContext ctx, string name)
     {
         var page = await ctx.NewPageAsync();
-        await page.GotoAsync($"{AppUrl}/Households/Create");
+        await page.GotoAsync($"{AppUrl}/households/create");
         await page.FillAsync("input[name='Name']", name);
         await page.ClickAsync("button[type='submit']");
         await page.WaitForURLAsync("**/h/**");
