@@ -21,8 +21,9 @@ public class ExpensesIndexModel(
 
     public async Task OnGetAsync()
     {
-        Expenses = await expenseQueries.ListExpensesAsync(HouseholdId);
-        Balances = await expenseQueries.GetHouseholdBalancesAsync(HouseholdId);
+        var summary = await expenseQueries.GetExpensesSummaryAsync(HouseholdId);
+        Expenses = summary.Expenses;
+        Balances = summary.Balances;
     }
 
     public async Task<IActionResult> OnPostVoidAsync(Guid expenseId)

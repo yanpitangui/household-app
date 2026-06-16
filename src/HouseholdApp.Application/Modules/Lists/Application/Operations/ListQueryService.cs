@@ -27,18 +27,17 @@ public sealed class ListQueryService(NpgsqlDataSource db) : IListQueries
     public async Task<ListDetail?> GetAsync(Guid listId, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var list = await conn.QuerySingleOrDefaultAsync<(Guid Id, string Name)?>(
-            "SELECT id, name FROM lists.lists WHERE id = @listId", new { listId });
-
-        if (list is null) return null;
-
-        var items = await conn.QueryAsync<ListItemDto>(
+        await using var multi = await conn.QueryMultipleAsync(
             """
+            SELECT id, name FROM lists.lists WHERE id = @listId;
             SELECT id, name, category, sort_order AS SortOrder, is_completed AS IsCompleted
             FROM lists.items WHERE list_id = @listId ORDER BY sort_order
             """,
             new { listId });
 
-        return new ListDetail(list.Value.Id, list.Value.Name, items.ToList());
+        var list = await multi.ReadSingleOrDefaultAsync<(Guid Id, string Name)?>();
+        if (list is null) return null;
+        var items = (await multi.ReadAsync<ListItemDto>()).ToList();
+        return new ListDetail(list.Value.Id, list.Value.Name, items);
     }
 }

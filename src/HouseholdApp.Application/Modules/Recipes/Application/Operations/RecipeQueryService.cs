@@ -26,27 +26,22 @@ public sealed class RecipeQueryService(NpgsqlDataSource db) : IRecipeQueries
     public async Task<RecipeDetail?> GetAsync(Guid recipeId, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-
-        var row = await conn.QuerySingleOrDefaultAsync<RecipeRow>(
+        await using var multi = await conn.QueryMultipleAsync(
             """
             SELECT id, title, description, servings,
                    source_url AS SourceUrl, notes, created_at AS CreatedAt
-            FROM recipes.recipes WHERE id = @recipeId
+            FROM recipes.recipes WHERE id = @recipeId;
+            SELECT name, quantity, unit FROM recipes.ingredients WHERE recipe_id = @recipeId ORDER BY sort_order;
+            SELECT step_order AS Order, text FROM recipes.instructions WHERE recipe_id = @recipeId ORDER BY step_order
             """,
             new { recipeId });
 
+        var row = await multi.ReadSingleOrDefaultAsync<RecipeRow>();
         if (row is null) return null;
-
-        var ingredients = await conn.QueryAsync<IngredientDto>(
-            "SELECT name, quantity, unit FROM recipes.ingredients WHERE recipe_id = @recipeId ORDER BY sort_order",
-            new { recipeId });
-
-        var instructions = await conn.QueryAsync<InstructionStepDto>(
-            "SELECT step_order AS Order, text FROM recipes.instructions WHERE recipe_id = @recipeId ORDER BY step_order",
-            new { recipeId });
-
+        var ingredients = (await multi.ReadAsync<IngredientDto>()).ToList();
+        var instructions = (await multi.ReadAsync<InstructionStepDto>()).ToList();
         return new RecipeDetail(
             row.Id, row.Title, row.Description, row.Servings, row.SourceUrl, row.Notes,
-            ingredients.ToList(), instructions.ToList(), row.CreatedAt);
+            ingredients, instructions, row.CreatedAt);
     }
 }

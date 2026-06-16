@@ -59,14 +59,12 @@ else
             : L["Expenses.Breakdown.PaidSingular"].Value;
         var rowId = $"exp-{e.Id:N}";
 
-        <div class="expense-row-wrap" id="@rowId"
-             style="@(e.IsVoided ? "opacity:0.5" : "")">
+        <div class="expense-row-wrap" id="@rowId">
             <div class="expense-row-header"
                  onclick="document.getElementById('@rowId').classList.toggle('expanded')">
                 <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">💳</div>
                 <div class="list-row-body">
-                    <div class="list-row-name"
-                         style="@(e.IsVoided ? "text-decoration:line-through; color:var(--text-muted)" : "")">
+                    <div class="list-row-name">
                         @e.Description
                     </div>
                     <div class="list-row-meta">
@@ -98,16 +96,14 @@ else
                     <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">
                         R$ @((e.TotalCents / 100m).ToString("F2"))
                     </span>
-                    @if (!e.IsVoided && e.FundingSources.Any())
+                    @if (e.FundingSources.Any())
                     {
                         <span class="expand-arrow">▾</span>
                     }
                 </div>
             </div>
 
-            @if (!e.IsVoided)
-            {
-                <div class="expense-breakdown">
+            <div class="expense-breakdown">
                     <div class="expense-breakdown-cols">
                         <div>
                             <div class="expense-breakdown-label">@L["Expenses.Breakdown.WhoPaid"]</div>
@@ -162,7 +158,6 @@ else
                         </form>
                     </div>
                 </div>
-            }
         </div>
     }
 }

@@ -7,47 +7,63 @@ using Npgsql;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
-internal sealed class ExpenseQueryService(
+public sealed class ExpenseQueryService(
     IQuerySession querySession,
     NpgsqlDataSource db,
     IUserQuery userQuery) : IExpenseQueries
 {
-    public async Task<IReadOnlyList<ExpenseListItem>> ListExpensesAsync(
+    public async Task<ExpensesSummary> GetExpensesSummaryAsync(
         Guid householdId, Guid? groupId = null, CancellationToken ct = default)
     {
         var query = querySession.Query<ExpenseReadModel>()
             .Where(e => e.HouseholdId == householdId && !e.IsVoided);
-
         if (groupId.HasValue)
             query = query.Where(e => e.ExpenseGroupId == groupId.Value);
+        var expenseModels = await query.OrderByDescending(e => e.Date).ToListAsync(ct);
 
-        var results = await query.OrderByDescending(e => e.Date).ToListAsync(ct);
+        var ledger = await querySession.LoadAsync<HouseholdLedger>(householdId, ct);
+        var pairs = ledger?.Pairs ?? [];
 
-        var allUserIds = results
+        var allUserIds = expenseModels
             .SelectMany(e => e.FundingSources.Select(f => f.UserId)
                 .Concat(e.Allocations.Select(a => a.UserId)))
+            .Concat(pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }))
             .Distinct();
 
         var profiles = await userQuery.GetByIdsAsync(allUserIds, ct);
         var profileMap = profiles.ToDictionary(p => p.Id);
 
-        return results.Select(e => new ExpenseListItem(
-            e.Id, e.Description, e.Date, e.TotalCents, e.IsVoided,
-            e.FundingSources
-                .Select(f => new ExpenseListParticipantDto(
-                    f.UserId,
-                    profileMap.GetValueOrDefault(f.UserId)?.DisplayName ?? "?",
-                    f.Cents,
-                    profileMap.GetValueOrDefault(f.UserId)?.PictureUrl))
-                .ToList(),
-            e.Allocations
-                .Select(a => new ExpenseListParticipantDto(
-                    a.UserId,
-                    profileMap.GetValueOrDefault(a.UserId)?.DisplayName ?? "?",
-                    a.Cents,
-                    profileMap.GetValueOrDefault(a.UserId)?.PictureUrl))
-                .ToList()
+        var expenses = expenseModels.Select(e => new ExpenseListItem(
+            e.Id, e.Description, e.Date, e.TotalCents,
+            e.FundingSources.Select(f => new ExpenseListParticipantDto(
+                f.UserId,
+                profileMap.GetValueOrDefault(f.UserId)?.DisplayName ?? "?",
+                f.Cents,
+                profileMap.GetValueOrDefault(f.UserId)?.PictureUrl)).ToList(),
+            e.Allocations.Select(a => new ExpenseListParticipantDto(
+                a.UserId,
+                profileMap.GetValueOrDefault(a.UserId)?.DisplayName ?? "?",
+                a.Cents,
+                profileMap.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList()
         )).ToList();
+
+        var netPerUser = new Dictionary<Guid, long>();
+        foreach (var p in pairs)
+        {
+            netPerUser[p.UserId1] = netPerUser.GetValueOrDefault(p.UserId1) + p.Cents;
+            netPerUser[p.UserId2] = netPerUser.GetValueOrDefault(p.UserId2) - p.Cents;
+        }
+
+        var balances = netPerUser
+            .Select(kv => new MemberBalance(
+                kv.Key,
+                profileMap.TryGetValue(kv.Key, out var prof) ? prof.DisplayName : "Unknown",
+                kv.Value,
+                prof?.PictureUrl))
+            .OrderByDescending(b => Math.Abs(b.Cents))
+            .ToList();
+
+        return new ExpensesSummary(expenses, balances);
     }
 
     public async Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default)
@@ -60,33 +76,6 @@ internal sealed class ExpenseQueryService(
             e.FundingSources.Select(f => new FundingSourceDto(f.UserId, f.Cents)).ToList(),
             e.Allocations.Select(a => new AllocationDto(a.UserId, a.Cents)).ToList(),
             e.RecordedAt);
-    }
-
-    public async Task<IReadOnlyList<MemberBalance>> GetHouseholdBalancesAsync(
-        Guid householdId, CancellationToken ct = default)
-    {
-        var ledger = await querySession.LoadAsync<HouseholdLedger>(householdId, ct);
-        var pairs = ledger?.Pairs ?? [];
-
-        var userIds = pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }).Distinct();
-        var profiles = await userQuery.GetByIdsAsync(userIds, ct);
-        var profileMap = profiles.ToDictionary(p => p.Id);
-
-        var netPerUser = new Dictionary<Guid, long>();
-        foreach (var p in pairs)
-        {
-            netPerUser[p.UserId1] = netPerUser.GetValueOrDefault(p.UserId1) + p.Cents;
-            netPerUser[p.UserId2] = netPerUser.GetValueOrDefault(p.UserId2) - p.Cents;
-        }
-
-        return netPerUser
-            .Select(kv => new MemberBalance(
-                kv.Key,
-                profileMap.TryGetValue(kv.Key, out var prof) ? prof.DisplayName : "Unknown",
-                kv.Value,
-                prof?.PictureUrl))
-            .OrderByDescending(b => Math.Abs(b.Cents))
-            .ToList();
     }
 
     public async Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(

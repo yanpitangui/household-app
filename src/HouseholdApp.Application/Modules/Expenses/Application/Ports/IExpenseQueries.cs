@@ -7,9 +7,12 @@ public sealed record ExpenseListItem(
     string Description,
     DateTimeOffset Date,
     long TotalCents,
-    bool IsVoided,
     IReadOnlyList<ExpenseListParticipantDto> FundingSources,
     IReadOnlyList<ExpenseListParticipantDto> Allocations);
+
+public sealed record ExpensesSummary(
+    IReadOnlyList<ExpenseListItem> Expenses,
+    IReadOnlyList<MemberBalance> Balances);
 
 public sealed record ExpenseDetail(
     Guid Id, Guid ExpenseGroupId, string Description, DateTimeOffset Date,
@@ -27,13 +30,10 @@ public sealed record RecurringExpenseSummary(
 
 public interface IExpenseQueries
 {
-    Task<IReadOnlyList<ExpenseListItem>> ListExpensesAsync(
+    Task<ExpensesSummary> GetExpensesSummaryAsync(
         Guid householdId, Guid? groupId = null, CancellationToken ct = default);
 
     Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default);
-
-    Task<IReadOnlyList<MemberBalance>> GetHouseholdBalancesAsync(
-        Guid householdId, CancellationToken ct = default);
 
     Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(
         Guid householdId, CancellationToken ct = default);
