@@ -82,6 +82,13 @@ builder.Services.AddAuthentication(options =>
         options.MapInboundClaims = false;
 
         options.Events ??= new OpenIdConnectEvents();
+        options.Events.OnRedirectToIdentityProvider = context =>
+        {
+            if (!builder.Environment.IsDevelopment())
+                context.ProtocolMessage.RedirectUri = context.ProtocolMessage.RedirectUri
+                    .Replace("http://", "https://");
+            return Task.CompletedTask;
+        };
         options.Events.OnTokenValidated = async context =>
         {
             var provisioning = context.HttpContext.RequestServices.GetRequiredService<IUserProvisioning>();
