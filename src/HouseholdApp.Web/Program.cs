@@ -60,7 +60,7 @@ redisOptions.AbortOnConnectFail = false;
 var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
 
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connStr)
+    .AddNpgSql(connStr, healthQuery: "SELECT 1 FROM households.households LIMIT 0")
     .AddRedis(redisMultiplexer);
 
 builder.Services.AddStackExchangeRedisCache(o => o.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redisMultiplexer));
@@ -163,7 +163,7 @@ builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
