@@ -48,7 +48,7 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
 
         if (row is null) return null;
 
-        var items = await conn.QueryAsync<ShoppingItem>(
+        var items = await conn.QueryAsync<ListItem>(
             "SELECT id, list_id, name, category, sort_order, is_completed FROM lists.items WHERE list_id = @listId ORDER BY sort_order",
             new { listId },
             tx);

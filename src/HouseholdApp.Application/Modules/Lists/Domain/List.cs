@@ -2,7 +2,7 @@ using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.Application.Modules.Lists.Domain;
 
-public sealed class ShoppingItem
+public sealed class ListItem
 {
     public Guid Id { get; set; }
     public Guid ListId { get; set; }
@@ -11,7 +11,7 @@ public sealed class ShoppingItem
     public int SortOrder { get; set; }
     public bool IsCompleted { get; set; }
 
-    internal ShoppingItem(Guid listId, string name, string? category, int sortOrder)
+    internal ListItem(Guid listId, string name, string? category, int sortOrder)
     {
         Id = Guid.NewGuid();
         ListId = listId;
@@ -20,7 +20,7 @@ public sealed class ShoppingItem
         SortOrder = sortOrder;
     }
 
-    public ShoppingItem() { }
+    public ListItem() { }
 
     internal void Complete() => IsCompleted = true;
     internal void Uncomplete() => IsCompleted = false;
@@ -34,12 +34,12 @@ public sealed class HouseholdList : AggregateRoot
     public Guid CreatedBy { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
-    private readonly List<ShoppingItem> _items = [];
-    public IReadOnlyList<ShoppingItem> Items => _items;
+    private readonly List<ListItem> _items = [];
+    public IReadOnlyList<ListItem> Items => _items;
 
     private HouseholdList() { }
 
-    public static HouseholdList Reconstitute(Guid id, Guid householdId, string name, Guid createdBy, DateTimeOffset createdAt, List<ShoppingItem> items)
+    public static HouseholdList Reconstitute(Guid id, Guid householdId, string name, Guid createdBy, DateTimeOffset createdAt, List<ListItem> items)
     {
         var list = new HouseholdList { Id = id, HouseholdId = householdId, Name = name, CreatedBy = createdBy, CreatedAt = createdAt };
         list._items.AddRange(items);
@@ -60,10 +60,10 @@ public sealed class HouseholdList : AggregateRoot
         return list;
     }
 
-    public ShoppingItem AddItem(string name, string? category, DateTimeOffset now)
+    public ListItem AddItem(string name, string? category, DateTimeOffset now)
     {
         var sortOrder = _items.Count == 0 ? 1000 : _items.Max(i => i.SortOrder) + 1000;
-        var item = new ShoppingItem(Id, name, category, sortOrder);
+        var item = new ListItem(Id, name, category, sortOrder);
         _items.Add(item);
         Raise(new ListItemAdded(Guid.NewGuid(), now, Id, item.Id, name, category, sortOrder));
         return item;
