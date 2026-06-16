@@ -5,7 +5,7 @@ using HouseholdApp.IntegrationTests.Infrastructure;
 
 namespace HouseholdApp.IntegrationTests.Modules.Lists;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class ListQueryServiceTests(PostgresFixture db)
 {
     private readonly IListQueries _sut = new ListQueryService(db.DataSource);

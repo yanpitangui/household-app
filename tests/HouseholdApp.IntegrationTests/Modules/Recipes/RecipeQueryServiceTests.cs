@@ -5,7 +5,7 @@ using HouseholdApp.IntegrationTests.Infrastructure;
 
 namespace HouseholdApp.IntegrationTests.Modules.Recipes;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class RecipeQueryServiceTests(PostgresFixture db)
 {
     private readonly IRecipeQueries _sut = new RecipeQueryService(db.DataSource);

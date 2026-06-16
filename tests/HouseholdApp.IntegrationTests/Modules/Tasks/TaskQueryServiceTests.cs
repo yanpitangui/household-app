@@ -5,7 +5,7 @@ using HouseholdApp.IntegrationTests.Infrastructure;
 
 namespace HouseholdApp.IntegrationTests.Modules.Tasks;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class TaskQueryServiceTests(PostgresFixture db)
 {
     private readonly ITaskQueries _sut = new TaskQueryService(db.DataSource);

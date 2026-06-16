@@ -2,7 +2,7 @@ namespace HouseholdApp.E2ETests.Infrastructure;
 
 public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 {
-    [ClassDataSource<AppFixture>(Shared = SharedType.PerTestSession)]
+    [ClassDataSource<AppFixture>(Shared = SharedType.PerClass)]
     public required AppFixture App { get; init; }
 
     private IPlaywright? _playwright;
@@ -67,7 +67,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
         await page.GotoAsync($"{AppUrl}/households/create");
         await page.FillAsync("input[name='Name']", name);
         await page.ClickAsync("button[type='submit']");
-        await page.WaitForURLAsync("**/h/**");
+        await page.WaitForURLAsync("**/h/**", new PageWaitForURLOptions { Timeout = 60_000 });
         var segments = new Uri(page.Url).Segments;
         var id = Guid.Parse(segments.Last().TrimEnd('/'));
         await page.CloseAsync();

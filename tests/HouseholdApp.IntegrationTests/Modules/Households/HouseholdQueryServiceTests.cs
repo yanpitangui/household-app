@@ -7,7 +7,7 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace HouseholdApp.IntegrationTests.Modules.Households;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class HouseholdQueryServiceTests(PostgresFixture db)
 {
     private readonly IHouseholdQueries _sut = new HouseholdQueryService(db.DataSource, new UserRepository(db.DataSource, new FakeTimeProvider()));

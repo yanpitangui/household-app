@@ -15,7 +15,7 @@ using Valtuutus.Data.InMemory;
 
 namespace HouseholdApp.IntegrationTests.Modules.Households;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDisposable
 {
     private readonly ServiceProvider _provider = BuildProvider(db);
