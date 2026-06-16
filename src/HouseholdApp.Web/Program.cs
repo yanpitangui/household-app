@@ -50,7 +50,9 @@ builder.Services.AddExpensesModule(connStr);
 
 var redisConnStr = builder.Configuration.GetConnectionString("redis")
     ?? throw new InvalidOperationException("Missing connection string 'redis'");
-var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisConnStr);
+var redisOptions = ConfigurationOptions.Parse(redisConnStr);
+redisOptions.AbortOnConnectFail = false;
+var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
 
 builder.Services.AddTickerQ(options => options
     .AddStackExchangeRedis(redis => redis.ConnectionMultiplexer = redisMultiplexer)
