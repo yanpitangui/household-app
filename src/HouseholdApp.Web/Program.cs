@@ -56,6 +56,10 @@ var redisOptions = ConfigurationOptions.Parse(redisConnStr);
 redisOptions.AbortOnConnectFail = false;
 var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
 
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connStr)
+    .AddRedis(redisMultiplexer);
+
 builder.Services.AddTickerQ(options => options
     .AddStackExchangeRedis(redis => redis.ConnectionMultiplexer = redisMultiplexer)
     .AddDashboard(dashboard => dashboard.WithHostAuthentication("TickerQAdmin")));
