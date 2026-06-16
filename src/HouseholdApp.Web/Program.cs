@@ -131,6 +131,13 @@ builder.Services.AddPostgres(
     new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"));
 builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 app.UseForwardedHeaders();
