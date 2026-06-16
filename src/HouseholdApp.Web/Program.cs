@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
 using StackExchange.Redis;
 using TickerQ.Caching.StackExchangeRedis.DependencyInjection;
@@ -131,6 +132,8 @@ builder.Services.AddPostgres(
 builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
