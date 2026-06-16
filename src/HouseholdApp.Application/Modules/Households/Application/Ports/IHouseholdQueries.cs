@@ -6,7 +6,7 @@ public sealed record HouseholdDetail(
     Guid Id, string Name, DateTime CreatedAt,
     IReadOnlyList<HouseholdMemberDto> Members);
 
-public sealed record HouseholdMemberDto(Guid UserId, string DisplayName, string Role);
+public sealed record HouseholdMemberDto(Guid UserId, string DisplayName, string Role, string? PictureUrl);
 
 public interface IHouseholdQueries
 {

@@ -54,7 +54,8 @@ public sealed class HouseholdQueryService(
             .Select(m => new HouseholdMemberDto(
                 m.UserId,
                 profileMap.TryGetValue(m.UserId, out var p) ? p.DisplayName : "Unknown",
-                ((HouseholdRole)m.Role).ToString()))
+                ((HouseholdRole)m.Role).ToString(),
+                p?.PictureUrl))
             .ToList();
 
         return new HouseholdDetail(household.Id, household.Name, household.CreatedAt, memberDtos);

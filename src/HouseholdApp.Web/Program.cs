@@ -91,8 +91,9 @@ builder.Services.AddAuthentication(options =>
             var displayName = principal?.FindFirst("name")?.Value
                 ?? principal?.FindFirst("preferred_username")?.Value
                 ?? email;
+            var pictureUrl = principal?.FindFirst("picture")?.Value;
 
-            await provisioning.ProvisionAsync(subject, email, displayName, context.HttpContext.RequestAborted);
+            await provisioning.ProvisionAsync(subject, email, displayName, pictureUrl, context.HttpContext.RequestAborted);
 
             var user = await userQuery.GetBySubjectAsync(subject, context.HttpContext.RequestAborted);
             if (user is not null)

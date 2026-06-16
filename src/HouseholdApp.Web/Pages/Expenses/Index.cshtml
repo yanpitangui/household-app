@@ -23,7 +23,19 @@
             var amtColor = b.Cents > 0 ? "var(--accent-tasks)" : b.Cents < 0 ? "#f87171" : "var(--text-muted)";
             var label = b.Cents > 0 ? L["Expenses.IsOwed"].Value : b.Cents < 0 ? L["Expenses.Owes"].Value : L["Expenses.Settled"].Value;
             <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-color)">
-                <span style="color:var(--text-secondary); font-size:14px">@b.DisplayName</span>
+                <span style="display:flex; align-items:center; gap:6px; color:var(--text-secondary); font-size:14px">
+                    <span class="payer-init" style="width:18px;height:18px;font-size:8px;flex-shrink:0">
+                        @if (!string.IsNullOrEmpty(b.PictureUrl))
+                        {
+                            <img src="@b.PictureUrl" alt="@b.DisplayName" />
+                        }
+                        else
+                        {
+                            @(b.DisplayName.Length > 0 ? b.DisplayName[0] : '?')
+                        }
+                    </span>
+                    @b.DisplayName
+                </span>
                 <span style="color:@amtColor; font-weight:600; font-size:14px">
                     @(b.Cents >= 0 ? "+" : "")R$ @((Math.Abs(b.Cents) / 100m).ToString("F2"))
                     <span style="color:var(--text-muted); font-weight:400; font-size:12px">@label</span>
@@ -65,7 +77,16 @@ else
                             @foreach (var f in e.FundingSources)
                             {
                                 <span class="payer-chip">
-                                    <span class="payer-init">@(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')</span>
+                                    <span class="payer-init">
+                                        @if (!string.IsNullOrEmpty(f.PictureUrl))
+                                        {
+                                            <img src="@f.PictureUrl" alt="@f.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            @(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')
+                                        }
+                                    </span>
                                     @(hasMultiplePayers ? f.DisplayName.Split(' ')[0] : f.DisplayName)
                                 </span>
                             }
@@ -94,7 +115,16 @@ else
                             {
                                 <div class="expense-breakdown-entry">
                                     <span class="expense-breakdown-person">
-                                        <span class="expense-breakdown-avatar">@(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')</span>
+                                        <span class="expense-breakdown-avatar">
+                                            @if (!string.IsNullOrEmpty(f.PictureUrl))
+                                            {
+                                                <img src="@f.PictureUrl" alt="@f.DisplayName" />
+                                            }
+                                            else
+                                            {
+                                                @(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')
+                                            }
+                                        </span>
                                         @f.DisplayName
                                     </span>
                                     <span class="expense-breakdown-paid">R$ @((f.Cents / 100m).ToString("F2"))</span>
@@ -107,7 +137,16 @@ else
                             {
                                 <div class="expense-breakdown-entry">
                                     <span class="expense-breakdown-person">
-                                        <span class="expense-breakdown-avatar">@(a.DisplayName.Length > 0 ? a.DisplayName[0] : '?')</span>
+                                        <span class="expense-breakdown-avatar">
+                                            @if (!string.IsNullOrEmpty(a.PictureUrl))
+                                            {
+                                                <img src="@a.PictureUrl" alt="@a.DisplayName" />
+                                            }
+                                            else
+                                            {
+                                                @(a.DisplayName.Length > 0 ? a.DisplayName[0] : '?')
+                                            }
+                                        </span>
                                         @a.DisplayName
                                     </span>
                                     <span class="expense-breakdown-owe">R$ @((a.Cents / 100m).ToString("F2"))</span>

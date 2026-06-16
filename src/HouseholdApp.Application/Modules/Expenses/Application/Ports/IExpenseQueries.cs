@@ -1,6 +1,6 @@
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
 
-public sealed record ExpenseListParticipantDto(Guid UserId, string DisplayName, long Cents);
+public sealed record ExpenseListParticipantDto(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
 
 public sealed record ExpenseListItem(
     Guid Id,
@@ -18,7 +18,7 @@ public sealed record ExpenseDetail(
     IReadOnlyList<AllocationDto> Allocations,
     DateTimeOffset RecordedAt);
 
-public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents);
+public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description);
 

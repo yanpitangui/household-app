@@ -49,7 +49,16 @@
     {
         <div class="member-item">
             <div style="display:flex;align-items:center">
-                <div class="member-avatar">@(m.DisplayName.Length > 0 ? m.DisplayName[0].ToString().ToUpper() : "?")</div>
+                <div class="member-avatar">
+                    @if (!string.IsNullOrEmpty(m.PictureUrl))
+                    {
+                        <img src="@m.PictureUrl" alt="@m.DisplayName" />
+                    }
+                    else
+                    {
+                        @(m.DisplayName.Length > 0 ? m.DisplayName[0].ToString().ToUpper() : "?")
+                    }
+                </div>
                 <div>
                     <div style="font-size:14px;font-weight:500;color:var(--text-secondary)">@m.DisplayName</div>
                     <div style="font-size:11px;color:var(--text-muted)">@m.Role</div>

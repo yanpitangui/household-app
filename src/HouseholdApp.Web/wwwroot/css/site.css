@@ -399,7 +399,10 @@ html, body {
     color: #fff;
     flex-shrink: 0;
     margin-right: 10px;
+    overflow: hidden;
 }
+
+.member-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 
 /* ── Check item (list detail) ─────────────────── */
 .check-item {
@@ -671,7 +674,10 @@ textarea.form-control { resize: vertical; }
     font-style: italic;
     font-family: var(--font-display);
     flex-shrink: 0;
+    overflow: hidden;
 }
+
+.payer-init img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 
 .payer-paid-label {
     font-size: 10px;
@@ -740,7 +746,10 @@ textarea.form-control { resize: vertical; }
     font-family: var(--font-display);
     font-style: italic;
     flex-shrink: 0;
+    overflow: hidden;
 }
+
+.expense-breakdown-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 
 .expense-breakdown-paid {
     font-size: 12px;

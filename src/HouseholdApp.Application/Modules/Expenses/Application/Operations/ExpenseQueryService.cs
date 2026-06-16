@@ -29,17 +29,23 @@ internal sealed class ExpenseQueryService(
             .Distinct();
 
         var profiles = await userQuery.GetByIdsAsync(allUserIds, ct);
-        var nameMap = profiles.ToDictionary(p => p.Id, p => p.DisplayName);
+        var profileMap = profiles.ToDictionary(p => p.Id);
 
         return results.Select(e => new ExpenseListItem(
             e.Id, e.Description, e.Date, e.TotalCents, e.IsVoided,
             e.FundingSources
                 .Select(f => new ExpenseListParticipantDto(
-                    f.UserId, nameMap.GetValueOrDefault(f.UserId, "?"), f.Cents))
+                    f.UserId,
+                    profileMap.GetValueOrDefault(f.UserId)?.DisplayName ?? "?",
+                    f.Cents,
+                    profileMap.GetValueOrDefault(f.UserId)?.PictureUrl))
                 .ToList(),
             e.Allocations
                 .Select(a => new ExpenseListParticipantDto(
-                    a.UserId, nameMap.GetValueOrDefault(a.UserId, "?"), a.Cents))
+                    a.UserId,
+                    profileMap.GetValueOrDefault(a.UserId)?.DisplayName ?? "?",
+                    a.Cents,
+                    profileMap.GetValueOrDefault(a.UserId)?.PictureUrl))
                 .ToList()
         )).ToList();
     }
@@ -77,7 +83,8 @@ internal sealed class ExpenseQueryService(
             .Select(kv => new MemberBalance(
                 kv.Key,
                 profileMap.TryGetValue(kv.Key, out var prof) ? prof.DisplayName : "Unknown",
-                kv.Value))
+                kv.Value,
+                prof?.PictureUrl))
             .OrderByDescending(b => Math.Abs(b.Cents))
             .ToList();
     }

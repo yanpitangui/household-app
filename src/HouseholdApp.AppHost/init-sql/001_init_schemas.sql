@@ -8,6 +8,7 @@ CREATE TABLE identity.users (
     subject       TEXT        NOT NULL UNIQUE,
     email         TEXT        NOT NULL,
     display_name  TEXT        NOT NULL,
+    picture_url   TEXT        NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
