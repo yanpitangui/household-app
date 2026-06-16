@@ -9,17 +9,27 @@ public sealed class RecurringExpense
     public IReadOnlyList<FundingSource> DefaultFundingSources { get; private set; } = [];
     public IReadOnlyList<Allocation> DefaultAllocations { get; private set; } = [];
     public string CronExpression { get; private set; } = default!;
+    public RecurrenceFrequency Frequency { get; private set; }
+    public DateTimeOffset StartAt { get; private set; }
     public bool IsActive { get; private set; }
     public DateTimeOffset? NextRunAt { get; private set; }
     public Guid? SchedulerJobId { get; private set; }
 
     private RecurringExpense() { }
 
+    public static string ComputeCron(RecurrenceFrequency f, DateTimeOffset d) => f switch
+    {
+        RecurrenceFrequency.Weekly   => $"{d.Minute} {d.Hour} * * {(int)d.DayOfWeek}",
+        RecurrenceFrequency.Monthly  => $"{d.Minute} {d.Hour} {d.Day} * *",
+        RecurrenceFrequency.Annually => $"{d.Minute} {d.Hour} {d.Day} {d.Month} *",
+        _ => throw new ArgumentOutOfRangeException(nameof(f), f, null)
+    };
+
     public static RecurringExpense Create(
         Guid householdId, Guid expenseGroupId, string description,
         IReadOnlyList<FundingSource> defaultFundingSources,
         IReadOnlyList<Allocation> defaultAllocations,
-        string cronExpression, DateTimeOffset? nextRunAt)
+        RecurrenceFrequency frequency, DateTimeOffset startAt)
     {
         var totalFunded = defaultFundingSources.Sum(f => f.Cents);
         var totalAllocated = defaultAllocations.Sum(a => a.Cents);
@@ -34,9 +44,10 @@ public sealed class RecurringExpense
             Description = description,
             DefaultFundingSources = defaultFundingSources,
             DefaultAllocations = defaultAllocations,
-            CronExpression = cronExpression,
-            IsActive = true,
-            NextRunAt = nextRunAt
+            Frequency = frequency,
+            StartAt = startAt,
+            CronExpression = ComputeCron(frequency, startAt),
+            IsActive = true
         };
     }
 
@@ -45,7 +56,8 @@ public sealed class RecurringExpense
 
     public static RecurringExpense Rehydrate(
         Guid id, Guid householdId, Guid expenseGroupId, string description,
-        string cronExpression, bool isActive, Guid? schedulerJobId,
+        RecurrenceFrequency frequency, DateTimeOffset startAt,
+        bool isActive, Guid? schedulerJobId,
         IReadOnlyList<FundingSource> defaultFundingSources,
         IReadOnlyList<Allocation> defaultAllocations) =>
         new()
@@ -54,12 +66,27 @@ public sealed class RecurringExpense
             HouseholdId = householdId,
             ExpenseGroupId = expenseGroupId,
             Description = description,
-            CronExpression = cronExpression,
+            Frequency = frequency,
+            StartAt = startAt,
+            CronExpression = ComputeCron(frequency, startAt),
             IsActive = isActive,
             SchedulerJobId = schedulerJobId,
             DefaultFundingSources = defaultFundingSources,
             DefaultAllocations = defaultAllocations
         };
+
+    public void Update(
+        RecurrenceFrequency frequency, DateTimeOffset startAt, string description,
+        IReadOnlyList<FundingSource> defaultFundingSources,
+        IReadOnlyList<Allocation> defaultAllocations)
+    {
+        Frequency = frequency;
+        StartAt = startAt;
+        CronExpression = ComputeCron(frequency, startAt);
+        Description = description;
+        DefaultFundingSources = defaultFundingSources;
+        DefaultAllocations = defaultAllocations;
+    }
 
     public void UpdateNextRun(DateTimeOffset next) => NextRunAt = next;
     public void SetSchedulerJobId(Guid id) => SchedulerJobId = id;

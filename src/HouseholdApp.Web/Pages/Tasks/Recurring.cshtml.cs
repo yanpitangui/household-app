@@ -47,7 +47,7 @@ public class RecurringTasksModel(
         await taskCommands.CreateRecurringTaskAsync(
             HouseholdId, NewTitle, NewDescription, NewAssignedTo, NewCronExpression);
 
-        TempData["Success"] = "Recurring task created.";
+        TempData["Success"] = Loc["Flash.RecurringTaskCreated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 
@@ -55,7 +55,7 @@ public class RecurringTasksModel(
     public async Task<IActionResult> OnPostDeactivateAsync(Guid recurringTaskId)
     {
         await taskCommands.DeactivateRecurringTaskAsync(recurringTaskId);
-        TempData["Success"] = "Recurring task deactivated.";
+        TempData["Success"] = Loc["Flash.RecurringTaskDeactivated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 

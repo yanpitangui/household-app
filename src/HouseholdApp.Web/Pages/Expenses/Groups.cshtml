@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Expenses/Groups"
 @model HouseholdApp.Web.Pages.Expenses.ExpenseGroupsModel
 @{
-    ViewData["Title"] = "Expense Groups";
+    ViewData["Title"] = L["Expenses.GroupsHeading"];
 }
 
 <div class="page-heading">
@@ -15,12 +15,12 @@
         <div class="row g-2 align-items-end">
             <div class="col-md-4">
                 <label class="form-label">@L["Expenses.GroupName"]</label>
-                <input asp-for="NewName" class="form-control" placeholder="e.g. Groceries" />
+                <input asp-for="NewName" class="form-control" placeholder="@L["Expenses.GroupNamePlaceholder"]" />
                 <span asp-validation-for="NewName" class="text-danger" style="font-size:12px"></span>
             </div>
             <div class="col-md-5">
                 <label class="form-label">@L["Expenses.GroupDescription"]</label>
-                <input asp-for="NewDescription" class="form-control" placeholder="Details..." />
+                <input asp-for="NewDescription" class="form-control" placeholder="@L["Recipes.DetailsPlaceholder"]" />
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-primary">+ @L["Action.Create"]</button>
@@ -49,7 +49,7 @@ else
             <form method="post" asp-page-handler="Delete" style="display:inline">
                 <input type="hidden" name="groupId" value="@g.Id" />
                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                        data-confirm="Delete group '@g.Name'? Cannot delete groups with active expenses.">@L["Action.Delete"]</button>
+                        data-confirm="@L["Confirm.DeleteGroup", g.Name]">@L["Action.Delete"]</button>
             </form>
         </div>
     }

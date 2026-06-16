@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Recipes/Create"
 @model HouseholdApp.Web.Pages.Recipes.CreateRecipeModel
 @{
-    ViewData["Title"] = "Add Recipe";
+    ViewData["Title"] = L["Recipes.AddRecipeHeading"];
 }
 
 <div class="page-heading">
@@ -15,7 +15,7 @@
         <div class="row mb-3">
             <div class="col-md-8">
                 <label asp-for="Title" class="form-label">@L["Recipes.RecipeTitle"]</label>
-                <input asp-for="Title" class="form-control" placeholder="Recipe name" />
+                <input asp-for="Title" class="form-control" placeholder="@L["Recipes.RecipeTitlePlaceholder"]" />
             </div>
             <div class="col-md-4">
                 <label asp-for="Servings" class="form-label">@L["Recipes.Servings"]</label>
@@ -25,7 +25,7 @@
 
         <div class="mb-3">
             <label asp-for="Description" class="form-label">@L["Recipes.Description"]</label>
-            <input asp-for="Description" class="form-control" placeholder="Short description" />
+            <input asp-for="Description" class="form-control" placeholder="@L["Recipes.ShortDescriptionPlaceholder"]" />
         </div>
 
         <div class="mb-3">

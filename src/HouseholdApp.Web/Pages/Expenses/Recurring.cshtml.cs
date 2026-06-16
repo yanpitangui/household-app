@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
@@ -13,7 +14,8 @@ public class RecurringExpensesModel(
     IHouseholdGuard guard,
     IExpenseCommands expenseCommands,
     IExpenseQueries expenseQueries,
-    IHouseholdQueries householdQueries) : HouseholdPageModel(currentUser, guard)
+    IHouseholdQueries householdQueries,
+    TimeProvider time) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -24,8 +26,11 @@ public class RecurringExpensesModel(
     [BindProperty]
     public Guid NewGroupId { get; set; }
 
-    [BindProperty, Required]
-    public string NewCronExpression { get; set; } = "";
+    [BindProperty]
+    public RecurrenceFrequency NewFrequency { get; set; } = RecurrenceFrequency.Monthly;
+
+    [BindProperty]
+    public DateTimeOffset NewStartAt { get; set; }
 
     [BindProperty, Range(0.01, double.MaxValue)]
     public decimal NewAmountReais { get; set; }
@@ -36,6 +41,31 @@ public class RecurringExpensesModel(
     [BindProperty]
     public List<Guid> NewSplitMemberIds { get; set; } = [];
 
+    // Edit bindings
+    [BindProperty]
+    public Guid EditId { get; set; }
+
+    [BindProperty]
+    public string EditDescription { get; set; } = "";
+
+    [BindProperty]
+    public Guid EditGroupId { get; set; }
+
+    [BindProperty]
+    public RecurrenceFrequency EditFrequency { get; set; } = RecurrenceFrequency.Monthly;
+
+    [BindProperty]
+    public DateTimeOffset EditStartAt { get; set; }
+
+    [BindProperty, Range(0.01, double.MaxValue)]
+    public decimal EditAmountReais { get; set; }
+
+    [BindProperty]
+    public Guid EditPayerId { get; set; }
+
+    [BindProperty]
+    public List<Guid> EditSplitMemberIds { get; set; } = [];
+
     public IReadOnlyList<RecurringExpenseSummary> RecurringExpenses { get; private set; } = [];
     public IReadOnlyList<ExpenseGroupSummary> Groups { get; private set; } = [];
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
@@ -44,6 +74,7 @@ public class RecurringExpensesModel(
     public async Task OnGetAsync()
     {
         NewPayerId = CurrentUserId;
+        NewStartAt = time.GetUtcNow().AddDays(1);
         await Load();
     }
 
@@ -68,9 +99,36 @@ public class RecurringExpensesModel(
             .ToList();
 
         await expenseCommands.CreateRecurringExpenseAsync(
-            HouseholdId, NewGroupId, NewDescription, NewCronExpression, funding, allocations);
+            HouseholdId, NewGroupId, NewDescription, NewFrequency, NewStartAt, funding, allocations);
 
-        TempData["Success"] = "Recurring expense created.";
+        TempData["Success"] = Loc["Flash.RecurringExpenseCreated"].Value;
+        return RedirectToPage(new { householdId = HouseholdId });
+    }
+
+    [RequireManage]
+    public async Task<IActionResult> OnPostUpdateAsync()
+    {
+        if (EditSplitMemberIds.Count == 0)
+            ModelState.AddModelError("EditSplitMemberIds", "Select at least one member to split with.");
+        if (!ModelState.IsValid)
+        {
+            await Load();
+            return Page();
+        }
+
+        var cents = (long)(EditAmountReais * 100);
+        var share = cents / EditSplitMemberIds.Count;
+        var remainder = cents % EditSplitMemberIds.Count;
+
+        var funding = new[] { new FundingSourceDto(EditPayerId, cents) };
+        var allocations = EditSplitMemberIds
+            .Select((id, i) => new AllocationDto(id, share + (i == 0 ? remainder : 0)))
+            .ToList();
+
+        await expenseCommands.UpdateRecurringExpenseAsync(
+            EditId, EditDescription, EditFrequency, EditStartAt, funding, allocations);
+
+        TempData["Success"] = Loc["Flash.RecurringExpenseUpdated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 
@@ -78,7 +136,7 @@ public class RecurringExpensesModel(
     public async Task<IActionResult> OnPostDeactivateAsync(Guid recurringExpenseId)
     {
         await expenseCommands.DeactivateRecurringExpenseAsync(recurringExpenseId);
-        TempData["Success"] = "Recurring expense deactivated.";
+        TempData["Success"] = Loc["Flash.RecurringExpenseDeactivated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 

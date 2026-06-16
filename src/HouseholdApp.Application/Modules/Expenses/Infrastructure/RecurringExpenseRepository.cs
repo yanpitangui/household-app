@@ -13,8 +13,9 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
         var conn = await uow.GetConnectionAsync(ct);
         var row = await conn.QuerySingleOrDefaultAsync<RecurringExpenseRow>(
             """
-            SELECT id, household_id, expense_group_id, description, cron_expression,
-                   is_active, scheduler_job_id, funding_sources, allocations
+            SELECT id, household_id, expense_group_id, description,
+                   recurrence_frequency, start_at, is_active, scheduler_job_id,
+                   funding_sources, allocations
             FROM expenses.recurring_expenses WHERE id = @id
             """,
             new { id }, uow.CurrentTransaction);
@@ -28,12 +29,22 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
         await conn.ExecuteAsync(
             """
             INSERT INTO expenses.recurring_expenses
-                (id, household_id, expense_group_id, description, cron_expression, is_active, scheduler_job_id, funding_sources, allocations)
+                (id, household_id, expense_group_id, description,
+                 recurrence_frequency, start_at, cron_expression,
+                 is_active, scheduler_job_id, funding_sources, allocations)
             VALUES
-                (@Id, @HouseholdId, @ExpenseGroupId, @Description, @CronExpression, @IsActive, @SchedulerJobId, @FundingSources::jsonb, @Allocations::jsonb)
+                (@Id, @HouseholdId, @ExpenseGroupId, @Description,
+                 @RecurrenceFrequency, @StartAt, @CronExpression,
+                 @IsActive, @SchedulerJobId, @FundingSources::jsonb, @Allocations::jsonb)
             ON CONFLICT (id) DO UPDATE
-                SET is_active        = EXCLUDED.is_active,
-                    scheduler_job_id = EXCLUDED.scheduler_job_id
+                SET description          = EXCLUDED.description,
+                    recurrence_frequency = EXCLUDED.recurrence_frequency,
+                    start_at             = EXCLUDED.start_at,
+                    cron_expression      = EXCLUDED.cron_expression,
+                    is_active            = EXCLUDED.is_active,
+                    scheduler_job_id     = EXCLUDED.scheduler_job_id,
+                    funding_sources      = EXCLUDED.funding_sources,
+                    allocations          = EXCLUDED.allocations
             """,
             new
             {
@@ -41,6 +52,8 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
                 expense.HouseholdId,
                 expense.ExpenseGroupId,
                 expense.Description,
+                RecurrenceFrequency = expense.Frequency.ToString(),
+                expense.StartAt,
                 expense.CronExpression,
                 expense.IsActive,
                 expense.SchedulerJobId,
@@ -52,15 +65,16 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
 
     private sealed record RecurringExpenseRow(
         Guid Id, Guid HouseholdId, Guid ExpenseGroupId,
-        string Description, string CronExpression, bool IsActive,
-        Guid? SchedulerJobId, string FundingSources, string Allocations)
+        string Description, string RecurrenceFrequency, DateTimeOffset StartAt,
+        bool IsActive, Guid? SchedulerJobId, string FundingSources, string Allocations)
     {
         public RecurringExpense ToDomain()
         {
-            var sources = JsonSerializer.Deserialize<List<FundingSource>>(FundingSources) ?? [];
-            var allocs  = JsonSerializer.Deserialize<List<Allocation>>(Allocations) ?? [];
+            var frequency = Enum.Parse<Domain.RecurrenceFrequency>(RecurrenceFrequency);
+            var sources   = JsonSerializer.Deserialize<List<FundingSource>>(FundingSources) ?? [];
+            var allocs    = JsonSerializer.Deserialize<List<Allocation>>(Allocations) ?? [];
             return RecurringExpense.Rehydrate(Id, HouseholdId, ExpenseGroupId, Description,
-                CronExpression, IsActive, SchedulerJobId, sources, allocs);
+                frequency, StartAt, IsActive, SchedulerJobId, sources, allocs);
         }
     }
 }

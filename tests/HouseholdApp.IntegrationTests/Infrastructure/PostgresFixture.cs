@@ -156,15 +156,17 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
 
             CREATE SCHEMA IF NOT EXISTS expenses;
             CREATE TABLE IF NOT EXISTS expenses.recurring_expenses (
-                id               UUID    NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-                household_id     UUID    NOT NULL,
-                expense_group_id UUID    NOT NULL,
-                description      TEXT    NOT NULL,
-                cron_expression  TEXT    NOT NULL,
-                is_active        BOOLEAN NOT NULL DEFAULT true,
-                scheduler_job_id UUID,
-                funding_sources  JSONB   NOT NULL DEFAULT '[]'::jsonb,
-                allocations      JSONB   NOT NULL DEFAULT '[]'::jsonb
+                id                   UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                household_id         UUID        NOT NULL,
+                expense_group_id     UUID        NOT NULL,
+                description          TEXT        NOT NULL,
+                recurrence_frequency TEXT        NOT NULL,
+                start_at             TIMESTAMPTZ NOT NULL,
+                cron_expression      TEXT        NOT NULL,
+                is_active            BOOLEAN     NOT NULL DEFAULT true,
+                scheduler_job_id     UUID,
+                funding_sources      JSONB       NOT NULL DEFAULT '[]'::jsonb,
+                allocations          JSONB       NOT NULL DEFAULT '[]'::jsonb
             );
             CREATE INDEX IF NOT EXISTS ix_recurring_expenses_household ON expenses.recurring_expenses (household_id);
 

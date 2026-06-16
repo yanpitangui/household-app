@@ -1,12 +1,12 @@
 @page "/h/{householdId:guid}/Lists/{listId:guid}"
 @model HouseholdApp.Web.Pages.Lists.ListModel
 @{
-    ViewData["Title"] = Model.List?.Name ?? "List";
+    ViewData["Title"] = Model.List?.Name ?? L["Common.List"].Value;
 }
 
 @if (Model.List is null)
 {
-    <p>List not found.</p>
+    <p>@L["Common.ListNotFound"]</p>
     return;
 }
 

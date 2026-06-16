@@ -1,3 +1,5 @@
+using HouseholdApp.Application.Modules.Expenses.Domain;
+
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
 
 public sealed record ExpenseListParticipantDto(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
@@ -26,7 +28,7 @@ public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description);
 
 public sealed record RecurringExpenseSummary(
-    Guid Id, string Description, string CronExpression, bool IsActive, Guid ExpenseGroupId);
+    Guid Id, string Description, RecurrenceFrequency Frequency, DateTimeOffset StartAt, bool IsActive, Guid ExpenseGroupId);
 
 public interface IExpenseQueries
 {

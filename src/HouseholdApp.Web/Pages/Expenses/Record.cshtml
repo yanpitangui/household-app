@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Expenses/Record"
 @model HouseholdApp.Web.Pages.Expenses.RecordExpenseModel
 @{
-    ViewData["Title"] = "Record Expense";
+    ViewData["Title"] = L["Expenses.RecordExpenseHeading"];
 }
 
 <div class="page-heading">
@@ -14,7 +14,7 @@
 
         <div class="mb-3">
             <label asp-for="Description" class="form-label">@L["Expenses.Description"]</label>
-            <input asp-for="Description" class="form-control" placeholder="e.g. Groceries" />
+            <input asp-for="Description" class="form-control" placeholder="@L["Expenses.DescriptionPlaceholder"]" />
         </div>
 
         <div class="row mb-3">
@@ -31,7 +31,7 @@
         <div class="mb-3">
             <label asp-for="GroupId" class="form-label">@L["Expenses.Group"]</label>
             <select asp-for="GroupId" class="form-select">
-                <option value="">-- Select group --</option>
+                <option value="">@L["Expenses.SelectGroup"]</option>
                 @foreach (var g in Model.Groups)
                 {
                     <option value="@g.Id">@g.Name</option>

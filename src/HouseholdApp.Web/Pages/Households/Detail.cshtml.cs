@@ -44,7 +44,7 @@ public class HouseholdDetailModel(
     public async Task<IActionResult> OnPostRemoveMemberAsync(Guid targetUserId)
     {
         await householdCommands.RemoveMemberAsync(Id, targetUserId);
-        TempData["Success"] = "Member removed.";
+        TempData["Success"] = Loc["Flash.MemberRemoved"].Value;
         return RedirectToPage(new { id = Id });
     }
 }

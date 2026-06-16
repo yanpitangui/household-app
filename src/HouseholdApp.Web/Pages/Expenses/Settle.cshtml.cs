@@ -52,7 +52,7 @@ public class SettleModel(
             HouseholdId, PayerId, RecipientId, cents,
             new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero));
 
-        TempData["Success"] = "Settlement recorded.";
+        TempData["Success"] = Loc["Flash.SettlementRecorded"].Value;
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }
 

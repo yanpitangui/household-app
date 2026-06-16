@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Tasks"
 @model HouseholdApp.Web.Pages.Tasks.TasksIndexModel
 @{
-    ViewData["Title"] = "Tasks";
+    ViewData["Title"] = L["Nav.Tasks"];
 }
 
 <div class="page-heading">
@@ -14,12 +14,12 @@
         <div class="row g-2 align-items-end">
             <div class="col-md-4">
                 <label class="form-label">@L["Tasks.Title"]</label>
-                <input asp-for="NewTitle" class="form-control" placeholder="Task name..." />
+                <input asp-for="NewTitle" class="form-control" placeholder="@L["Tasks.TaskNamePlaceholder"]" />
             </div>
             <div class="col-md-3">
                 <label class="form-label">@L["Tasks.AssignTo"]</label>
                 <select asp-for="NewAssignedTo" class="form-select">
-                    <option value="">-- Unassigned --</option>
+                    <option value="">@L["Tasks.Unassigned"]</option>
                     @foreach (var m in Model.Members)
                     {
                         <option value="@m.UserId">@m.DisplayName</option>
@@ -63,7 +63,7 @@ else
                     }
                     @if (t.DueDate.HasValue)
                     {
-                        <span class="ms-2">Due @t.DueDate.Value.ToString("d")</span>
+                        <span class="ms-2">@L["Tasks.DuePrefix"] @t.DueDate.Value.ToString("d")</span>
                     }
                 </div>
             </div>
@@ -84,7 +84,7 @@ else
                     <input type="hidden" asp-for="ShowCompleted" />
                     <input type="hidden" name="taskId" value="@t.Id" />
                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="Delete this task?">✕</button>
+                            data-confirm="@L["Confirm.DeleteTask"]">✕</button>
                 </form>
             </div>
         </div>

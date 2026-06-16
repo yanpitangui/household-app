@@ -69,7 +69,7 @@ public class RecordExpenseModel(
             new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero),
             funding, allocations);
 
-        TempData["Success"] = "Expense recorded.";
+        TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }
 

@@ -1,3 +1,5 @@
+using HouseholdApp.Application.Modules.Expenses.Domain;
+
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
 
 public sealed record FundingSourceDto(Guid UserId, long Cents);
@@ -22,7 +24,14 @@ public interface IExpenseCommands
 
     Task<Guid> CreateRecurringExpenseAsync(
         Guid householdId, Guid expenseGroupId, string description,
-        string cronExpression,
+        RecurrenceFrequency frequency, DateTimeOffset startAt,
+        IReadOnlyList<FundingSourceDto> defaultFundingSources,
+        IReadOnlyList<AllocationDto> defaultAllocations,
+        CancellationToken ct = default);
+
+    Task UpdateRecurringExpenseAsync(
+        Guid recurringExpenseId, string description,
+        RecurrenceFrequency frequency, DateTimeOffset startAt,
         IReadOnlyList<FundingSourceDto> defaultFundingSources,
         IReadOnlyList<AllocationDto> defaultAllocations,
         CancellationToken ct = default);

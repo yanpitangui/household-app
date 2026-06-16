@@ -1,5 +1,6 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using Marten;
@@ -92,14 +93,22 @@ public sealed class ExpenseQueryService(
         Guid householdId, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = await conn.QueryAsync<RecurringExpenseSummary>(
+        var rows = await conn.QueryAsync<RecurringExpenseRow>(
             """
-            SELECT id, description, cron_expression, is_active, expense_group_id
+            SELECT id, description, recurrence_frequency, start_at, is_active, expense_group_id
             FROM expenses.recurring_expenses
             WHERE household_id = @householdId
             ORDER BY description
             """,
             new { householdId });
-        return rows.ToList();
+        return rows.Select(r => r.ToSummary()).ToList();
+    }
+
+    private sealed record RecurringExpenseRow(
+        Guid Id, string Description, string RecurrenceFrequency,
+        DateTimeOffset StartAt, bool IsActive, Guid ExpenseGroupId)
+    {
+        public RecurringExpenseSummary ToSummary() =>
+            new(Id, Description, Enum.Parse<RecurrenceFrequency>(RecurrenceFrequency), StartAt, IsActive, ExpenseGroupId);
     }
 }

@@ -49,7 +49,7 @@ public class CreateRecipeModel(
             HouseholdId, Title, Description, Servings, SourceUrl, Notes,
             ingredients, instructions);
 
-        TempData["Success"] = "Recipe saved.";
+        TempData["Success"] = Loc["Flash.RecipeSaved"].Value;
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }
 

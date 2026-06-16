@@ -1,26 +1,26 @@
 @page
 @model HouseholdApp.Web.Pages.Households.JoinHouseholdModel
 @{
-    ViewData["Title"] = "Join Household";
+    ViewData["Title"] = L["Households.Join.Title"];
 }
 
-<h1>Join Household</h1>
+<h1>@L["Households.Join.Title"]</h1>
 
 @if (Model.Token is null)
 {
-    <div class="alert alert-danger">Invalid or missing invitation token.</div>
+    <div class="alert alert-danger">@L["Households.Join.InvalidTokenAlert"]</div>
 }
 else if (Model.AlreadyJoined)
 {
-    <div class="alert alert-info">You have joined the household.</div>
-    <a asp-page="Index" class="btn btn-primary">Go to My Households</a>
+    <div class="alert alert-info">@L["Households.Join.AlreadyJoinedAlert"]</div>
+    <a asp-page="Index" class="btn btn-primary">@L["Households.Join.GoToMyHouseholds"]</a>
 }
 else
 {
-    <p>You have been invited to join a household. Click below to accept.</p>
+    <p>@L["Households.Join.InviteMessage"]</p>
     <form method="post">
         <input type="hidden" asp-for="Token" />
-        <button type="submit" class="btn btn-success">Accept Invitation</button>
-        <a asp-page="Index" class="btn btn-outline-secondary ms-2">Decline</a>
+        <button type="submit" class="btn btn-success">@L["Households.Join.Accept"]</button>
+        <a asp-page="Index" class="btn btn-outline-secondary ms-2">@L["Households.Join.Decline"]</a>
     </form>
 }

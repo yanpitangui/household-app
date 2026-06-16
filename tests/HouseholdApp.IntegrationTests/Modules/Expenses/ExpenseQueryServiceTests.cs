@@ -3,6 +3,7 @@ using Dapper;
 using TUnit.Core.Interfaces;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
 using HouseholdApp.IntegrationTests.Infrastructure;
@@ -121,6 +122,73 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var debtorBalance = summary.Balances.Single(b => b.UserId == debtorId);
         await Assert.That(payerBalance.Cents).IsEqualTo(500L);
         await Assert.That(debtorBalance.Cents).IsEqualTo(-500L);
+    }
+
+    [Test]
+    public async Task ListRecurringExpensesAsync_returns_empty_for_unknown_household()
+    {
+        await using var qs = Store.QuerySession();
+        var results = await BuildSut(qs).ListRecurringExpensesAsync(Guid.NewGuid());
+
+        await Assert.That(results).IsEmpty();
+    }
+
+    [Test]
+    public async Task ListRecurringExpensesAsync_returns_recurring_expenses_with_correct_fields()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var startAt = new DateTimeOffset(2026, 7, 1, 9, 0, 0, TimeSpan.Zero);
+        var cron = RecurringExpense.ComputeCron(RecurrenceFrequency.Monthly, startAt);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO expenses.recurring_expenses
+                (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression, is_active, funding_sources, allocations)
+            VALUES
+                (@HouseholdId, @GroupId, 'Rent', 'Monthly', @StartAt, @Cron, true, '[]', '[]')
+            """,
+            new { HouseholdId = householdId, GroupId = groupId, StartAt = startAt, Cron = cron });
+
+        await using var qs = Store.QuerySession();
+        var results = await BuildSut(qs).ListRecurringExpensesAsync(householdId);
+
+        await Assert.That(results.Count).IsEqualTo(1);
+        var item = results[0];
+        await Assert.That(item.Description).IsEqualTo("Rent");
+        await Assert.That(item.Frequency).IsEqualTo(RecurrenceFrequency.Monthly);
+        await Assert.That(item.StartAt).IsEqualTo(startAt);
+        await Assert.That(item.IsActive).IsTrue();
+        await Assert.That(item.ExpenseGroupId).IsEqualTo(groupId);
+    }
+
+    [Test]
+    public async Task ListRecurringExpensesAsync_only_returns_expenses_for_requested_household()
+    {
+        var householdA = Guid.NewGuid();
+        var householdB = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var startAt = new DateTimeOffset(2026, 6, 1, 8, 0, 0, TimeSpan.Zero);
+        var cron = RecurringExpense.ComputeCron(RecurrenceFrequency.Annually, startAt);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO expenses.recurring_expenses
+                (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression, is_active, funding_sources, allocations)
+            VALUES
+                (@H, @G, 'A-expense', 'Annually', @S, @C, true, '[]', '[]'),
+                (@HB, @G, 'B-expense', 'Annually', @S, @C, true, '[]', '[]')
+            """,
+            new { H = householdA, HB = householdB, G = groupId, S = startAt, C = cron });
+
+        await using var qs = Store.QuerySession();
+        var results = await BuildSut(qs).ListRecurringExpensesAsync(householdA);
+
+        await Assert.That(results.Count).IsEqualTo(1);
+        await Assert.That(results[0].Description).IsEqualTo("A-expense");
     }
 
     [Test]

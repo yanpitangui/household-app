@@ -56,6 +56,7 @@
   <data name="Dashboard.InviteSingleUse"><value>Convite de uso único:</value></data>
   <data name="Dashboard.Copy"><value>Copiar</value></data>
   <data name="Dashboard.Remove"><value>Remover</value></data>
+  <data name="Dashboard.HouseholdNotFound"><value>Casa não encontrada.</value></data>
 
   <!-- Common actions -->
   <data name="Action.Create"><value>Criar</value></data>
@@ -70,6 +71,51 @@
   <!-- Common states -->
   <data name="Common.NoItemsYet"><value>Nada aqui ainda.</value></data>
   <data name="Common.Loading"><value>Carregando…</value></data>
+  <data name="Common.PageNotFound"><value>Página não encontrada</value></data>
+  <data name="Common.NotFoundDetail"><value>Esta página não existe ou você não tem acesso a ela.</value></data>
+  <data name="Common.GoHome"><value>Ir para o início</value></data>
+  <data name="Common.Error"><value>Algo deu errado</value></data>
+  <data name="Common.ErrorDetail"><value>Ocorreu um erro inesperado. Tente novamente em instantes.</value></data>
+  <data name="Common.Household"><value>Lar</value></data>
+  <data name="Common.MyHousehold"><value>Meu Lar</value></data>
+  <data name="Common.List"><value>Lista</value></data>
+  <data name="Common.ListNotFound"><value>Lista não encontrada.</value></data>
+  <data name="Page.Privacy"><value>Política de Privacidade</value></data>
+
+  <!-- Confirm dialogs -->
+  <data name="Confirm.RemoveMember"><value>Remover {0}?</value></data>
+  <data name="Confirm.DeleteTask"><value>Excluir esta tarefa?</value></data>
+  <data name="Confirm.DeleteList"><value>Excluir esta lista?</value></data>
+  <data name="Confirm.DeleteRecipe"><value>Excluir esta receita?</value></data>
+  <data name="Confirm.DeleteGroup"><value>Excluir o grupo &apos;{0}&apos;? Não é possível excluir grupos com despesas ativas.</value></data>
+  <data name="Confirm.DeactivateExpense"><value>Desativar esta despesa recorrente?</value></data>
+  <data name="Confirm.DeactivateTask"><value>Desativar esta tarefa recorrente?</value></data>
+
+  <!-- Flash messages -->
+  <data name="Flash.ExpenseRecorded"><value>Despesa registrada.</value></data>
+  <data name="Flash.ExpenseVoided"><value>Despesa anulada.</value></data>
+  <data name="Flash.SettlementRecorded"><value>Acerto registrado.</value></data>
+  <data name="Flash.GroupCreated"><value>Grupo criado.</value></data>
+  <data name="Flash.GroupDeleted"><value>Grupo excluído.</value></data>
+  <data name="Flash.RecurringExpenseCreated"><value>Despesa recorrente criada.</value></data>
+  <data name="Flash.RecurringExpenseUpdated"><value>Despesa recorrente atualizada.</value></data>
+  <data name="Flash.RecurringExpenseDeactivated"><value>Despesa recorrente desativada.</value></data>
+  <data name="Flash.RecurringTaskCreated"><value>Tarefa recorrente criada.</value></data>
+  <data name="Flash.RecurringTaskDeactivated"><value>Tarefa recorrente desativada.</value></data>
+  <data name="Flash.RecipeDeleted"><value>Receita excluída.</value></data>
+  <data name="Flash.RecipeSaved"><value>Receita salva.</value></data>
+  <data name="Flash.MemberRemoved"><value>Membro removido.</value></data>
+  <data name="Flash.ErrorInvalidToken"><value>Token inválido.</value></data>
+  <data name="Flash.ErrorInvitationInvalid"><value>O convite não é mais válido.</value></data>
+
+  <!-- Households -->
+  <data name="Households.Join.Title"><value>Entrar no Lar</value></data>
+  <data name="Households.Join.GoToMyHouseholds"><value>Ir para Meus Lares</value></data>
+  <data name="Households.Join.Accept"><value>Aceitar Convite</value></data>
+  <data name="Households.Join.Decline"><value>Recusar</value></data>
+  <data name="Households.Join.InvalidTokenAlert"><value>Token de convite inválido ou ausente.</value></data>
+  <data name="Households.Join.AlreadyJoinedAlert"><value>Você entrou no lar.</value></data>
+  <data name="Households.Join.InviteMessage"><value>Você foi convidado para entrar em um lar. Clique abaixo para aceitar.</value></data>
 
   <!-- Lists -->
   <data name="Lists.NewListPlaceholder"><value>Nome da nova lista...</value></data>
@@ -96,6 +142,9 @@
   <data name="Tasks.Active"><value>Ativa</value></data>
   <data name="Tasks.Inactive"><value>Inativa</value></data>
   <data name="Tasks.Deactivate"><value>Desativar</value></data>
+  <data name="Tasks.Unassigned"><value>-- Não atribuído --</value></data>
+  <data name="Tasks.TaskNamePlaceholder"><value>Nome da tarefa...</value></data>
+  <data name="Tasks.DuePrefix"><value>Vence</value></data>
 
   <!-- Recipes -->
   <data name="Recipes.AddRecipe"><value>+ Nova receita</value></data>
@@ -111,6 +160,9 @@
   <data name="Recipes.Instructions"><value>Instruções</value></data>
   <data name="Recipes.InstructionsHint"><value>— um passo por linha</value></data>
   <data name="Recipes.Notes"><value>Notas</value></data>
+  <data name="Recipes.RecipeTitlePlaceholder"><value>Nome da receita</value></data>
+  <data name="Recipes.ShortDescriptionPlaceholder"><value>Descrição curta</value></data>
+  <data name="Recipes.DetailsPlaceholder"><value>Detalhes...</value></data>
 
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Registrar</value></data>
@@ -140,8 +192,15 @@
   <data name="Expenses.GroupDescription"><value>Descrição (opcional)</value></data>
   <data name="Expenses.RecurringHeading"><value>Despesas recorrentes</value></data>
   <data name="Expenses.NewRecurring"><value>Nova despesa recorrente</value></data>
-  <data name="Expenses.CronExpression"><value>Expressão cron</value></data>
+  <data name="Expenses.Frequency"><value>Frequência</value></data>
+  <data name="Expenses.StartAt"><value>Início</value></data>
+  <data name="Expenses.Frequency.Weekly"><value>Semanalmente</value></data>
+  <data name="Expenses.Frequency.Monthly"><value>Mensalmente</value></data>
+  <data name="Expenses.Frequency.Annually"><value>Anualmente</value></data>
   <data name="Expenses.SplitAmong"><value>Dividir entre</value></data>
+  <data name="Expenses.SelectGroup"><value>-- Selecione o grupo --</value></data>
+  <data name="Expenses.GroupNamePlaceholder"><value>ex: Supermercado</value></data>
+  <data name="Expenses.DescriptionPlaceholder"><value>ex: Supermercado</value></data>
   <data name="Expenses.Active"><value>Ativa</value></data>
   <data name="Expenses.Inactive"><value>Inativa</value></data>
   <data name="Expenses.Deactivate"><value>Desativar</value></data>
@@ -159,6 +218,7 @@
   <data name="Households.Created"><value>Criada</value></data>
   <data name="Households.CreateHeading"><value>Criar casa</value></data>
   <data name="Households.NameLabel"><value>Nome</value></data>
+  <data name="Households.NamePlaceholder"><value>ex: Nossa Casa</value></data>
 
   <!-- Settings -->
   <data name="Settings.Title"><value>Configurações</value></data>

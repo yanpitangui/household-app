@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Lists"
 @model HouseholdApp.Web.Pages.Lists.ListsIndexModel
 @{
-    ViewData["Title"] = "Lists";
+    ViewData["Title"] = L["Nav.Lists"];
 }
 
 <div class="page-heading">
@@ -34,7 +34,7 @@ else
             <form method="post" asp-page-handler="DeleteList" style="display:contents" onclick="event.stopPropagation()">
                 <input type="hidden" name="listId" value="@list.Id" />
                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                        data-confirm="Delete this list?"
+                        data-confirm="@L["Confirm.DeleteList"]"
                         onclick="event.stopPropagation()">@L["Action.Delete"]</button>
             </form>
         </a>

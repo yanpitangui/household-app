@@ -38,11 +38,11 @@
     else if (isHouseholdPage && Guid.TryParse(householdId, out var hhGuid))
     {
         var hh = await _householdQueries.GetAsync(hhGuid);
-        householdName = hh?.Name ?? "My Household";
+        householdName = hh?.Name ?? L["Common.MyHousehold"].Value;
     }
     else
     {
-        householdName = "My Household";
+        householdName = L["Common.MyHousehold"].Value;
     }
     var displayName = User.GetDisplayName() ?? "";
     var userInitial = displayName.Length > 0 ? displayName[0].ToString().ToUpper() : "?";
@@ -97,7 +97,7 @@
     {
         <header class="app-header">
             <div class="app-header-inner">
-                <a class="app-brand" asp-page="/Index">Household</a>
+                <a class="app-brand" asp-page="/Index">@L["Common.Household"]</a>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <div style="display:flex;gap:14px;align-items:center">

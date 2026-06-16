@@ -1,7 +1,8 @@
 @page "/h/{householdId:guid}/Expenses/Recurring"
 @model HouseholdApp.Web.Pages.Expenses.RecurringExpensesModel
+@using HouseholdApp.Application.Modules.Expenses.Domain
 @{
-    ViewData["Title"] = "Recurring Expenses";
+    ViewData["Title"] = L["Expenses.RecurringHeading"];
 }
 
 <div class="page-heading">
@@ -32,10 +33,19 @@
                 <input asp-for="NewAmountReais" type="number" step="0.01" min="0.01" class="form-control" />
                 <span asp-validation-for="NewAmountReais" class="text-danger" style="font-size:12px"></span>
             </div>
+            <div class="col-md-2">
+                <label class="form-label">@L["Expenses.Frequency"]</label>
+                <select asp-for="NewFrequency" class="form-select">
+                    @foreach (var f in Enum.GetValues<RecurrenceFrequency>())
+                    {
+                        <option value="@f" selected="@(Model.NewFrequency == f)">@L[$"Expenses.Frequency.{f}"]</option>
+                    }
+                </select>
+            </div>
             <div class="col-md-3">
-                <label class="form-label">@L["Expenses.CronExpression"]</label>
-                <input asp-for="NewCronExpression" class="form-control" placeholder="0 9 1 * *" />
-                <span asp-validation-for="NewCronExpression" class="text-danger" style="font-size:12px"></span>
+                <label class="form-label">@L["Expenses.StartAt"]</label>
+                <input asp-for="NewStartAt" type="datetime-local" class="form-control"
+                       value="@Model.NewStartAt.ToString("yyyy-MM-ddTHH:mm")" />
             </div>
             <div class="col-md-3">
                 <label class="form-label">@L["Expenses.Payer"]</label>
@@ -82,16 +92,20 @@ else
                 <div class="list-row-name" style="@(!e.IsActive ? "color:var(--text-muted)" : "")">@e.Description</div>
                 <div class="list-row-meta">
                     @(Model.GroupNames.GetValueOrDefault(e.ExpenseGroupId, "?"))
-                    · <code style="font-size:11px; color:var(--text-secondary)">@e.CronExpression</code>
+                    · @L[$"Expenses.Frequency.{e.Frequency}"] · @e.StartAt.ToString("dd MMM yyyy HH:mm")
                 </div>
             </div>
             @if (e.IsActive)
             {
                 <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="document.getElementById('edit-@e.Id').style.display = document.getElementById('edit-@e.Id').style.display === 'none' ? 'block' : 'none'">
+                    @L["Action.Edit"]
+                </button>
                 <form method="post" asp-page-handler="Deactivate" style="display:inline">
                     <input type="hidden" name="recurringExpenseId" value="@e.Id" />
                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="Deactivate this recurring expense?">@L["Expenses.Deactivate"]</button>
+                            data-confirm="@L["Confirm.DeactivateExpense"]">@L["Expenses.Deactivate"]</button>
                 </form>
             }
             else
@@ -99,5 +113,63 @@ else
                 <span class="list-row-badge" style="background:rgba(74,56,40,0.3); color:var(--text-muted)">@L["Expenses.Inactive"]</span>
             }
         </div>
+        @if (e.IsActive)
+        {
+            <div id="edit-@e.Id" class="app-card mb-2" style="display:none">
+                <form method="post" asp-page-handler="Update">
+                    <input type="hidden" asp-for="EditId" value="@e.Id" />
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">@L["Expenses.Description"]</label>
+                            <input asp-for="EditDescription" class="form-control" value="@e.Description" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">@L["Expenses.Frequency"]</label>
+                            <select asp-for="EditFrequency" class="form-select">
+                                @foreach (var f in Enum.GetValues<RecurrenceFrequency>())
+                                {
+                                    <option value="@f" selected="@(e.Frequency == f)">@L[$"Expenses.Frequency.{f}"]</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">@L["Expenses.StartAt"]</label>
+                            <input asp-for="EditStartAt" type="datetime-local" class="form-control"
+                                   value="@e.StartAt.ToString("yyyy-MM-ddTHH:mm")" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">@L["Expenses.Amount"]</label>
+                            <input asp-for="EditAmountReais" type="number" step="0.01" min="0.01" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">@L["Expenses.Payer"]</label>
+                            <select asp-for="EditPayerId" class="form-select">
+                                @foreach (var m in Model.Members)
+                                {
+                                    <option value="@m.UserId">@m.DisplayName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">@L["Expenses.SplitAmong"]</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                @foreach (var m in Model.Members)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="EditSplitMemberIds" value="@m.UserId"
+                                               id="edit_split_@(e.Id)_@m.UserId" />
+                                        <label class="form-check-label" style="color:var(--text-secondary); font-size:13px" for="edit_split_@(e.Id)_@m.UserId">@m.DisplayName</label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">@L["Action.Save"]</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        }
     }
 }

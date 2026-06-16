@@ -56,6 +56,7 @@
   <data name="Dashboard.InviteSingleUse"><value>Single-use invite:</value></data>
   <data name="Dashboard.Copy"><value>Copy</value></data>
   <data name="Dashboard.Remove"><value>Remove</value></data>
+  <data name="Dashboard.HouseholdNotFound"><value>Household not found.</value></data>
 
   <!-- Common actions -->
   <data name="Action.Create"><value>Create</value></data>
@@ -70,6 +71,51 @@
   <!-- Common states -->
   <data name="Common.NoItemsYet"><value>Nothing here yet.</value></data>
   <data name="Common.Loading"><value>Loading…</value></data>
+  <data name="Common.PageNotFound"><value>Page not found</value></data>
+  <data name="Common.NotFoundDetail"><value>This page doesn&apos;t exist or you don&apos;t have access to it.</value></data>
+  <data name="Common.GoHome"><value>Go home</value></data>
+  <data name="Common.Error"><value>Something went wrong</value></data>
+  <data name="Common.ErrorDetail"><value>An unexpected error occurred. Please try again in a moment.</value></data>
+  <data name="Common.Household"><value>Household</value></data>
+  <data name="Common.MyHousehold"><value>My Household</value></data>
+  <data name="Common.List"><value>List</value></data>
+  <data name="Common.ListNotFound"><value>List not found.</value></data>
+  <data name="Page.Privacy"><value>Privacy Policy</value></data>
+
+  <!-- Confirm dialogs -->
+  <data name="Confirm.RemoveMember"><value>Remove {0}?</value></data>
+  <data name="Confirm.DeleteTask"><value>Delete this task?</value></data>
+  <data name="Confirm.DeleteList"><value>Delete this list?</value></data>
+  <data name="Confirm.DeleteRecipe"><value>Delete this recipe?</value></data>
+  <data name="Confirm.DeleteGroup"><value>Delete group &apos;{0}&apos;? Cannot delete groups with active expenses.</value></data>
+  <data name="Confirm.DeactivateExpense"><value>Deactivate this recurring expense?</value></data>
+  <data name="Confirm.DeactivateTask"><value>Deactivate this recurring task?</value></data>
+
+  <!-- Flash messages -->
+  <data name="Flash.ExpenseRecorded"><value>Expense recorded.</value></data>
+  <data name="Flash.ExpenseVoided"><value>Expense voided.</value></data>
+  <data name="Flash.SettlementRecorded"><value>Settlement recorded.</value></data>
+  <data name="Flash.GroupCreated"><value>Group created.</value></data>
+  <data name="Flash.GroupDeleted"><value>Group deleted.</value></data>
+  <data name="Flash.RecurringExpenseCreated"><value>Recurring expense created.</value></data>
+  <data name="Flash.RecurringExpenseUpdated"><value>Recurring expense updated.</value></data>
+  <data name="Flash.RecurringExpenseDeactivated"><value>Recurring expense deactivated.</value></data>
+  <data name="Flash.RecurringTaskCreated"><value>Recurring task created.</value></data>
+  <data name="Flash.RecurringTaskDeactivated"><value>Recurring task deactivated.</value></data>
+  <data name="Flash.RecipeDeleted"><value>Recipe deleted.</value></data>
+  <data name="Flash.RecipeSaved"><value>Recipe saved.</value></data>
+  <data name="Flash.MemberRemoved"><value>Member removed.</value></data>
+  <data name="Flash.ErrorInvalidToken"><value>Invalid token.</value></data>
+  <data name="Flash.ErrorInvitationInvalid"><value>Invitation is no longer valid.</value></data>
+
+  <!-- Households -->
+  <data name="Households.Join.Title"><value>Join Household</value></data>
+  <data name="Households.Join.GoToMyHouseholds"><value>Go to My Households</value></data>
+  <data name="Households.Join.Accept"><value>Accept Invitation</value></data>
+  <data name="Households.Join.Decline"><value>Decline</value></data>
+  <data name="Households.Join.InvalidTokenAlert"><value>Invalid or missing invitation token.</value></data>
+  <data name="Households.Join.AlreadyJoinedAlert"><value>You have joined the household.</value></data>
+  <data name="Households.Join.InviteMessage"><value>You have been invited to join a household. Click below to accept.</value></data>
 
   <!-- Lists -->
   <data name="Lists.NewListPlaceholder"><value>New list name...</value></data>
@@ -96,6 +142,9 @@
   <data name="Tasks.Active"><value>Active</value></data>
   <data name="Tasks.Inactive"><value>Inactive</value></data>
   <data name="Tasks.Deactivate"><value>Deactivate</value></data>
+  <data name="Tasks.Unassigned"><value>-- Unassigned --</value></data>
+  <data name="Tasks.TaskNamePlaceholder"><value>Task name...</value></data>
+  <data name="Tasks.DuePrefix"><value>Due</value></data>
 
   <!-- Recipes -->
   <data name="Recipes.AddRecipe"><value>+ New recipe</value></data>
@@ -111,6 +160,9 @@
   <data name="Recipes.Instructions"><value>Instructions</value></data>
   <data name="Recipes.InstructionsHint"><value>— one step per line</value></data>
   <data name="Recipes.Notes"><value>Notes</value></data>
+  <data name="Recipes.RecipeTitlePlaceholder"><value>Recipe name</value></data>
+  <data name="Recipes.ShortDescriptionPlaceholder"><value>Short description</value></data>
+  <data name="Recipes.DetailsPlaceholder"><value>Details...</value></data>
 
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Record</value></data>
@@ -140,8 +192,15 @@
   <data name="Expenses.GroupDescription"><value>Description (optional)</value></data>
   <data name="Expenses.RecurringHeading"><value>Recurring Expenses</value></data>
   <data name="Expenses.NewRecurring"><value>New Recurring Expense</value></data>
-  <data name="Expenses.CronExpression"><value>Cron expression</value></data>
+  <data name="Expenses.Frequency"><value>Frequency</value></data>
+  <data name="Expenses.StartAt"><value>Starts at</value></data>
+  <data name="Expenses.Frequency.Weekly"><value>Weekly</value></data>
+  <data name="Expenses.Frequency.Monthly"><value>Monthly</value></data>
+  <data name="Expenses.Frequency.Annually"><value>Annually</value></data>
   <data name="Expenses.SplitAmong"><value>Split among</value></data>
+  <data name="Expenses.SelectGroup"><value>-- Select group --</value></data>
+  <data name="Expenses.GroupNamePlaceholder"><value>e.g. Groceries</value></data>
+  <data name="Expenses.DescriptionPlaceholder"><value>e.g. Groceries</value></data>
   <data name="Expenses.Active"><value>Active</value></data>
   <data name="Expenses.Inactive"><value>Inactive</value></data>
   <data name="Expenses.Deactivate"><value>Deactivate</value></data>
@@ -159,6 +218,7 @@
   <data name="Households.Created"><value>Created</value></data>
   <data name="Households.CreateHeading"><value>Create Household</value></data>
   <data name="Households.NameLabel"><value>Name</value></data>
+  <data name="Households.NamePlaceholder"><value>e.g. Our Home</value></data>
 
   <!-- Settings -->
   <data name="Settings.Title"><value>Settings</value></data>

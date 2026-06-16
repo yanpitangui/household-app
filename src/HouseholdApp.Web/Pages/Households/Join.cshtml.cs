@@ -19,7 +19,7 @@ public class JoinHouseholdModel(ICurrentUser currentUser, IHouseholdCommands hou
     {
         if (string.IsNullOrWhiteSpace(Token))
         {
-            TempData["Error"] = "Invalid token.";
+            TempData["Error"] = Loc["Flash.ErrorInvalidToken"].Value;
             return Page();
         }
 
@@ -27,7 +27,7 @@ public class JoinHouseholdModel(ICurrentUser currentUser, IHouseholdCommands hou
 
         if (!accepted)
         {
-            TempData["Error"] = "Invitation is no longer valid.";
+            TempData["Error"] = Loc["Flash.ErrorInvitationInvalid"].Value;
             return Page();
         }
 

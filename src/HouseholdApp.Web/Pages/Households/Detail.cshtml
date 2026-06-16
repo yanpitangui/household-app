@@ -1,13 +1,13 @@
 @page "/h/{id:guid}"
 @model HouseholdApp.Web.Pages.Households.HouseholdDetailModel
 @{
-    ViewData["Title"] = Model.Household?.Name ?? "Household";
+    ViewData["Title"] = Model.Household?.Name ?? L["Common.Household"].Value;
     ViewData["HouseholdName"] = Model.Household?.Name;
 }
 
 @if (Model.Household is null)
 {
-    <p style="color:var(--text-secondary)">Household not found.</p>
+    <p style="color:var(--text-secondary)">@L["Dashboard.HouseholdNotFound"]</p>
     return;
 }
 
@@ -69,7 +69,7 @@
                 <form method="post" asp-page-handler="RemoveMember">
                     <input type="hidden" name="targetUserId" value="@m.UserId" />
                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="Remove @m.DisplayName?">Remove</button>
+                            data-confirm="@L["Confirm.RemoveMember", m.DisplayName]">@L["Dashboard.Remove"]</button>
                 </form>
             }
         </div>
@@ -85,9 +85,9 @@
 {
     var joinUrl = $"{Request.Scheme}://{Request.Host}/households/join?token={Model.InviteToken}";
     <div class="alert alert-success mt-3">
-        <strong>Single-use invite:</strong><br />
+        <strong>@L["Dashboard.InviteSingleUse"]</strong><br />
         <code style="font-size:12px;word-break:break-all">@joinUrl</code>
         <button class="btn btn-sm btn-outline-secondary ms-2 mt-2"
-                onclick="navigator.clipboard.writeText('@joinUrl')">Copy</button>
+                onclick="navigator.clipboard.writeText('@joinUrl')">@L["Dashboard.Copy"]</button>
     </div>
 }

@@ -39,7 +39,7 @@ public class ExpenseGroupsModel(
         }
 
         await expenseCommands.CreateExpenseGroupAsync(HouseholdId, NewName, NewDescription);
-        TempData["Success"] = "Group created.";
+        TempData["Success"] = Loc["Flash.GroupCreated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 
@@ -49,7 +49,7 @@ public class ExpenseGroupsModel(
         try
         {
             await expenseCommands.DeleteExpenseGroupAsync(groupId);
-            TempData["Success"] = "Group deleted.";
+            TempData["Success"] = Loc["Flash.GroupDeleted"].Value;
         }
         catch (InvalidOperationException ex)
         {

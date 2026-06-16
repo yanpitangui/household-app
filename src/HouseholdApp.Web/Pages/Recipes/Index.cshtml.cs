@@ -25,7 +25,7 @@ public class RecipesIndexModel(
     public async Task<IActionResult> OnPostDeleteAsync(Guid recipeId)
     {
         await recipeCommands.DeleteRecipeAsync(recipeId);
-        TempData["Success"] = "Recipe deleted.";
+        TempData["Success"] = Loc["Flash.RecipeDeleted"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 }

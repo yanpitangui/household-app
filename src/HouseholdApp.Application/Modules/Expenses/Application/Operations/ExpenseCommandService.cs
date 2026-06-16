@@ -1,4 +1,3 @@
-using Cronos;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
@@ -91,22 +90,18 @@ public sealed class ExpenseCommandService(
 
     public async Task<Guid> CreateRecurringExpenseAsync(
         Guid householdId, Guid expenseGroupId, string description,
-        string cronExpression,
+        RecurrenceFrequency frequency, DateTimeOffset startAt,
         IReadOnlyList<FundingSourceDto> defaultFundingSources,
         IReadOnlyList<AllocationDto> defaultAllocations,
         CancellationToken ct = default)
     {
-        var cron = CronExpression.Parse(cronExpression);
-        var nextRun = cron.GetNextOccurrence(time.GetUtcNow(), TimeZoneInfo.Utc);
-
         var recurring = RecurringExpense.Create(
             householdId, expenseGroupId, description,
             defaultFundingSources.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
             defaultAllocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList(),
-            cronExpression, nextRun);
+            frequency, startAt);
 
-        var schedulerJobId = await scheduler.ScheduleCronAsync(
-            RecurringExpenseJobs.FunctionName, cronExpression, recurring.Id, ct);
+        var schedulerJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
         recurring.SetSchedulerJobId(schedulerJobId);
 
         try
@@ -123,6 +118,43 @@ public sealed class ExpenseCommandService(
 
         return recurring.Id;
     }
+
+    public async Task UpdateRecurringExpenseAsync(
+        Guid recurringExpenseId, string description,
+        RecurrenceFrequency frequency, DateTimeOffset startAt,
+        IReadOnlyList<FundingSourceDto> defaultFundingSources,
+        IReadOnlyList<AllocationDto> defaultAllocations,
+        CancellationToken ct = default)
+    {
+        var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct)
+            ?? throw new InvalidOperationException("Recurring expense not found.");
+
+        if (recurring.SchedulerJobId.HasValue)
+            await scheduler.UnscheduleCronAsync(recurring.SchedulerJobId.Value, ct);
+
+        recurring.Update(
+            frequency, startAt, description,
+            defaultFundingSources.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
+            defaultAllocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList());
+
+        var newJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
+        recurring.SetSchedulerJobId(newJobId);
+
+        try
+        {
+            await uow.BeginTransactionAsync(ct);
+            await recurringRepo.SaveAsync(recurring, ct);
+            await uow.CommitAsync(ct);
+        }
+        catch
+        {
+            await scheduler.UnscheduleCronAsync(newJobId, ct);
+            throw;
+        }
+    }
+
+    private Task<Guid> ScheduleAsync(string cronExpression, Guid entityId, CancellationToken ct) =>
+        scheduler.ScheduleCronAsync(RecurringExpenseJobs.FunctionName, cronExpression, entityId, ct);
 
     public async Task SpawnRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default)
     {

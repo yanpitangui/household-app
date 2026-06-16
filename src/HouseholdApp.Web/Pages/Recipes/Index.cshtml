@@ -1,7 +1,7 @@
 @page "/h/{householdId:guid}/Recipes"
 @model HouseholdApp.Web.Pages.Recipes.RecipesIndexModel
 @{
-    ViewData["Title"] = "Recipes";
+    ViewData["Title"] = L["Nav.Recipes"];
 }
 
 <div class="page-heading">
@@ -38,7 +38,7 @@ else
                 <form method="post" asp-page-handler="Delete">
                     <input type="hidden" name="recipeId" value="@r.Id" />
                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="Delete this recipe?">@L["Action.Delete"]</button>
+                            data-confirm="@L["Confirm.DeleteRecipe"]">@L["Action.Delete"]</button>
                 </form>
             </div>
         </div>

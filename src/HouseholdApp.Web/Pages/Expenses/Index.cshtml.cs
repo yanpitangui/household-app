@@ -29,7 +29,7 @@ public class ExpensesIndexModel(
     public async Task<IActionResult> OnPostVoidAsync(Guid expenseId)
     {
         await expenseCommands.VoidExpenseAsync(expenseId, null);
-        TempData["Success"] = "Expense voided.";
+        TempData["Success"] = Loc["Flash.ExpenseVoided"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
 }
