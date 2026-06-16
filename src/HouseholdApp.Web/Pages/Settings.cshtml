@@ -17,12 +17,12 @@
 
 <p class="section-title">@L["Settings.Language"]</p>
 <div class="app-card" style="display:flex;gap:10px;padding:14px 16px">
-    <a href="/SetCulture?culture=en&returnUrl=@returnUrl" hx-boost="false"
+    <a href="/set-culture?culture=en&returnUrl=@returnUrl" hx-boost="false"
        class="btn btn-sm @(Model.CurrentCulture.StartsWith("en") ? "btn-primary" : "btn-outline-secondary")"
        style="flex:1;text-align:center">
         🇺🇸 English
     </a>
-    <a href="/SetCulture?culture=pt-BR&returnUrl=@returnUrl" hx-boost="false"
+    <a href="/set-culture?culture=pt-BR&returnUrl=@returnUrl" hx-boost="false"
        class="btn btn-sm @(Model.CurrentCulture == "pt-BR" ? "btn-primary" : "btn-outline-secondary")"
        style="flex:1;text-align:center">
         🇧🇷 Português

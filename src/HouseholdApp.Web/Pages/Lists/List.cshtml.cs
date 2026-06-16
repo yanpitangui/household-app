@@ -39,6 +39,13 @@ public class ListModel(
         return Partial("_ItemsList", updated);
     }
 
+    public async Task<IActionResult> OnPostUncompleteItemAsync(Guid listId, Guid itemId)
+    {
+        await listCommands.UncompleteItemAsync(listId, itemId);
+        var updated = await listQueries.GetAsync(listId);
+        return Partial("_ItemsList", updated);
+    }
+
     public async Task<IActionResult> OnPostRemoveItemAsync(Guid listId, Guid itemId)
     {
         await listCommands.RemoveItemAsync(listId, itemId);

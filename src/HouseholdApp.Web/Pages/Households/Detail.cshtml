@@ -17,25 +17,25 @@
 </div>
 
 <div class="feature-grid">
-    <a href="/h/@Model.Household.Id/Lists" class="feature-card">
+    <a href="/h/@Model.Household.Id/lists" class="feature-card">
         <div class="feature-card-pip" style="background:var(--accent-lists)"></div>
         <div class="feature-card-title">@L["Feature.Lists.Title"]</div>
         <div class="feature-card-subtitle">@L["Feature.Lists.Subtitle"]</div>
         <div class="feature-card-icon">🛒</div>
     </a>
-    <a href="/h/@Model.Household.Id/Tasks" class="feature-card">
+    <a href="/h/@Model.Household.Id/tasks" class="feature-card">
         <div class="feature-card-pip" style="background:var(--accent-tasks)"></div>
         <div class="feature-card-title">@L["Feature.Tasks.Title"]</div>
         <div class="feature-card-subtitle">@L["Feature.Tasks.Subtitle"]</div>
         <div class="feature-card-icon">✅</div>
     </a>
-    <a href="/h/@Model.Household.Id/Recipes" class="feature-card">
+    <a href="/h/@Model.Household.Id/recipes" class="feature-card">
         <div class="feature-card-pip" style="background:var(--accent-recipes)"></div>
         <div class="feature-card-title">@L["Feature.Recipes.Title"]</div>
         <div class="feature-card-subtitle">@L["Feature.Recipes.Subtitle"]</div>
         <div class="feature-card-icon">🍳</div>
     </a>
-    <a href="/h/@Model.Household.Id/Expenses" class="feature-card">
+    <a href="/h/@Model.Household.Id/expenses" class="feature-card">
         <div class="feature-card-pip" style="background:var(--accent-expenses)"></div>
         <div class="feature-card-title">@L["Feature.Expenses.Title"]</div>
         <div class="feature-card-subtitle">@L["Feature.Expenses.Subtitle"]</div>
@@ -83,7 +83,7 @@
 
 @if (Model.InviteToken is not null)
 {
-    var joinUrl = $"{Request.Scheme}://{Request.Host}/Households/Join?token={Model.InviteToken}";
+    var joinUrl = $"{Request.Scheme}://{Request.Host}/households/join?token={Model.InviteToken}";
     <div class="alert alert-success mt-3">
         <strong>Single-use invite:</strong><br />
         <code style="font-size:12px;word-break:break-all">@joinUrl</code>

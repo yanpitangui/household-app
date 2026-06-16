@@ -23,6 +23,7 @@ public sealed class ShoppingItem
     public ShoppingItem() { }
 
     internal void Complete() => IsCompleted = true;
+    internal void Uncomplete() => IsCompleted = false;
 }
 
 public sealed class HouseholdList : AggregateRoot
@@ -74,6 +75,14 @@ public sealed class HouseholdList : AggregateRoot
             ?? throw new InvalidOperationException("Item not found.");
         item.Complete();
         Raise(new ListItemCompleted(Guid.NewGuid(), now, Id, itemId, completedBy));
+    }
+
+    public void UncompleteItem(Guid itemId, DateTimeOffset now)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId)
+            ?? throw new InvalidOperationException("Item not found.");
+        item.Uncomplete();
+        Raise(new ListItemUncompleted(Guid.NewGuid(), now, Id, itemId));
     }
 
     public void RemoveItem(Guid itemId, DateTimeOffset now)

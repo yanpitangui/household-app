@@ -30,6 +30,7 @@ builder.AddServiceDefaults();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddRazorPages(options =>
 {
+    options.Conventions.Add(new KebabCasePageRouteModelConvention());
     options.Conventions.AuthorizeFolder("/");
     options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/NotFound");
@@ -158,11 +159,11 @@ app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler("/error");
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/NotFound");
+app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
 app.MapDefaultEndpoints();
 

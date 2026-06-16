@@ -76,6 +76,30 @@ public sealed class ListCommandServiceTests
     }
 
     [Test]
+    public async Task UncompleteItemAsync_throws_when_list_not_found()
+    {
+        _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
+
+        await Assert.That(async () => await _sut.UncompleteItemAsync(Guid.NewGuid(), Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UncompleteItemAsync_marks_item_as_uncompleted()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Eggs", null, DateTimeOffset.UtcNow);
+        list.CompleteItem(item.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.UncompleteItemAsync(list.Id, item.Id);
+
+        await Assert.That(item.IsCompleted).IsFalse();
+    }
+
+    [Test]
     public async Task RemoveItemAsync_throws_when_list_not_found()
     {
         _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);

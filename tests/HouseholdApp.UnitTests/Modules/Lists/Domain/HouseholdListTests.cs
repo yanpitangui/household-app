@@ -72,6 +72,31 @@ public sealed class HouseholdListTests
     }
 
     [Test]
+    public async Task UncompleteItem_marks_item_uncompleted_and_raises_event()
+    {
+        var list = CreateList();
+        var item = list.AddItem("Milk", null, Now);
+        list.CompleteItem(item.Id, CreatorId, Now);
+        list.ClearEvents();
+
+        list.UncompleteItem(item.Id, Now);
+
+        await Assert.That(item.IsCompleted).IsFalse();
+        await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
+        await Assert.That(list.DomainEvents[0] is ListItemUncompleted).IsTrue();
+    }
+
+    [Test]
+    public async Task UncompleteItem_unknown_id_throws()
+    {
+        var list = CreateList();
+
+        await Assert.That(() =>
+            list.UncompleteItem(Guid.NewGuid(), Now))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
     public async Task RemoveItem_removes_from_list_and_raises_event()
     {
         var list = CreateList();

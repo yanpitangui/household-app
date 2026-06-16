@@ -14,6 +14,10 @@ public sealed record ListItemCompleted(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid ListId, Guid ItemId, Guid CompletedBy) : IDomainEvent;
 
+public sealed record ListItemUncompleted(
+    Guid EventId, DateTimeOffset OccurredAt,
+    Guid ListId, Guid ItemId) : IDomainEvent;
+
 public sealed record ListItemRemoved(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid ListId, Guid ItemId) : IDomainEvent;
