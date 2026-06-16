@@ -84,9 +84,16 @@ builder.Services.AddAuthentication(options =>
         options.Events ??= new OpenIdConnectEvents();
         options.Events.OnRedirectToIdentityProvider = context =>
         {
-            if (!builder.Environment.IsDevelopment())
-                context.ProtocolMessage.RedirectUri = context.ProtocolMessage.RedirectUri
-                    .Replace("http://", "https://");
+            if (!builder.Environment.IsDevelopment()
+                && context.ProtocolMessage.RedirectUri.StartsWith("http:", StringComparison.OrdinalIgnoreCase))
+            {
+                var uriBuilder = new UriBuilder(context.ProtocolMessage.RedirectUri)
+                {
+                    Scheme = "https",
+                    Port = -1
+                };
+                context.ProtocolMessage.RedirectUri = uriBuilder.ToString();
+            }
             return Task.CompletedTask;
         };
         options.Events.OnTokenValidated = async context =>
