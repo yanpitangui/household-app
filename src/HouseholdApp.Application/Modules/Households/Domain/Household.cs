@@ -24,12 +24,12 @@ public sealed class Household : AggregateRoot
     {
         var household = new Household
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             Name = name,
             CreatedAt = now
         };
         household._members.Add(new HouseholdMember(household.Id, ownerId, HouseholdRole.Owner));
-        household.Raise(new HouseholdCreated(Guid.NewGuid(), now, household.Id, ownerId));
+        household.Raise(new HouseholdCreated(Guid.CreateVersion7(), now, household.Id, ownerId));
         return household;
     }
 
@@ -38,7 +38,7 @@ public sealed class Household : AggregateRoot
         EnsureMember(invitedBy, HouseholdRole.Admin);
 
         var invitation = HouseholdInvitation.Create(Id, invitedBy, now, expiry);
-        Raise(new HouseholdMemberInvited(Guid.NewGuid(), now, Id, invitation.Id));
+        Raise(new HouseholdMemberInvited(Guid.CreateVersion7(), now, Id, invitation.Id));
         return invitation;
     }
 
@@ -46,7 +46,7 @@ public sealed class Household : AggregateRoot
     {
         invitation.Consume(userId, now);
         _members.Add(new HouseholdMember(Id, userId, HouseholdRole.Member));
-        Raise(new HouseholdMemberJoined(Guid.NewGuid(), now, Id, userId, HouseholdRole.Member));
+        Raise(new HouseholdMemberJoined(Guid.CreateVersion7(), now, Id, userId, HouseholdRole.Member));
     }
 
     public void RemoveMember(Guid requestedBy, Guid targetUserId, DateTimeOffset now)
@@ -57,7 +57,7 @@ public sealed class Household : AggregateRoot
         if (member.Role == HouseholdRole.Owner)
             throw new InvalidOperationException("Cannot remove the owner.");
         _members.Remove(member);
-        Raise(new HouseholdMemberRemoved(Guid.NewGuid(), now, Id, targetUserId));
+        Raise(new HouseholdMemberRemoved(Guid.CreateVersion7(), now, Id, targetUserId));
     }
 
     public void ChangeRole(Guid requestedBy, Guid targetUserId, HouseholdRole newRole, DateTimeOffset now)
@@ -68,7 +68,7 @@ public sealed class Household : AggregateRoot
         if (member.Role == HouseholdRole.Owner)
             throw new InvalidOperationException("Cannot change the owner's role directly. Transfer ownership first.");
         member.SetRole(newRole);
-        Raise(new HouseholdRoleChanged(Guid.NewGuid(), now, Id, targetUserId, newRole));
+        Raise(new HouseholdRoleChanged(Guid.CreateVersion7(), now, Id, targetUserId, newRole));
     }
 
     private void EnsureMember(Guid userId, HouseholdRole minimumRole)

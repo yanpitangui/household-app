@@ -8,7 +8,7 @@ public sealed record ListCreated(
 
 public sealed record ListItemAdded(
     Guid EventId, DateTimeOffset OccurredAt,
-    Guid ListId, Guid ItemId, string Name, string? Category, int SortOrder) : IDomainEvent;
+    Guid ListId, Guid ItemId, string Name, Guid? CatalogItemId, Guid? CategoryId, Guid AddedBy, int SortOrder) : IDomainEvent;
 
 public sealed record ListItemCompleted(
     Guid EventId, DateTimeOffset OccurredAt,

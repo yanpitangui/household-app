@@ -25,7 +25,7 @@ public sealed class HouseholdTask : AggregateRoot
     {
         var task = new HouseholdTask
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             Title = title,
             Description = description,
@@ -35,14 +35,14 @@ public sealed class HouseholdTask : AggregateRoot
             RecurringTaskId = recurringTaskId,
             CreatedAt = now
         };
-        task.Raise(new TaskCreated(Guid.NewGuid(), now, task.Id, householdId, title, assignedTo, dueDate, recurringTaskId));
+        task.Raise(new TaskCreated(Guid.CreateVersion7(), now, task.Id, householdId, title, assignedTo, dueDate, recurringTaskId));
         return task;
     }
 
     public void Assign(Guid userId, DateTimeOffset now)
     {
         AssignedTo = userId;
-        Raise(new TaskAssigned(Guid.NewGuid(), now, Id, HouseholdId, userId));
+        Raise(new TaskAssigned(Guid.CreateVersion7(), now, Id, HouseholdId, userId));
     }
 
     public void Complete(Guid completedBy, DateTimeOffset now)
@@ -50,6 +50,6 @@ public sealed class HouseholdTask : AggregateRoot
         if (Status == TaskStatus.Completed)
             throw new InvalidOperationException("Task already completed.");
         Status = TaskStatus.Completed;
-        Raise(new TaskCompleted(Guid.NewGuid(), now, Id, HouseholdId, completedBy));
+        Raise(new TaskCompleted(Guid.CreateVersion7(), now, Id, HouseholdId, completedBy));
     }
 }

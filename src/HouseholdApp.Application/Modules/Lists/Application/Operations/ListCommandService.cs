@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Modules.Catalog.Application.Ports;
 using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.Application.Modules.Lists.Domain;
 using HouseholdApp.Application.Shared.Events;
@@ -11,7 +12,8 @@ public sealed class ListCommandService(
     IUnitOfWork uow,
     IEventBus eventBus,
     TimeProvider time,
-    ICurrentUser currentUser) : IListCommands
+    ICurrentUser currentUser,
+    ICatalogCommands catalogCommands) : IListCommands
 {
     public async Task<Guid> CreateListAsync(Guid householdId, string name, CancellationToken ct = default)
     {
@@ -23,15 +25,21 @@ public sealed class ListCommandService(
         return list.Id;
     }
 
-    public async Task<Guid> AddItemAsync(Guid listId, string name, string? category, CancellationToken ct = default)
+    public async Task<Guid> AddItemAsync(Guid listId, string name, Guid? catalogItemId, Guid? categoryId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);
         var list = await repo.GetAsync(listId, ct)
             ?? throw new InvalidOperationException("List not found.");
-        var item = list.AddItem(name, category, time.GetUtcNow());
+        var item = list.AddItem(name, catalogItemId, categoryId, currentUser.Id, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
         await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+
+        if (catalogItemId.HasValue)
+            await catalogCommands.IncrementPopularityAsync(catalogItemId.Value, ct);
+        else
+            await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, name, categoryId, ct);
+
         return item.Id;
     }
 

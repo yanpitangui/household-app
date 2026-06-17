@@ -38,6 +38,36 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
     private static async Task ApplySchemasAsync(NpgsqlConnection conn)
     {
         await conn.ExecuteAsync("""
+            CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+            CREATE SCHEMA IF NOT EXISTS catalog;
+            CREATE TABLE IF NOT EXISTS catalog.categories (
+                id           UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                household_id UUID,
+                language     TEXT,
+                name         TEXT NOT NULL,
+                emoji        TEXT NOT NULL,
+                sort_order   INTEGER NOT NULL DEFAULT 0,
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uix_catalog_categories_global    ON catalog.categories (lower(name), language) WHERE household_id IS NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS uix_catalog_categories_household ON catalog.categories (household_id, lower(name)) WHERE household_id IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS catalog.items (
+                id           UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                household_id UUID,
+                language     TEXT,
+                name         TEXT NOT NULL,
+                category_id  UUID REFERENCES catalog.categories(id) ON DELETE SET NULL,
+                default_unit TEXT,
+                popularity   INTEGER NOT NULL DEFAULT 0,
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uix_catalog_items_global    ON catalog.items (lower(name), language) WHERE household_id IS NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS uix_catalog_items_household ON catalog.items (household_id, lower(name)) WHERE household_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS ix_catalog_items_name_trgm ON catalog.items USING gin (name gin_trgm_ops);
+
             CREATE SCHEMA IF NOT EXISTS identity;
             CREATE TABLE IF NOT EXISTS identity.users (
                 id            UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -83,14 +113,16 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
             );
             CREATE TABLE IF NOT EXISTS lists.items (
-                id           UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-                list_id      UUID        NOT NULL REFERENCES lists.lists(id) ON DELETE CASCADE,
-                name         TEXT        NOT NULL,
-                category     TEXT,
-                sort_order   INTEGER     NOT NULL DEFAULT 1000,
-                is_completed BOOLEAN     NOT NULL DEFAULT false,
-                completed_by UUID,
-                completed_at TIMESTAMPTZ
+                id              UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                list_id         UUID        NOT NULL REFERENCES lists.lists(id) ON DELETE CASCADE,
+                name            TEXT        NOT NULL,
+                catalog_item_id UUID        REFERENCES catalog.items(id) ON DELETE SET NULL,
+                category_id     UUID        REFERENCES catalog.categories(id) ON DELETE SET NULL,
+                added_by        UUID,
+                sort_order      INTEGER     NOT NULL DEFAULT 1000,
+                is_completed    BOOLEAN     NOT NULL DEFAULT false,
+                completed_by    UUID,
+                completed_at    TIMESTAMPTZ
             );
             CREATE INDEX IF NOT EXISTS ix_lists_items_list_id   ON lists.items (list_id);
             CREATE INDEX IF NOT EXISTS ix_lists_lists_household ON lists.lists (household_id);

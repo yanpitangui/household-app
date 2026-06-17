@@ -26,13 +26,13 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
         {
             await conn.ExecuteAsync(
                 """
-                INSERT INTO lists.items (id, list_id, name, category, sort_order, is_completed)
-                VALUES (@Id, @ListId, @Name, @Category, @SortOrder, @IsCompleted)
+                INSERT INTO lists.items (id, list_id, name, catalog_item_id, category_id, added_by, sort_order, is_completed)
+                VALUES (@Id, @ListId, @Name, @CatalogItemId, @CategoryId, @AddedBy, @SortOrder, @IsCompleted)
                 ON CONFLICT (id) DO UPDATE
                     SET is_completed = EXCLUDED.is_completed,
                         sort_order = EXCLUDED.sort_order
                 """,
-                new { item.Id, item.ListId, item.Name, item.Category, item.SortOrder, item.IsCompleted }, tx);
+                new { item.Id, item.ListId, item.Name, item.CatalogItemId, item.CategoryId, item.AddedBy, item.SortOrder, item.IsCompleted }, tx);
         }
     }
 
@@ -49,7 +49,7 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
         if (row is null) return null;
 
         var items = await conn.QueryAsync<ListItem>(
-            "SELECT id, list_id, name, category, sort_order, is_completed FROM lists.items WHERE list_id = @listId ORDER BY sort_order",
+            "SELECT id, list_id, name, catalog_item_id, category_id, added_by, sort_order, is_completed FROM lists.items WHERE list_id = @listId ORDER BY sort_order",
             new { listId },
             tx);
 

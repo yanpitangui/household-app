@@ -124,6 +124,12 @@
   <data name="Lists.CategoryPlaceholder"><value>Category (optional)</value></data>
   <data name="Lists.AddItem"><value>+ Add</value></data>
   <data name="Lists.ItemsCount"><value>{0} / {1} items</value></data>
+  <data name="Lists.CategorySelect"><value>Category</value></data>
+  <data name="Lists.ItemDetail.Category"><value>Category</value></data>
+  <data name="Lists.ItemDetail.List"><value>List</value></data>
+  <data name="Lists.ItemDetail.AddedBy"><value>Added by</value></data>
+  <data name="Catalog.NewCategory"><value>New category</value></data>
+  <data name="Catalog.NewCategoryName"><value>Category name...</value></data>
 
   <!-- Tasks -->
   <data name="Tasks.Recurring"><value>Recurring</value></data>

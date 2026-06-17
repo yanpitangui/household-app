@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using HouseholdApp.Application.Modules.Catalog.Application.Ports;
 using HouseholdApp.Application.Modules.Lists.Application.Operations;
 using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.Application.Modules.Lists.Domain;
@@ -15,12 +16,13 @@ public sealed class ListCommandServiceTests
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly ICatalogCommands _catalogCommands = Substitute.For<ICatalogCommands>();
     private readonly ListCommandService _sut;
 
     public ListCommandServiceTests()
     {
         _currentUser.Id.Returns(Guid.NewGuid());
-        _sut = new ListCommandService(_repo, _uow, _eventBus, new FakeTimeProvider(), _currentUser);
+        _sut = new ListCommandService(_repo, _uow, _eventBus, new FakeTimeProvider(), _currentUser, _catalogCommands);
     }
 
     [Test]
@@ -36,7 +38,7 @@ public sealed class ListCommandServiceTests
     {
         _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
 
-        await Assert.That(async () => await _sut.AddItemAsync(Guid.NewGuid(), "Milk", null))
+        await Assert.That(async () => await _sut.AddItemAsync(Guid.NewGuid(), "Milk", null, null))
             .Throws<InvalidOperationException>();
     }
 
@@ -46,10 +48,10 @@ public sealed class ListCommandServiceTests
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
 
-        var itemId = await _sut.AddItemAsync(list.Id, "Milk", "Dairy");
+        var itemId = await _sut.AddItemAsync(list.Id, "Milk", null, null);
 
         await Assert.That(itemId).IsNotEqualTo(Guid.Empty);
-        await Assert.That(list.Items.Any(i => i.Name == "Milk" && i.Category == "Dairy")).IsTrue();
+        await Assert.That(list.Items.Any(i => i.Name == "Milk")).IsTrue();
     }
 
     [Test]
@@ -65,7 +67,7 @@ public sealed class ListCommandServiceTests
     public async Task CompleteItemAsync_marks_item_as_completed()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Eggs", null, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Eggs", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
@@ -88,7 +90,7 @@ public sealed class ListCommandServiceTests
     public async Task UncompleteItemAsync_marks_item_as_uncompleted()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Eggs", null, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Eggs", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.CompleteItem(item.Id, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
@@ -112,7 +114,7 @@ public sealed class ListCommandServiceTests
     public async Task RemoveItemAsync_removes_item_from_list()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Bread", null, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Bread", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);

@@ -38,7 +38,7 @@ public sealed class RecurringExpense
 
         return new RecurringExpense
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             ExpenseGroupId = expenseGroupId,
             Description = description,

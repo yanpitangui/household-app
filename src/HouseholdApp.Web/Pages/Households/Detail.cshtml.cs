@@ -30,6 +30,8 @@ public class HouseholdDetailModel(
         if (Household is not null)
             Response.Cookies.Append("last_household", Id.ToString(),
                 new CookieOptions { Expires = DateTimeOffset.UtcNow.AddDays(90), IsEssential = true });
+        else if (Request.Cookies["last_household"] == Id.ToString())
+            Response.Cookies.Delete("last_household");
     }
 
     [RequireManage]

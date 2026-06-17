@@ -18,7 +18,7 @@ public sealed class RecurringTask
         Guid householdId, string title, string? description,
         Guid? defaultAssignedTo, string cronExpression, DateTimeOffset? nextRunAt) => new()
     {
-        Id = Guid.NewGuid(),
+        Id = Guid.CreateVersion7(),
         HouseholdId = householdId,
         Title = title,
         Description = description,

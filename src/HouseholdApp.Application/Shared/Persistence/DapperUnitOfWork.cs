@@ -31,7 +31,14 @@ internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource) : IUnitOfWor
         if (_transaction is null)
             throw new InvalidOperationException("No transaction started.");
         await _transaction.CommitAsync(ct);
+        await _transaction.DisposeAsync();
+        _transaction = null;
         _committed = true;
+        if (_connection is not null)
+        {
+            await _connection.DisposeAsync();
+            _connection = null;
+        }
     }
 
     public async ValueTask DisposeAsync()

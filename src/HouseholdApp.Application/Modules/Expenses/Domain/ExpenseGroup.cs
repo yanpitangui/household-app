@@ -28,14 +28,14 @@ public sealed class ExpenseGroup : AggregateRoot
 
         var group = new ExpenseGroup
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             Name = name,
             Description = description,
             DefaultRules = defaultRules,
             CreatedAt = now
         };
-        group.Raise(new ExpenseGroupCreated(Guid.NewGuid(), now, group.Id, householdId, name));
+        group.Raise(new ExpenseGroupCreated(Guid.CreateVersion7(), now, group.Id, householdId, name));
         return group;
     }
 }

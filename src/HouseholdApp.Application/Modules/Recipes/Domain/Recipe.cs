@@ -30,7 +30,7 @@ public sealed class Recipe : AggregateRoot
     {
         var recipe = new Recipe
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             Title = title,
             Description = description,
@@ -42,7 +42,7 @@ public sealed class Recipe : AggregateRoot
             CreatedBy = createdBy,
             CreatedAt = now
         };
-        recipe.Raise(new RecipeCreated(Guid.NewGuid(), now, recipe.Id, householdId, createdBy, sourceUrl));
+        recipe.Raise(new RecipeCreated(Guid.CreateVersion7(), now, recipe.Id, householdId, createdBy, sourceUrl));
         return recipe;
     }
 }

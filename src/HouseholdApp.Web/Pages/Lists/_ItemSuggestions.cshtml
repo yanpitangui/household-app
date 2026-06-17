@@ -1,0 +1,19 @@
+@using HouseholdApp.Application.Modules.Catalog.Application.Ports
+@model IEnumerable<CatalogItemSuggestion>
+
+@foreach (var s in Model)
+{
+    <div class="suggestion-item"
+         onclick="selectCatalogItem(this)"
+         data-name="@s.Name"
+         data-category-id="@(s.CategoryId?.ToString() ?? "")"
+         data-catalog-id="@s.Id"
+         style="padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:14px">
+        <span>@s.CategoryEmoji</span>
+        <strong>@s.Name</strong>
+        @if (s.CategoryName is not null)
+        {
+            <span class="list-row-badge" style="margin-left:auto; background:rgba(245,158,11,0.12); color:var(--accent-lists)">@s.CategoryName</span>
+        }
+    </div>
+}

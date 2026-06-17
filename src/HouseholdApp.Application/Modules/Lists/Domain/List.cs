@@ -7,16 +7,20 @@ public sealed class ListItem
     public Guid Id { get; set; }
     public Guid ListId { get; set; }
     public string Name { get; set; } = default!;
-    public string? Category { get; set; }
+    public Guid? CatalogItemId { get; set; }
+    public Guid? CategoryId { get; set; }
+    public Guid AddedBy { get; set; }
     public int SortOrder { get; set; }
     public bool IsCompleted { get; set; }
 
-    internal ListItem(Guid listId, string name, string? category, int sortOrder)
+    internal ListItem(Guid listId, string name, Guid? catalogItemId, Guid? categoryId, Guid addedBy, int sortOrder)
     {
-        Id = Guid.NewGuid();
+        Id = Guid.CreateVersion7();
         ListId = listId;
         Name = name;
-        Category = category;
+        CatalogItemId = catalogItemId;
+        CategoryId = categoryId;
+        AddedBy = addedBy;
         SortOrder = sortOrder;
     }
 
@@ -50,22 +54,22 @@ public sealed class HouseholdList : AggregateRoot
     {
         var list = new HouseholdList
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             Name = name,
             CreatedBy = createdBy,
             CreatedAt = now
         };
-        list.Raise(new ListCreated(Guid.NewGuid(), now, list.Id, householdId, name, createdBy));
+        list.Raise(new ListCreated(Guid.CreateVersion7(), now, list.Id, householdId, name, createdBy));
         return list;
     }
 
-    public ListItem AddItem(string name, string? category, DateTimeOffset now)
+    public ListItem AddItem(string name, Guid? catalogItemId, Guid? categoryId, Guid addedBy, DateTimeOffset now)
     {
         var sortOrder = _items.Count == 0 ? 1000 : _items.Max(i => i.SortOrder) + 1000;
-        var item = new ListItem(Id, name, category, sortOrder);
+        var item = new ListItem(Id, name, catalogItemId, categoryId, addedBy, sortOrder);
         _items.Add(item);
-        Raise(new ListItemAdded(Guid.NewGuid(), now, Id, item.Id, name, category, sortOrder));
+        Raise(new ListItemAdded(Guid.CreateVersion7(), now, Id, item.Id, name, catalogItemId, categoryId, addedBy, sortOrder));
         return item;
     }
 
@@ -74,7 +78,7 @@ public sealed class HouseholdList : AggregateRoot
         var item = _items.FirstOrDefault(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
         item.Complete();
-        Raise(new ListItemCompleted(Guid.NewGuid(), now, Id, itemId, completedBy));
+        Raise(new ListItemCompleted(Guid.CreateVersion7(), now, Id, itemId, completedBy));
     }
 
     public void UncompleteItem(Guid itemId, DateTimeOffset now)
@@ -82,7 +86,7 @@ public sealed class HouseholdList : AggregateRoot
         var item = _items.FirstOrDefault(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
         item.Uncomplete();
-        Raise(new ListItemUncompleted(Guid.NewGuid(), now, Id, itemId));
+        Raise(new ListItemUncompleted(Guid.CreateVersion7(), now, Id, itemId));
     }
 
     public void RemoveItem(Guid itemId, DateTimeOffset now)
@@ -90,6 +94,6 @@ public sealed class HouseholdList : AggregateRoot
         var item = _items.FirstOrDefault(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
         _items.Remove(item);
-        Raise(new ListItemRemoved(Guid.NewGuid(), now, Id, itemId));
+        Raise(new ListItemRemoved(Guid.CreateVersion7(), now, Id, itemId));
     }
 }

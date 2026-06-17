@@ -29,10 +29,19 @@
                                 hx-swap="outerHTML"
                                 style="border:none; padding:0">✓</button>
                     }
-                    <span class="check-item-text" style="flex:1; font-size:14px; color:var(--text-secondary)">@item.Name</span>
-                    @if (item.Category is not null)
+                    <span class="check-item-text"
+                          style="flex:1; font-size:14px; color:var(--text-secondary); cursor:pointer"
+                          onclick="showItemDetail(this)"
+                          data-name="@item.Name"
+                          data-category="@item.CategoryName"
+                          data-category-emoji="@item.CategoryEmoji"
+                          data-added-by="@item.AddedByName"
+                          data-list-name="@Model.Name">@item.Name</span>
+                    @if (item.CategoryName is not null)
                     {
-                        <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">@item.Category</span>
+                        <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">
+                            @item.CategoryEmoji @item.CategoryName
+                        </span>
                     }
                     <button class="btn btn-sm btn-outline-danger"
                             hx-post="?handler=RemoveItem"

@@ -15,7 +15,7 @@ public sealed class User
     {
         return new User
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             Subject = subject,
             Email = email,
             DisplayName = displayName,

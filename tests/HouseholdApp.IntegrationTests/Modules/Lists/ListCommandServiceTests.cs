@@ -1,4 +1,5 @@
 using Dapper;
+using HouseholdApp.Application.Modules.Catalog;
 using HouseholdApp.Application.Modules.Lists;
 using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.Application.Shared.Events;
@@ -23,6 +24,7 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
         services.AddScoped<MutableCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<MutableCurrentUser>());
         services.AddPersistence();
+        services.AddCatalogModule();
         services.AddListsModule();
         services.AddEventBus();
         return services.BuildServiceProvider();
@@ -49,7 +51,7 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
 
         Guid itemId;
         await using (var s = Scope(userId))
-            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Milk", null);
+            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Milk", null, null);
 
         await using (var s = Scope(userId))
             await s.ServiceProvider.GetRequiredService<IListCommands>().CompleteItemAsync(listId, itemId);

@@ -1,4 +1,6 @@
 using Dapper;
+using HouseholdApp.Application.Modules.Catalog.Application.Ports;
+using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using HouseholdApp.Application.Modules.Lists.Application.Operations;
 using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.IntegrationTests.Infrastructure;
@@ -8,7 +10,7 @@ namespace HouseholdApp.IntegrationTests.Modules.Lists;
 [ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
 public sealed class ListQueryServiceTests(PostgresFixture db)
 {
-    private readonly IListQueries _sut = new ListQueryService(db.DataSource);
+    private IListQueries Sut() => new ListQueryService(db.DataSource, new NullCatalogQueries(), new NullUserQuery());
 
     [Test]
     public async Task ListAsync_returns_summaries_with_item_counts()
@@ -27,7 +29,7 @@ public sealed class ListQueryServiceTests(PostgresFixture db)
             "INSERT INTO lists.items (id, list_id, name, sort_order, is_completed) VALUES (@id, @listId, 'Eggs', 2000, true)",
             new { id = Guid.NewGuid(), listId });
 
-        var result = await _sut.ListAsync(householdId);
+        var result = await Sut().ListAsync(householdId);
 
         await Assert.That(result.Count).IsEqualTo(1);
         var summary = result[0];
@@ -40,7 +42,7 @@ public sealed class ListQueryServiceTests(PostgresFixture db)
     [Test]
     public async Task ListAsync_returns_empty_for_unknown_household()
     {
-        var result = await _sut.ListAsync(Guid.NewGuid());
+        var result = await Sut().ListAsync(Guid.NewGuid());
         await Assert.That(result).IsEmpty();
     }
 
@@ -64,7 +66,7 @@ public sealed class ListQueryServiceTests(PostgresFixture db)
             "INSERT INTO lists.items (id, list_id, name, sort_order) VALUES (@id, @listId, 'Apple', 1000)",
             new { id = item1Id, listId });
 
-        var detail = await _sut.GetAsync(listId);
+        var detail = await Sut().GetAsync(listId);
 
         await Assert.That(detail).IsNotNull();
         await Assert.That(detail!.Id).IsEqualTo(listId);
@@ -76,7 +78,27 @@ public sealed class ListQueryServiceTests(PostgresFixture db)
     [Test]
     public async Task GetAsync_returns_null_for_unknown_list()
     {
-        var result = await _sut.GetAsync(Guid.NewGuid());
+        var result = await Sut().GetAsync(Guid.NewGuid());
         await Assert.That(result).IsNull();
+    }
+
+    private sealed class NullCatalogQueries : ICatalogQueries
+    {
+        public Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<CatalogItemSuggestion>>([]);
+
+        public Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<CategoryDto>>([]);
+
+        public Task<IReadOnlyDictionary<Guid, CategoryDto>> GetCategoriesByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, CategoryDto>>(new Dictionary<Guid, CategoryDto>());
+    }
+
+    private sealed class NullUserQuery : IUserQuery
+    {
+        public Task<UserProfile?> GetBySubjectAsync(string subject, CancellationToken ct = default) => Task.FromResult<UserProfile?>(null);
+        public Task<UserProfile?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<UserProfile?>(null);
+        public Task<IReadOnlyList<UserProfile>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<UserProfile>>([]);
     }
 }

@@ -1,0 +1,8 @@
+@using HouseholdApp.Application.Modules.Catalog.Application.Ports
+@model IEnumerable<CategoryDto>
+
+<option value="">@L["Lists.CategorySelect"]</option>
+@foreach (var cat in Model)
+{
+    <option value="@cat.Id">@cat.Emoji @cat.Name</option>
+}

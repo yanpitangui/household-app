@@ -16,18 +16,82 @@
 </div>
 
 <div class="app-card mb-4">
-    <form hx-post="?handler=AddItem"
-          hx-target="#items-list"
-          hx-swap="outerHTML"
-          hx-on::after-request="this.reset()"
-          class="d-flex gap-2 flex-wrap">
+    <form id="add-item-form" class="d-flex gap-2 flex-wrap">
         <input type="hidden" name="ListId" value="@Model.List.Id" />
-        <input name="ItemName" class="form-control" placeholder="@L["Lists.AddItemPlaceholder"]" style="min-width:160px; flex:1" required />
-        <input name="Category" class="form-control" placeholder="@L["Lists.CategoryPlaceholder"]" style="min-width:130px; flex:0 0 auto" />
-        <button type="submit" class="btn btn-primary">@L["Lists.AddItem"]</button>
+        <input type="hidden" name="CatalogItemId" id="catalog-item-id" />
+
+        <div style="position:relative; flex:1; min-width:160px">
+            <input name="ItemName" id="item-name-input" autocomplete="off"
+                   class="form-control"
+                   placeholder="@L["Lists.AddItemPlaceholder"]"
+                   hx-get="?handler=Suggest"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#item-suggestions"
+                   hx-include="[name='ListId']"
+                   required />
+            <div id="item-suggestions" style="position:absolute; top:100%; left:0; right:0; z-index:100; background:var(--surface); border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+        </div>
+
+        <div style="flex:0 0 auto; min-width:160px">
+            <select name="CategoryId" id="category-select" class="form-control">
+                @await Html.PartialAsync("_CategoryOptions", Model.Categories)
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary"
+                hx-post="?handler=AddItem"
+                hx-target="#items-list"
+                hx-swap="outerHTML"
+                hx-include="#add-item-form"
+                hx-on::after-request="document.getElementById('add-item-form').reset(); document.getElementById('item-suggestions').innerHTML=''; document.getElementById('catalog-item-id').value='';">
+            @L["Lists.AddItem"]
+        </button>
     </form>
+
+    <div id="new-category-form" hidden style="margin-top:8px">
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(36px,1fr)); gap:4px; margin-bottom:8px">
+            <input id="new-cat-emoji" name="categoryEmoji" type="hidden" value="" />
+            @foreach (var emoji in new[]{"🍅","🥩","🍞","🥛","❄️","🌾","🥤","🧂","🍫","🪴","🧴","🐾","🍱","🍴","🍿","🔋","🧹","💊","📦","🧺","🥗","🍳","🥬","🧅","🍋","🍇","🥦","🧀","🥚","🫙"})
+            {
+                <button type="button" class="cat-emoji-btn" style="font-size:18px; background:none; border:2px solid transparent; border-radius:6px; padding:4px; cursor:pointer; min-height:36px; text-align:center"
+                        onclick="(function(el,e){document.getElementById('new-cat-emoji').value=e; document.getElementById('new-cat-emoji-display').textContent=e; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); el.style.borderColor='var(--bs-primary)';})(this,'@emoji')">@emoji</button>
+            }
+        </div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+            <span id="new-cat-emoji-display" style="font-size:22px; min-width:32px; text-align:center; flex:none">🏷️</span>
+            <input id="new-cat-name" name="categoryName" placeholder="@L["Catalog.NewCategoryName"]" class="form-control" style="flex:1; min-width:0" />
+            <button type="button" class="btn btn-sm btn-secondary" style="flex:none; white-space:nowrap"
+                    hx-post="?handler=AddCategory"
+                    hx-include="#new-cat-name,#new-cat-emoji"
+                    hx-target="#category-select"
+                    hx-swap="innerHTML"
+                    hx-on::before-request="if(!document.getElementById('new-cat-name').value.trim()){document.getElementById('new-cat-error').hidden=false; event.preventDefault();}"
+                    hx-on::after-request="if(event.detail.successful){document.getElementById('new-category-form').hidden=true; document.getElementById('new-cat-error').hidden=true; document.getElementById('new-cat-name').value=''; document.getElementById('new-cat-emoji').value=''; document.getElementById('new-cat-emoji-display').textContent='🏷️'; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent');} else {document.getElementById('new-cat-error').hidden=false;}">
+                @L["Action.Save"]
+            </button>
+        </div>
+        <span id="new-cat-error" hidden style="font-size:12px; color:var(--bs-danger); display:block; margin-top:4px">@L["Catalog.NameRequired"]</span>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" style="margin-top:6px"
+            onclick="document.getElementById('new-category-form').hidden=false">
+        + @L["Catalog.NewCategory"]
+    </button>
 </div>
 
 <div id="items-list">
     @await Html.PartialAsync("_ItemsList", Model.List)
 </div>
+
+<dialog id="item-detail-dialog" style="border:none; border-radius:12px; padding:24px; min-width:280px; box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <button onclick="this.closest('dialog').close()" style="float:right; border:none; background:none; font-size:18px; cursor:pointer; color:var(--text-muted)">✕</button>
+    <h3 id="detail-name" style="margin:0 0 16px; font-size:16px"></h3>
+    <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
+        <strong>@L["Lists.ItemDetail.Category"]:</strong> <span id="detail-category"></span>
+    </p>
+    <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
+        <strong>@L["Lists.ItemDetail.List"]:</strong> <span id="detail-list-name"></span>
+    </p>
+    <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
+        <strong>@L["Lists.ItemDetail.AddedBy"]:</strong> <span id="detail-added-by"></span>
+    </p>
+</dialog>

@@ -20,7 +20,7 @@ public sealed class HouseholdInvitation
     {
         return new HouseholdInvitation
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             Token = GenerateToken(),
             CreatedBy = createdBy,

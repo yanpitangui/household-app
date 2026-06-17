@@ -48,9 +48,9 @@ public sealed class ExpenseCommandService(
         Guid householdId, Guid payerId, Guid recipientId, long cents, DateTimeOffset date,
         CancellationToken ct = default)
     {
-        var settlementId = Guid.NewGuid();
+        var settlementId = Guid.CreateVersion7();
         var @event = new SettlementRecorded(
-            Guid.NewGuid(), time.GetUtcNow(), settlementId,
+            Guid.CreateVersion7(), time.GetUtcNow(), settlementId,
             householdId, payerId, recipientId, cents, date);
 
         session.Events.Append(settlementId, @event);
@@ -82,7 +82,7 @@ public sealed class ExpenseCommandService(
         if (hasActiveExpenses)
             throw new InvalidOperationException("Cannot delete an expense group with active expenses.");
 
-        var @event = new ExpenseGroupDeleted(Guid.NewGuid(), time.GetUtcNow(), groupId, doc.HouseholdId);
+        var @event = new ExpenseGroupDeleted(Guid.CreateVersion7(), time.GetUtcNow(), groupId, doc.HouseholdId);
         session.Events.Append(groupId, @event);
         session.Delete<ExpenseGroupDocument>(groupId);
         await session.SaveChangesAsync(ct);

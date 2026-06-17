@@ -6,6 +6,7 @@ var googleClientSecret = builder.AddParameter("google-client-secret", secret: tr
 var adminEmail = builder.AddParameter("admin-email", secret: false);
 
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
+    .WithImageTag("18-alpine")
     .WithPgAdmin()
     .WithDataVolume("household-postgres-data")
     .WithEnvironment("POSTGRES_DB", "householdapp")
