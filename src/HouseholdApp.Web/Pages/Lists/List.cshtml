@@ -29,11 +29,11 @@
                    hx-target="#item-suggestions"
                    hx-include="[name='ListId']"
                    required />
-            <div id="item-suggestions" style="position:absolute; top:100%; left:0; right:0; z-index:100; background:var(--surface); border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+            <div id="item-suggestions" style="position:absolute; top:100%; left:0; right:0; z-index:100; border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
         </div>
 
         <div style="flex:0 0 auto; min-width:160px">
-            <select name="CategoryId" id="category-select" class="form-control">
+            <select name="CategoryId" id="category-select" class="form-select">
                 @await Html.PartialAsync("_CategoryOptions", Model.Categories)
             </select>
         </div>
@@ -66,7 +66,7 @@
                     hx-target="#category-select"
                     hx-swap="innerHTML"
                     hx-on::before-request="if(!document.getElementById('new-cat-name').value.trim()){document.getElementById('new-cat-error').hidden=false; event.preventDefault();}"
-                    hx-on::after-request="if(event.detail.successful){document.getElementById('new-category-form').hidden=true; document.getElementById('new-cat-error').hidden=true; document.getElementById('new-cat-name').value=''; document.getElementById('new-cat-emoji').value=''; document.getElementById('new-cat-emoji-display').textContent='🏷️'; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent');} else {document.getElementById('new-cat-error').hidden=false;}">
+                    hx-on::after-request="if(event.detail.successful){document.getElementById('new-category-form').hidden=true; document.getElementById('new-cat-error').hidden=true; document.getElementById('new-cat-name').value=''; document.getElementById('new-cat-emoji').value=''; document.getElementById('new-cat-emoji-display').textContent='🏷️'; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); refreshCategoryPicker();} else {document.getElementById('new-cat-error').hidden=false;}">
                 @L["Action.Save"]
             </button>
         </div>
