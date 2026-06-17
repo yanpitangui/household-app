@@ -521,6 +521,10 @@ textarea.form-control { resize: vertical; }
     background: var(--card-bg-hover);
 }
 
+.cat-emoji-btn:hover {
+    background: var(--card-bg-hover) !important;
+}
+
 .app-select-native {
     position: absolute !important;
     width: 1px !important;

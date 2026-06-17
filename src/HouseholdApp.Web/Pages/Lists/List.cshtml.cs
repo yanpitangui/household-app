@@ -22,6 +22,13 @@ public class ListModel(
     [BindProperty(SupportsGet = true)]
     public Guid ListId { get; set; }
 
+    public static readonly string[] CategoryEmojis =
+    [
+        "🍅","🥩","🍞","🥛","❄️","🌾","🥤","🧂","🍫","🪴",
+        "🧴","🐾","🍱","🍴","🍿","🔋","🧹","💊","📦","🧺",
+        "🥗","🍳","🥬","🧅","🍋","🍇","🥦","🧀","🥚","🫙"
+    ];
+
     public ListDetail? List { get; private set; }
     public IReadOnlyList<CategoryDto> Categories { get; private set; } = [];
 

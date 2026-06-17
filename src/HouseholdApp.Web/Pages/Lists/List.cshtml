@@ -49,16 +49,24 @@
     </form>
 
     <div id="new-category-form" hidden style="margin-top:8px">
-        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(36px,1fr)); gap:4px; margin-bottom:8px">
-            <input id="new-cat-emoji" name="categoryEmoji" type="hidden" value="" />
-            @foreach (var emoji in new[]{"🍅","🥩","🍞","🥛","❄️","🌾","🥤","🧂","🍫","🪴","🧴","🐾","🍱","🍴","🍿","🔋","🧹","💊","📦","🧺","🥗","🍳","🥬","🧅","🍋","🍇","🥦","🧀","🥚","🫙"})
-            {
-                <button type="button" class="cat-emoji-btn" style="font-size:18px; background:none; border:2px solid transparent; border-radius:6px; padding:4px; cursor:pointer; min-height:36px; text-align:center"
-                        onclick="(function(el,e){document.getElementById('new-cat-emoji').value=e; document.getElementById('new-cat-emoji-display').textContent=e; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); el.style.borderColor='var(--bs-primary)';})(this,'@emoji')">@emoji</button>
-            }
-        </div>
+        <input id="new-cat-emoji" name="categoryEmoji" type="hidden" value="" />
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
-            <span id="new-cat-emoji-display" style="font-size:22px; min-width:32px; text-align:center; flex:none">🏷️</span>
+            <div class="dropdown" style="flex:none">
+                <button id="new-cat-emoji-display" type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        style="font-size:20px; min-width:44px; padding:4px 10px; line-height:1.3">🏷️</button>
+                <div class="dropdown-menu" style="padding:8px; min-width:0">
+                    <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:2px">
+                        @foreach (var emoji in ListModel.CategoryEmojis)
+                        {
+                            <button type="button" class="cat-emoji-btn" style="font-size:18px; background:none; border:2px solid transparent; border-radius:6px; padding:4px; cursor:pointer; min-height:36px; text-align:center"
+                                    onclick="(function(el,e){document.getElementById('new-cat-emoji').value=e; document.getElementById('new-cat-emoji-display').textContent=e; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); el.style.borderColor='var(--accent-home)'; bootstrap.Dropdown.getOrCreateInstance(document.getElementById('new-cat-emoji-display')).hide();})(this,'@emoji')">@emoji</button>
+                        }
+                    </div>
+                </div>
+            </div>
             <input id="new-cat-name" name="categoryName" placeholder="@L["Catalog.NewCategoryName"]" class="form-control" style="flex:1; min-width:0" />
             <button type="button" class="btn btn-sm btn-secondary" style="flex:none; white-space:nowrap"
                     hx-post="?handler=AddCategory"
