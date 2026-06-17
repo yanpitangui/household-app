@@ -77,6 +77,17 @@ public sealed class ListCommandService(
         await uow.CommitAsync(ct);
     }
 
+    public async Task ChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+        list.ChangeItemCategory(itemId, categoryId, time.GetUtcNow());
+        await repo.SaveListAsync(list, ct);
+        await eventBus.PublishAllAsync(list, ct);
+        await uow.CommitAsync(ct);
+    }
+
     public async Task DeleteListAsync(Guid listId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);

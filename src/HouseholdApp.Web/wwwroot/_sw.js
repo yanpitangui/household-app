@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = '__CACHE_VERSION__';
 const STATIC_CACHE = `household-static-${CACHE_VERSION}`;
 
 const CACHEABLE_DESTINATIONS = new Set(['style', 'script', 'image', 'font', 'manifest']);

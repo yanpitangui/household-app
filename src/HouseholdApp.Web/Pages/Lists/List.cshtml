@@ -38,7 +38,7 @@
             </select>
         </div>
 
-        <button type="button" class="btn btn-primary"
+        <button id="add-item-btn" type="button" class="btn btn-primary"
                 hx-post="?handler=AddItem"
                 hx-target="#items-list"
                 hx-swap="outerHTML"
@@ -90,12 +90,23 @@
     @await Html.PartialAsync("_ItemsList", Model.List)
 </div>
 
-<dialog id="item-detail-dialog" style="border:none; border-radius:12px; padding:24px; min-width:280px; box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+<dialog id="item-detail-dialog" style="border:none; border-radius:16px; padding:24px; min-width:300px; max-width:420px; width:90vw; background:var(--card-bg); color:var(--text-primary); box-shadow:0 12px 40px rgba(0,0,0,0.45)">
+    <input type="hidden" id="detail-item-id" name="itemId" />
+    <input type="hidden" id="detail-list-id" name="listId" />
     <button onclick="this.closest('dialog').close()" style="float:right; border:none; background:none; font-size:18px; cursor:pointer; color:var(--text-muted)">✕</button>
-    <h3 id="detail-name" style="margin:0 0 16px; font-size:16px"></h3>
-    <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
-        <strong>@L["Lists.ItemDetail.Category"]:</strong> <span id="detail-category"></span>
-    </p>
+    <h3 id="detail-name" style="margin:0 0 20px; font-size:16px; padding-right:28px"></h3>
+    <div style="margin-bottom:14px">
+        <label class="form-label">@L["Lists.ItemDetail.Category"]</label>
+        <select id="detail-category-select" name="categoryId" class="form-select"
+                hx-post="?handler=ChangeItemCategory"
+                hx-include="#detail-item-id,#detail-list-id"
+                hx-target="#items-list"
+                hx-swap="outerHTML"
+                hx-trigger="change"
+                hx-on::after-request="document.getElementById('item-detail-dialog').close()">
+            @await Html.PartialAsync("_CategoryOptions", Model.Categories)
+        </select>
+    </div>
     <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
         <strong>@L["Lists.ItemDetail.List"]:</strong> <span id="detail-list-name"></span>
     </p>

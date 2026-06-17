@@ -30,7 +30,8 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
                 VALUES (@Id, @ListId, @Name, @CatalogItemId, @CategoryId, @AddedBy, @SortOrder, @IsCompleted)
                 ON CONFLICT (id) DO UPDATE
                     SET is_completed = EXCLUDED.is_completed,
-                        sort_order = EXCLUDED.sort_order
+                        sort_order = EXCLUDED.sort_order,
+                        category_id = EXCLUDED.category_id
                 """,
                 new { item.Id, item.ListId, item.Name, item.CatalogItemId, item.CategoryId, item.AddedBy, item.SortOrder, item.IsCompleted }, tx);
         }

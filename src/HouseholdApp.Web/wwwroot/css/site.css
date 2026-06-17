@@ -416,26 +416,67 @@ html, body {
 
 .check-item:last-child { border-bottom: none; }
 
+.check-item-text {
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
 .check-box {
     width: 20px; height: 20px;
     border-radius: 6px;
-    border: 1.5px solid var(--border-hover);
+    border: 1.5px solid rgba(245,158,11,0.35);
+    background: none;
+    padding: 0;
     flex-shrink: 0;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, border-color 0.15s;
+    color: transparent;
+    font-size: 11px;
+}
+
+.check-box:hover {
+    border-color: var(--accent-lists);
+    background: rgba(245,158,11,0.08);
 }
 
 .check-box.checked {
-    background: rgba(16,185,129,0.15);
-    border-color: var(--accent-tasks);
-    color: var(--accent-tasks);
-    font-size: 11px;
+    background: rgba(245,158,11,0.15);
+    border-color: var(--accent-lists);
+    color: var(--accent-lists);
 }
 
 .check-item.done .check-item-text {
     text-decoration: line-through;
     color: var(--text-muted);
+}
+
+/* ── Item detail dialog ───────────────────────── */
+#item-detail-dialog::backdrop {
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(2px);
+}
+
+.check-item .btn-outline-danger {
+    color: #3d2e20;
+    border-color: transparent;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.check-item .btn-outline-danger:hover {
+    color: var(--bs-danger);
+    border-color: var(--bs-danger);
+    background: transparent;
+}
+
+.category-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-lists);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 20px 0 8px;
+    opacity: 0.7;
 }
 
 /* ── Page header (module pages) ───────────────── */

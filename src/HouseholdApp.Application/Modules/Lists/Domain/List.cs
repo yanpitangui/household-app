@@ -28,6 +28,7 @@ public sealed class ListItem
 
     internal void Complete() => IsCompleted = true;
     internal void Uncomplete() => IsCompleted = false;
+    internal void SetCategory(Guid? categoryId) => CategoryId = categoryId;
 }
 
 public sealed class HouseholdList : AggregateRoot
@@ -95,5 +96,13 @@ public sealed class HouseholdList : AggregateRoot
             ?? throw new InvalidOperationException("Item not found.");
         _items.Remove(item);
         Raise(new ListItemRemoved(Guid.CreateVersion7(), now, Id, itemId));
+    }
+
+    public void ChangeItemCategory(Guid itemId, Guid? categoryId, DateTimeOffset now)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId)
+            ?? throw new InvalidOperationException("Item not found.");
+        item.SetCategory(categoryId);
+        Raise(new ListItemCategoryChanged(Guid.CreateVersion7(), now, Id, itemId, categoryId));
     }
 }

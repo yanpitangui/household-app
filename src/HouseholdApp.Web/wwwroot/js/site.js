@@ -4,6 +4,7 @@ function selectCatalogItem(el) {
     refreshCategoryPicker();
     document.getElementById('catalog-item-id').value = el.dataset.catalogId;
     document.getElementById('item-suggestions').innerHTML = '';
+    document.getElementById('add-item-btn').click();
 }
 
 window.householdApp ??= {};
@@ -126,11 +127,15 @@ function refreshAppSelect(select) {
 
 function showItemDetail(el) {
     document.getElementById('detail-name').textContent = el.dataset.name;
-    const emoji = el.dataset.categoryEmoji ?? '';
-    const cat = el.dataset.category ?? '';
-    document.getElementById('detail-category').textContent = emoji ? emoji + ' ' + cat : cat;
+    document.getElementById('detail-item-id').value = el.dataset.itemId ?? '';
+    document.getElementById('detail-list-id').value = el.dataset.listId ?? '';
     document.getElementById('detail-list-name').textContent = el.dataset.listName ?? '';
     document.getElementById('detail-added-by').textContent = el.dataset.addedBy ?? '';
+
+    const catSelect = document.getElementById('detail-category-select');
+    catSelect.value = el.dataset.categoryId ?? '';
+    refreshAppSelect(catSelect);
+
     document.getElementById('item-detail-dialog').showModal();
 }
 
@@ -150,7 +155,15 @@ if (!window.householdApp.siteEventsBound) {
         if (e.key === 'Escape') closeOtherAppSelects(null);
     });
 
-    document.addEventListener('DOMContentLoaded', () => initAppSelects());
+    document.addEventListener('DOMContentLoaded', () => {
+        initAppSelects();
+        const dialog = document.getElementById('item-detail-dialog');
+        if (dialog) {
+            dialog.addEventListener('click', (e) => {
+                if (e.target === dialog) dialog.close();
+            });
+        }
+    });
 
     document.addEventListener('htmx:afterSwap', (e) => {
         initAppSelects(e.target instanceof Element ? e.target : document);

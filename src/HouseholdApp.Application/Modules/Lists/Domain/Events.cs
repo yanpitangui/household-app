@@ -21,3 +21,7 @@ public sealed record ListItemUncompleted(
 public sealed record ListItemRemoved(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid ListId, Guid ItemId) : IDomainEvent;
+
+public sealed record ListItemCategoryChanged(
+    Guid EventId, DateTimeOffset OccurredAt,
+    Guid ListId, Guid ItemId, Guid? CategoryId) : IDomainEvent;

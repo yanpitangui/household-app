@@ -56,6 +56,13 @@ public class ListModel(
         return Partial("_ItemsList", updated);
     }
 
+    public async Task<IActionResult> OnPostChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId)
+    {
+        await listCommands.ChangeItemCategoryAsync(listId, itemId, categoryId);
+        var updated = await listQueries.GetAsync(listId);
+        return Partial("_ItemsList", updated);
+    }
+
     public async Task<IActionResult> OnPostAddCategoryAsync(string categoryName, string categoryEmoji)
     {
         var emoji = string.IsNullOrWhiteSpace(categoryEmoji) ? "🏷️" : categoryEmoji;

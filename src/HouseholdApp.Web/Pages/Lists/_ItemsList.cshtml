@@ -1,5 +1,19 @@
 @model HouseholdApp.Application.Modules.Lists.Application.Ports.ListDetail
 
+@{
+    var activeGroups = Model.Items
+        .Where(i => !i.IsCompleted)
+        .GroupBy(i => new { i.CategoryId, i.CategoryName, i.CategoryEmoji })
+        .OrderBy(g => g.Key.CategoryName is null ? 1 : 0)
+        .ThenBy(g => g.Key.CategoryName)
+        .ToList();
+
+    var doneItems = Model.Items
+        .Where(i => i.IsCompleted)
+        .OrderBy(i => i.SortOrder)
+        .ToList();
+}
+
 <div id="items-list">
     @if (!Model.Items.Any())
     {
@@ -7,50 +21,83 @@
     }
     else
     {
-        <div class="app-card">
-            @foreach (var item in Model.Items.OrderBy(i => i.IsCompleted).ThenBy(i => i.SortOrder))
+        @foreach (var group in activeGroups)
+        {
+            if (group.Key.CategoryName is not null)
             {
-                <div class="check-item @(item.IsCompleted ? "done" : "")">
-                    @if (!item.IsCompleted)
-                    {
+                <p class="category-group-title">@group.Key.CategoryEmoji @group.Key.CategoryName</p>
+            }
+            <div class="app-card">
+                @foreach (var item in group.OrderBy(i => i.SortOrder))
+                {
+                    <div class="check-item">
                         <button class="check-box"
                                 hx-post="?handler=CompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-target="#items-list"
                                 hx-swap="outerHTML"
-                                style="border:none; background:none; padding:0">✓</button>
-                    }
-                    else
-                    {
+                                >✓</button>
+                        <span class="check-item-text"
+                              style="flex:1; cursor:pointer"
+                              onclick="showItemDetail(this)"
+                              data-item-id="@item.Id"
+                              data-list-id="@Model.Id"
+                              data-name="@item.Name"
+                              data-category-id="@(item.CategoryId?.ToString() ?? "")"
+                              data-category="@item.CategoryName"
+                              data-category-emoji="@item.CategoryEmoji"
+                              data-added-by="@item.AddedByName"
+                              data-list-name="@Model.Name">@item.Name</span>
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-post="?handler=RemoveItem"
+                                hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
+                                hx-target="#items-list"
+                                hx-swap="outerHTML"
+                                hx-confirm="Remove item?">✕</button>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (doneItems.Any())
+        {
+            <p class="section-title">@L["Tasks.Done"]</p>
+            <div class="app-card">
+                @foreach (var item in doneItems)
+                {
+                    <div class="check-item done">
                         <button class="check-box checked"
                                 hx-post="?handler=UncompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-target="#items-list"
                                 hx-swap="outerHTML"
-                                style="border:none; padding:0">✓</button>
-                    }
-                    <span class="check-item-text"
-                          style="flex:1; font-size:14px; color:var(--text-secondary); cursor:pointer"
-                          onclick="showItemDetail(this)"
-                          data-name="@item.Name"
-                          data-category="@item.CategoryName"
-                          data-category-emoji="@item.CategoryEmoji"
-                          data-added-by="@item.AddedByName"
-                          data-list-name="@Model.Name">@item.Name</span>
-                    @if (item.CategoryName is not null)
-                    {
-                        <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">
-                            @item.CategoryEmoji @item.CategoryName
-                        </span>
-                    }
-                    <button class="btn btn-sm btn-outline-danger"
-                            hx-post="?handler=RemoveItem"
-                            hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
-                            hx-target="#items-list"
-                            hx-swap="outerHTML"
-                            hx-confirm="Remove item?">✕</button>
-                </div>
-            }
-        </div>
+                                >✓</button>
+                        <span class="check-item-text"
+                              style="flex:1; cursor:pointer"
+                              onclick="showItemDetail(this)"
+                              data-item-id="@item.Id"
+                              data-list-id="@Model.Id"
+                              data-name="@item.Name"
+                              data-category-id="@(item.CategoryId?.ToString() ?? "")"
+                              data-category="@item.CategoryName"
+                              data-category-emoji="@item.CategoryEmoji"
+                              data-added-by="@item.AddedByName"
+                              data-list-name="@Model.Name">@item.Name</span>
+                        @if (item.CategoryName is not null)
+                        {
+                            <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">
+                                @item.CategoryEmoji @item.CategoryName
+                            </span>
+                        }
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-post="?handler=RemoveItem"
+                                hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
+                                hx-target="#items-list"
+                                hx-swap="outerHTML"
+                                hx-confirm="Remove item?">✕</button>
+                    </div>
+                }
+            </div>
+        }
     }
 </div>
