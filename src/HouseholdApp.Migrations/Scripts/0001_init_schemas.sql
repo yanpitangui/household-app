@@ -1,6 +1,18 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- unaccent() is STABLE, not IMMUTABLE, so it cannot be used in index expressions.
+-- PL/pgSQL bodies are not inspected for volatility, so IMMUTABLE is accepted and
+-- the resulting function can be used as an index expression.
+CREATE OR REPLACE FUNCTION f_unaccent(text)
+RETURNS text
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE STRICT
+AS $$
+BEGIN
+    RETURN unaccent($1);
+END;
+$$;
+
 -- identity
 CREATE SCHEMA IF NOT EXISTS identity;
 
@@ -78,7 +90,7 @@ CREATE TABLE catalog.items (
 CREATE UNIQUE INDEX uix_catalog_items_global     ON catalog.items (lower(name), language)         WHERE household_id IS NULL;
 CREATE UNIQUE INDEX uix_catalog_items_household  ON catalog.items (household_id, lower(name))     WHERE household_id IS NOT NULL;
 CREATE INDEX        ix_catalog_items_household   ON catalog.items (household_id);
-CREATE INDEX        ix_catalog_items_name_trgm   ON catalog.items USING gin (name gin_trgm_ops);
+CREATE INDEX        ix_catalog_items_name_trgm   ON catalog.items USING gin (f_unaccent(name) gin_trgm_ops);
 
 -- Seed: English categories
 INSERT INTO catalog.categories (household_id, language, name, emoji, sort_order) VALUES

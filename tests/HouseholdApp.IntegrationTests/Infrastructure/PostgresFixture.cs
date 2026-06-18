@@ -24,7 +24,8 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
         DataSource = builder.Build();
 
         PersistenceExtensions.RegisterTypeHandlers();
-        DatabaseMigrator.Migrate(ConnectionString);
+        if (!DatabaseMigrator.Migrate(ConnectionString))
+            throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
     }
 
     public async ValueTask DisposeAsync()

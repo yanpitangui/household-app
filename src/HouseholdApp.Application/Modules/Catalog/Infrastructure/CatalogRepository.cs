@@ -16,11 +16,11 @@ internal sealed class CatalogRepository(NpgsqlDataSource db) : ICatalogRepositor
             FROM catalog.items ci
             LEFT JOIN catalog.categories cc ON cc.id = ci.category_id
             WHERE (ci.household_id = @householdId OR (ci.household_id IS NULL AND ci.language = @language))
-              AND (unaccent(ci.name) ILIKE unaccent(@prefix) OR similarity(unaccent(ci.name), unaccent(@query)) > 0.2)
+              AND (f_unaccent(ci.name) ILIKE f_unaccent(@prefix) OR similarity(f_unaccent(ci.name), f_unaccent(@query)) > 0.2)
             ORDER BY
                 CASE WHEN ci.household_id = @householdId THEN 0 ELSE 1 END,
                 ci.popularity DESC,
-                similarity(unaccent(ci.name), unaccent(@query)) DESC
+                similarity(f_unaccent(ci.name), f_unaccent(@query)) DESC
             LIMIT 8
             """,
             new { householdId, language, prefix, query });
