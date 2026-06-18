@@ -1,5 +1,6 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Catalog;
+using HouseholdApp.Application.Modules.Catalog.Application.Ports;
 using HouseholdApp.Application.Modules.Lists;
 using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.Application.Shared.Events;
@@ -65,5 +66,37 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
             new { itemId });
 
         await Assert.That(isCompleted).IsFalse();
+    }
+
+    [Test]
+    public async Task ChangeItemCategoryAsync_updates_catalog_so_suggestion_includes_category()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @householdId, NULL, 'Padaria', '🍞')",
+            new { id = catId, householdId });
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Lista");
+
+        Guid itemId;
+        await using (var s = Scope(userId))
+            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Pão Francês", null, null);
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().ChangeItemCategoryAsync(listId, itemId, catId);
+
+        await using var scope = Scope(userId);
+        var suggestions = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .SuggestAsync(householdId, "Pão Franc", "pt-BR");
+
+        var match = suggestions.FirstOrDefault(s => s.CategoryId == catId);
+        await Assert.That(match).IsNotNull();
+        await Assert.That(match!.CategoryName).IsEqualTo("Padaria");
     }
 }

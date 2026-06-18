@@ -200,6 +200,40 @@ public sealed class CatalogRepositoryTests(PostgresFixture db) : IAsyncDisposabl
         await Assert.That(s.CategoryEmoji).IsEqualTo("🥦");
     }
 
+    [Test]
+    public async Task SuggestAsync_finds_item_by_unaccented_query()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (@id, @householdId, NULL, 'Pão')",
+            new { id = itemId, householdId });
+
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .SuggestAsync(householdId, "Pao", "pt-BR");
+
+        await Assert.That(result.Any(s => s.Id == itemId)).IsTrue();
+    }
+
+    [Test]
+    public async Task SuggestAsync_finds_accented_item_by_accented_query()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (@id, @householdId, NULL, 'Maçã')",
+            new { id = itemId, householdId });
+
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .SuggestAsync(householdId, "Maca", "pt-BR");
+
+        await Assert.That(result.Any(s => s.Id == itemId)).IsTrue();
+    }
+
     // ------------------------------------------------------------------
     // IncrementPopularityAsync
     // ------------------------------------------------------------------

@@ -39,6 +39,7 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
     {
         await conn.ExecuteAsync("""
             CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            CREATE EXTENSION IF NOT EXISTS unaccent;
 
             CREATE SCHEMA IF NOT EXISTS catalog;
             CREATE TABLE IF NOT EXISTS catalog.categories (

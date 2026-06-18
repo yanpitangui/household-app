@@ -1,6 +1,7 @@
 \connect householdapp
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- identity
 CREATE SCHEMA IF NOT EXISTS identity;

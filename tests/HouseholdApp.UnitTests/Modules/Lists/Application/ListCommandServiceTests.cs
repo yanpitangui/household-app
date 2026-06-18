@@ -148,6 +148,21 @@ public sealed class ListCommandServiceTests
     }
 
     [Test]
+    public async Task ChangeItemCategoryAsync_propagates_category_to_catalog()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Pão", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var categoryId = Guid.NewGuid();
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.ChangeItemCategoryAsync(list.Id, item.Id, categoryId);
+
+        await _catalogCommands.Received(1).UpsertHouseholdItemAsync(
+            list.HouseholdId, "Pão", categoryId, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task DeleteListAsync_calls_repo_delete()
     {
         var listId = Guid.NewGuid();
