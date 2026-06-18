@@ -61,6 +61,12 @@ public class TasksIndexModel(
         return RedirectToPage(new { householdId = HouseholdId, showCompleted = ShowCompleted });
     }
 
+    public async Task<IActionResult> OnPostUncompleteAsync(Guid taskId)
+    {
+        await taskCommands.UncompleteTaskAsync(taskId);
+        return RedirectToPage(new { householdId = HouseholdId, showCompleted = ShowCompleted });
+    }
+
     public async Task<IActionResult> OnPostDeleteAsync(Guid taskId)
     {
         await taskCommands.DeleteTaskAsync(taskId);

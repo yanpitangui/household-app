@@ -15,3 +15,7 @@ public sealed record TaskAssigned(
 public sealed record TaskCompleted(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid TaskId, Guid HouseholdId, Guid CompletedBy) : IDomainEvent;
+
+public sealed record TaskUncompleted(
+    Guid EventId, DateTimeOffset OccurredAt,
+    Guid TaskId, Guid HouseholdId) : IDomainEvent;

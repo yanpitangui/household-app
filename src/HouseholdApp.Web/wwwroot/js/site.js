@@ -24,6 +24,8 @@ function initAppSelects(root = document) {
 
 function enhanceAppSelect(select) {
     if (select.dataset.appSelectEnhanced === 'true') {
+        select.classList.add('app-select-native');
+        select.setAttribute('aria-hidden', 'true');
         refreshAppSelect(select);
         return;
     }
@@ -166,9 +168,15 @@ if (!window.householdApp.siteEventsBound) {
     });
 
     document.addEventListener('htmx:afterSwap', (e) => {
-        initAppSelects(e.target instanceof Element ? e.target : document);
+        const target = (e.detail?.target instanceof Element) ? e.detail.target : document;
+        initAppSelects(target);
         document.querySelectorAll('select.form-select[data-app-select-enhanced="true"]')
             .forEach(refreshAppSelect);
+    });
+
+    document.addEventListener('htmx:afterSettle', (e) => {
+        const target = (e.detail?.target instanceof Element) ? e.detail.target : document;
+        initAppSelects(target);
     });
 
     document.addEventListener('reset', (e) => {

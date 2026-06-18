@@ -125,6 +125,29 @@ public sealed class ListCommandServiceTests
     }
 
     [Test]
+    public async Task ChangeItemCategoryAsync_throws_when_list_not_found()
+    {
+        _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
+
+        await Assert.That(async () => await _sut.ChangeItemCategoryAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task ChangeItemCategoryAsync_updates_item_category()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Milk", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var categoryId = Guid.NewGuid();
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.ChangeItemCategoryAsync(list.Id, item.Id, categoryId);
+
+        await Assert.That(item.CategoryId).IsEqualTo(categoryId);
+    }
+
+    [Test]
     public async Task DeleteListAsync_calls_repo_delete()
     {
         var listId = Guid.NewGuid();

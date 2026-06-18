@@ -61,6 +61,28 @@ public sealed class HouseholdTaskTests
     }
 
     [Test]
+    public async Task Uncomplete_marks_pending_and_raises_event()
+    {
+        var task = CreateTask();
+        task.Complete(UserId, Now);
+        task.ClearEvents();
+
+        task.Uncomplete(Now);
+
+        await Assert.That(task.Status).IsEqualTo(DomainTaskStatus.Pending);
+        await Assert.That(task.DomainEvents.Count).IsEqualTo(1);
+        await Assert.That(task.DomainEvents[0] is TaskUncompleted).IsTrue();
+    }
+
+    [Test]
+    public async Task Uncomplete_pending_task_throws()
+    {
+        var task = CreateTask();
+
+        await Assert.That(() => task.Uncomplete(Now)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
     public async Task RecurringTask_Spawn_creates_task_linked_to_recurring()
     {
         var recurring = RecurringTask.Create(HouseholdId, "Weekly cleaning", null, UserId, "0 9 * * 1", Now);

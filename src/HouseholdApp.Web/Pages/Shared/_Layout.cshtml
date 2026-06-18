@@ -172,60 +172,66 @@
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
 <script>
-    htmx.on("htmx:configRequest", (e) => {
-        e.detail.headers["RequestVerificationToken"] =
-            document.querySelector("meta[name='request-verification-token']")?.content;
-    });
+    if (typeof initAppSelects === 'function') initAppSelects();
+    window.householdApp ??= {};
+    if (!window.householdApp.layoutBound) {
+        window.householdApp.layoutBound = true;
 
-    (function () {
-        let pendingResolve = null;
-
-        function settle(result) {
-            if (pendingResolve) { pendingResolve(result); pendingResolve = null; }
-        }
-
-        function showConfirm(message) {
-            const dialog = document.getElementById('confirm-dialog');
-            document.getElementById('confirm-message').textContent = message;
-            function onClose() {
-                dialog.removeEventListener('close', onClose);
-                settle(dialog.returnValue === 'ok');
-            }
-            dialog.addEventListener('close', onClose);
-            dialog.showModal();
-            return new Promise(resolve => { pendingResolve = resolve; });
-        }
-
-        // Button delegation — re-queries dialog at click time, safe after hx-boost swaps
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'confirm-ok') {
-                document.getElementById('confirm-dialog')?.close('ok');
-            } else if (e.target.id === 'confirm-cancel') {
-                document.getElementById('confirm-dialog')?.close();
-            } else {
-                const d = document.getElementById('confirm-dialog');
-                if (d && e.target === d) d.close();
-            }
+        htmx.on("htmx:configRequest", (e) => {
+            e.detail.headers["RequestVerificationToken"] =
+                document.querySelector("meta[name='request-verification-token']")?.content;
         });
 
-        // Intercept data-confirm buttons before form submission fires
-        document.addEventListener('click', async (e) => {
-            const btn = e.target.closest('button[data-confirm]');
-            if (!btn) return;
-            e.preventDefault();
-            e.stopPropagation();
-            const ok = await showConfirm(btn.dataset.confirm);
-            if (ok && btn.form) btn.form.requestSubmit(btn);
-        }, true);
+        (function () {
+            let pendingResolve = null;
 
-        // Replace htmx native confirm (only when hx-confirm attribute is set)
-        htmx.on('htmx:confirm', async (e) => {
-            if (!e.detail.question) return;
-            e.preventDefault();
-            const ok = await showConfirm(e.detail.question);
-            if (ok) e.detail.issueRequest(true);
-        });
-    })();
+            function settle(result) {
+                if (pendingResolve) { pendingResolve(result); pendingResolve = null; }
+            }
+
+            function showConfirm(message) {
+                const dialog = document.getElementById('confirm-dialog');
+                document.getElementById('confirm-message').textContent = message;
+                function onClose() {
+                    dialog.removeEventListener('close', onClose);
+                    settle(dialog.returnValue === 'ok');
+                }
+                dialog.addEventListener('close', onClose);
+                dialog.showModal();
+                return new Promise(resolve => { pendingResolve = resolve; });
+            }
+
+            // Button delegation — re-queries dialog at click time, safe after hx-boost swaps
+            document.addEventListener('click', (e) => {
+                if (e.target.id === 'confirm-ok') {
+                    document.getElementById('confirm-dialog')?.close('ok');
+                } else if (e.target.id === 'confirm-cancel') {
+                    document.getElementById('confirm-dialog')?.close();
+                } else {
+                    const d = document.getElementById('confirm-dialog');
+                    if (d && e.target === d) d.close();
+                }
+            });
+
+            // Intercept data-confirm buttons before form submission fires
+            document.addEventListener('click', async (e) => {
+                const btn = e.target.closest('button[data-confirm]');
+                if (!btn) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const ok = await showConfirm(btn.dataset.confirm);
+                if (ok && btn.form) btn.form.requestSubmit(btn);
+            }, true);
+
+            // Replace htmx native confirm (only when hx-confirm attribute is set)
+            htmx.on('htmx:confirm', async (e) => {
+                if (!e.detail.question) return;
+                e.preventDefault();
+                const ok = await showConfirm(e.detail.question);
+                if (ok) e.detail.issueRequest(true);
+            });
+        })();
+    }
 </script>
 @await RenderSectionAsync("Scripts", required: false)
 <script>

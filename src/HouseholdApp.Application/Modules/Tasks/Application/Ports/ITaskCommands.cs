@@ -8,6 +8,7 @@ public interface ITaskCommands
     Task AssignTaskAsync(Guid taskId, Guid userId, CancellationToken ct = default);
 
     Task CompleteTaskAsync(Guid taskId, CancellationToken ct = default);
+    Task UncompleteTaskAsync(Guid taskId, CancellationToken ct = default);
 
     Task<Guid> CreateRecurringTaskAsync(Guid householdId, string title, string? description,
         Guid? defaultAssignedTo, string cronExpression, CancellationToken ct = default);

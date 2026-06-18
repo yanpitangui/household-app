@@ -91,6 +91,28 @@ public sealed class TaskCommandServiceTests
     }
 
     [Test]
+    public async Task UncompleteTaskAsync_throws_when_task_not_found()
+    {
+        _repo.GetTaskAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdTask?)null);
+
+        await Assert.That(async () => await _sut.UncompleteTaskAsync(Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UncompleteTaskAsync_marks_task_as_pending()
+    {
+        var task = HouseholdTask.Create(Guid.NewGuid(), "Take out trash", null, null, null, DateTimeOffset.UtcNow);
+        task.Complete(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        task.ClearEvents();
+        _repo.GetTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
+
+        await _sut.UncompleteTaskAsync(task.Id);
+
+        await Assert.That(task.Status).IsEqualTo(HouseholdApp.Application.Modules.Tasks.Domain.TaskStatus.Pending);
+    }
+
+    [Test]
     public async Task DeleteTaskAsync_calls_repo_delete()
     {
         var taskId = Guid.NewGuid();

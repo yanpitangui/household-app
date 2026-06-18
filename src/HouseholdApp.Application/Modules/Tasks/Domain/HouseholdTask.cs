@@ -52,4 +52,12 @@ public sealed class HouseholdTask : AggregateRoot
         Status = TaskStatus.Completed;
         Raise(new TaskCompleted(Guid.CreateVersion7(), now, Id, HouseholdId, completedBy));
     }
+
+    public void Uncomplete(DateTimeOffset now)
+    {
+        if (Status == TaskStatus.Pending)
+            throw new InvalidOperationException("Task is not completed.");
+        Status = TaskStatus.Pending;
+        Raise(new TaskUncompleted(Guid.CreateVersion7(), now, Id, HouseholdId));
+    }
 }

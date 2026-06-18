@@ -422,9 +422,10 @@ html, body {
 }
 
 .check-box {
+    --check-accent: var(--accent-lists);
     width: 20px; height: 20px;
     border-radius: 6px;
-    border: 1.5px solid rgba(245,158,11,0.35);
+    border: 1.5px solid color-mix(in srgb, var(--check-accent) 35%, transparent);
     background: none;
     padding: 0;
     flex-shrink: 0;
@@ -436,14 +437,14 @@ html, body {
 }
 
 .check-box:hover {
-    border-color: var(--accent-lists);
-    background: rgba(245,158,11,0.08);
+    border-color: var(--check-accent);
+    background: color-mix(in srgb, var(--check-accent) 8%, transparent);
 }
 
 .check-box.checked {
-    background: rgba(245,158,11,0.15);
-    border-color: var(--accent-lists);
-    color: var(--accent-lists);
+    background: color-mix(in srgb, var(--check-accent) 15%, transparent);
+    border-color: var(--check-accent);
+    color: var(--check-accent);
 }
 
 .check-item.done .check-item-text {

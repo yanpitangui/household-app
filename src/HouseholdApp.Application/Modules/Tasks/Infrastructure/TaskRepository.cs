@@ -17,7 +17,7 @@ internal sealed class TaskRepository(IUnitOfWork uow) : ITaskRepository
             ON CONFLICT (id) DO UPDATE
                 SET assigned_to = EXCLUDED.assigned_to,
                     status = EXCLUDED.status,
-                    completed_at = CASE WHEN EXCLUDED.status = 1 THEN now() ELSE tasks.tasks.completed_at END,
+                    completed_at = CASE WHEN EXCLUDED.status = 1 THEN COALESCE(tasks.tasks.completed_at, now()) ELSE NULL END,
                     completed_by = EXCLUDED.completed_by
             """,
             new

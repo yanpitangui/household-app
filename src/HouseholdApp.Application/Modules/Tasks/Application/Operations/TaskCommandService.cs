@@ -51,6 +51,17 @@ public sealed class TaskCommandService(
         await uow.CommitAsync(ct);
     }
 
+    public async Task UncompleteTaskAsync(Guid taskId, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var task = await repo.GetTaskAsync(taskId, ct)
+            ?? throw new InvalidOperationException("Task not found.");
+        task.Uncomplete(time.GetUtcNow());
+        await repo.SaveTaskAsync(task, ct);
+        await eventBus.PublishAllAsync(task, ct);
+        await uow.CommitAsync(ct);
+    }
+
     public async Task SpawnRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default)
     {
         var recurring = await repo.GetRecurringTaskAsync(recurringTaskId, ct);

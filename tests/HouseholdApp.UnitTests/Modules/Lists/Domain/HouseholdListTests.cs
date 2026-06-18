@@ -119,4 +119,41 @@ public sealed class HouseholdListTests
             list.RemoveItem(Guid.NewGuid(), Now))
             .Throws<InvalidOperationException>();
     }
+
+    [Test]
+    public async Task ChangeItemCategory_sets_category_and_raises_event()
+    {
+        var list = CreateList();
+        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var categoryId = Guid.NewGuid();
+        list.ClearEvents();
+
+        list.ChangeItemCategory(item.Id, categoryId, Now);
+
+        await Assert.That(item.CategoryId).IsEqualTo(categoryId);
+        await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
+        await Assert.That(list.DomainEvents[0] is ListItemCategoryChanged).IsTrue();
+    }
+
+    [Test]
+    public async Task ChangeItemCategory_clears_category_when_null()
+    {
+        var list = CreateList();
+        var item = list.AddItem("Milk", null, Guid.NewGuid(), CreatorId, Now);
+        list.ClearEvents();
+
+        list.ChangeItemCategory(item.Id, null, Now);
+
+        await Assert.That(item.CategoryId).IsNull();
+    }
+
+    [Test]
+    public async Task ChangeItemCategory_unknown_id_throws()
+    {
+        var list = CreateList();
+
+        await Assert.That(() =>
+            list.ChangeItemCategory(Guid.NewGuid(), Guid.NewGuid(), Now))
+            .Throws<InvalidOperationException>();
+    }
 }
