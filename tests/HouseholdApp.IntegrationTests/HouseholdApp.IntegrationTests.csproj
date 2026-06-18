@@ -9,13 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Marten" Version="9.7.6" />
-    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.7.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.12.0" />
-    <PackageReference Include="TUnit" Version="1.54.0" />
-    <PackageReference Include="Valtuutus.Data.InMemory" Version="0.10.1-beta" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
+    <PackageReference Include="Marten" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Valtuutus.Data.InMemory" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" />
   </ItemGroup>
 
   <ItemGroup>

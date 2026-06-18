@@ -7,17 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cronos" Version="0.13.0" />
-    <PackageReference Include="Dapper" Version="2.1.79" />
-    <PackageReference Include="Marten" Version="9.7.6" />
-    <PackageReference Include="Scrutor" Version="7.0.0" />
-    <PackageReference Include="TickerQ" Version="10.4.0" />
-    <PackageReference Include="TickerQ.Caching.StackExchangeRedis" Version="10.4.0" />
-    <PackageReference Include="Valtuutus.Data.Postgres" Version="0.10.1-beta" />
-    <PackageReference Include="Valtuutus.Lang.SourceGen" Version="0.10.1-beta" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" Version="2.6.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.6.0" />
+    <PackageReference Include="Cronos" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Marten" />
+    <PackageReference Include="Scrutor" />
+    <PackageReference Include="TickerQ" />
+    <PackageReference Include="TickerQ.Caching.StackExchangeRedis" />
+    <PackageReference Include="Valtuutus.Data.Postgres" />
+    <PackageReference Include="Valtuutus.Lang.SourceGen" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" />
   </ItemGroup>
 
   <ItemGroup>
