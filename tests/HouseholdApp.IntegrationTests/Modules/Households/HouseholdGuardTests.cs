@@ -1,4 +1,3 @@
-using Dapper;
 using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
@@ -18,7 +17,6 @@ namespace HouseholdApp.IntegrationTests.Modules.Households;
 public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
 {
     private readonly ServiceProvider _provider = BuildProvider(db);
-    private Guid _householdId;
 
     private static ServiceProvider BuildProvider(PostgresFixture db)
     {
@@ -51,33 +49,20 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await _provider.DisposeAsync();
 
-    [After(Test)]
-    public async Task CleanupAuthzAsync()
-    {
-        if (_householdId == Guid.Empty) return;
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            """
-            DELETE FROM authz.relation_tuples WHERE entity_id = @id;
-            DELETE FROM authz.attributes WHERE entity_id = @id;
-            """,
-            new { id = _householdId.ToString() });
-        _householdId = Guid.Empty;
-    }
-
     [Test]
     public async Task Owner_is_member_and_can_manage_after_create()
     {
         var ownerId = Guid.NewGuid();
+        Guid householdId;
 
         await using (var s = Scope(ownerId))
-            _householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
 
         await using var s2 = Scope(ownerId);
         var guard = s2.ServiceProvider.GetRequiredService<IHouseholdGuard>();
-        await Assert.That(await guard.IsMemberAsync(_householdId, ownerId)).IsTrue();
-        await Assert.That(await guard.CanManageAsync(_householdId, ownerId)).IsTrue();
-        await Assert.That(await guard.CanManageRolesAsync(_householdId, ownerId)).IsTrue();
+        await Assert.That(await guard.IsMemberAsync(householdId, ownerId)).IsTrue();
+        await Assert.That(await guard.CanManageAsync(householdId, ownerId)).IsTrue();
+        await Assert.That(await guard.CanManageRolesAsync(householdId, ownerId)).IsTrue();
     }
 
     [Test]
@@ -85,15 +70,16 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
     {
         var ownerId = Guid.NewGuid();
         var strangerId = Guid.NewGuid();
+        Guid householdId;
 
         await using (var s = Scope(ownerId))
-            _householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House 2");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
 
         await using var s2 = Scope(strangerId);
         var guard = s2.ServiceProvider.GetRequiredService<IHouseholdGuard>();
-        await Assert.That(await guard.IsMemberAsync(_householdId, strangerId)).IsFalse();
-        await Assert.That(await guard.CanManageAsync(_householdId, strangerId)).IsFalse();
-        await Assert.That(await guard.CanManageRolesAsync(_householdId, strangerId)).IsFalse();
+        await Assert.That(await guard.IsMemberAsync(householdId, strangerId)).IsFalse();
+        await Assert.That(await guard.CanManageAsync(householdId, strangerId)).IsFalse();
+        await Assert.That(await guard.CanManageRolesAsync(householdId, strangerId)).IsFalse();
     }
 
     [Test]
@@ -101,22 +87,23 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
     {
         var ownerId = Guid.NewGuid();
         var memberId = Guid.NewGuid();
+        Guid householdId;
 
         await using (var s = Scope(ownerId))
-            _householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House 3");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
 
         string token;
         await using (var s = Scope(ownerId))
-            token = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().InviteAsync(_householdId);
+            token = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().InviteAsync(householdId);
 
         await using (var s = Scope(memberId))
             await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().AcceptInvitationAsync(token);
 
         await using var s4 = Scope(memberId);
         var guard = s4.ServiceProvider.GetRequiredService<IHouseholdGuard>();
-        await Assert.That(await guard.IsMemberAsync(_householdId, memberId)).IsTrue();
-        await Assert.That(await guard.CanManageAsync(_householdId, memberId)).IsFalse();
-        await Assert.That(await guard.CanManageRolesAsync(_householdId, memberId)).IsFalse();
+        await Assert.That(await guard.IsMemberAsync(householdId, memberId)).IsTrue();
+        await Assert.That(await guard.CanManageAsync(householdId, memberId)).IsFalse();
+        await Assert.That(await guard.CanManageRolesAsync(householdId, memberId)).IsFalse();
     }
 
     [Test]
@@ -124,22 +111,23 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
     {
         var ownerId = Guid.NewGuid();
         var memberId = Guid.NewGuid();
+        Guid householdId;
 
         await using (var s = Scope(ownerId))
-            _householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House 4");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
 
         string token;
         await using (var s = Scope(ownerId))
-            token = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().InviteAsync(_householdId);
+            token = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().InviteAsync(householdId);
 
         await using (var s = Scope(memberId))
             await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().AcceptInvitationAsync(token);
 
         await using (var s = Scope(ownerId))
-            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().RemoveMemberAsync(_householdId, memberId);
+            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().RemoveMemberAsync(householdId, memberId);
 
         await using var s5 = Scope(memberId);
         var guard = s5.ServiceProvider.GetRequiredService<IHouseholdGuard>();
-        await Assert.That(await guard.IsMemberAsync(_householdId, memberId)).IsFalse();
+        await Assert.That(await guard.IsMemberAsync(householdId, memberId)).IsFalse();
     }
 }
