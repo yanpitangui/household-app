@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/HouseholdApp.AppHost/HouseholdApp.AppHost.csproj" />
     <Project Path="src/HouseholdApp.Application/HouseholdApp.Application.csproj" />
+    <Project Path="src/HouseholdApp.Migrations/HouseholdApp.Migrations.csproj" />
+    <Project Path="src/HouseholdApp.Migrator/HouseholdApp.Migrator.csproj" />
     <Project Path="src/HouseholdApp.ServiceDefaults/HouseholdApp.ServiceDefaults.csproj" />
     <Project Path="src/HouseholdApp.Web/HouseholdApp.Web.csproj" />
   </Folder>

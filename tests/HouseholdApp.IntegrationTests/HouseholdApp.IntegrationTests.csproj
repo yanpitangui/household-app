@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HouseholdApp.Application\HouseholdApp.Application.csproj" />
+    <ProjectReference Include="..\..\src\HouseholdApp.Migrations\HouseholdApp.Migrations.csproj" />
   </ItemGroup>
 
 </Project>
