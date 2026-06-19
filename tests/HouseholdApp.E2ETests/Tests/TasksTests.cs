@@ -36,10 +36,9 @@ public class TasksTests(PlaywrightFixture pw)
         var taskTitle = $"Clean kitchen {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewTitle']", taskTitle);
         await page.ClickAsync("button:has-text('+ Add Task')");
-        // Wait for the Done button to appear before clicking it
-        await page.Locator("button:has-text('✓ Done')").WaitForAsync();
+        await page.Locator("button.check-box").WaitForAsync();
 
-        await page.ClickAsync("button:has-text('✓ Done')");
+        await page.ClickAsync("button.check-box");
         // Wait for the task to leave the pending list
         await page.Locator($"text={taskTitle}").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden });
         await Assert.That(await page.Locator($"text={taskTitle}").IsVisibleAsync()).IsFalse();

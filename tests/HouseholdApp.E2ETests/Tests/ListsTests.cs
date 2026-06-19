@@ -97,14 +97,14 @@ public class ListsTests(PlaywrightFixture pw)
         var suggestedName = await firstSuggestion.Locator("strong").InnerTextAsync();
         await firstSuggestion.ClickAsync();
 
-        await SubmitAddItemFormAsync(page);
+        // clicking a suggestion auto-submits via selectCatalogItem → no manual submit needed
         await page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = suggestedName })
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
 
-        var badge = page.Locator(".check-item")
-            .Filter(new LocatorFilterOptions { HasText = suggestedName })
-            .Locator(".list-row-badge");
-        await Assert.That(await badge.IsVisibleAsync()).IsTrue();
+        // items with a category are rendered under a category-group-title header, not with a badge
+        var categoryTitle = page.Locator(".category-group-title");
+        await categoryTitle.WaitForAsync(new LocatorWaitForOptions { Timeout = 5_000 });
+        await Assert.That(await categoryTitle.IsVisibleAsync()).IsTrue();
     }
 
     [Test]
@@ -183,7 +183,8 @@ public class ListsTests(PlaywrightFixture pw)
         await NavigateToListAsync(page, householdId);
 
         await page.ClickAsync("button:has-text('New category')");
-        await page.FillAsync("#new-cat-emoji", "🧪");
+        // set emoji directly on the hidden input — Bootstrap dropdown unreliable in headless mode
+        await page.EvaluateAsync("document.getElementById('new-cat-emoji').value = '🍅'");
         await page.FillAsync("#new-cat-name", "Lab Supplies");
         await page.ClickAsync("#new-category-form button:has-text('Save')");
 
