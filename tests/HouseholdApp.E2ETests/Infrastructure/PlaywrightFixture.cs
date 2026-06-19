@@ -8,7 +8,6 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private string _storageStatePath = "";
-    private readonly SemaphoreSlim _createHouseholdLock = new(1, 1);
 
     public string AppUrl { get; private set; } = "";
 
@@ -64,23 +63,15 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 
     public async Task<Guid> CreateHouseholdAsync(IBrowserContext ctx, string name)
     {
-        await _createHouseholdLock.WaitAsync();
-        try
-        {
-            var page = await ctx.NewPageAsync();
-            await page.GotoAsync($"{AppUrl}/households/create");
-            await page.FillAsync("input[name='Name']", name);
-            await page.ClickAsync("button[type='submit']");
-            await page.WaitForURLAsync("**/h/**", new PageWaitForURLOptions { Timeout = 60_000 });
-            var segments = new Uri(page.Url).Segments;
-            var id = Guid.Parse(segments.Last().TrimEnd('/'));
-            await page.CloseAsync();
-            return id;
-        }
-        finally
-        {
-            _createHouseholdLock.Release();
-        }
+        var page = await ctx.NewPageAsync();
+        await page.GotoAsync($"{AppUrl}/households/create");
+        await page.FillAsync("input[name='Name']", name);
+        await page.ClickAsync("button[type='submit']");
+        await page.WaitForURLAsync("**/h/**", new PageWaitForURLOptions { Timeout = 60_000 });
+        var segments = new Uri(page.Url).Segments;
+        var id = Guid.Parse(segments.Last().TrimEnd('/'));
+        await page.CloseAsync();
+        return id;
     }
 
     public async ValueTask DisposeAsync()
