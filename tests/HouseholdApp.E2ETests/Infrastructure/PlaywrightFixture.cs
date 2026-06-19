@@ -2,7 +2,7 @@ namespace HouseholdApp.E2ETests.Infrastructure;
 
 public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 {
-    [ClassDataSource<AppFixture>(Shared = SharedType.PerClass)]
+    [ClassDataSource<AppFixture>(Shared = SharedType.PerTestSession)]
     public required AppFixture App { get; init; }
 
     private IPlaywright? _playwright;

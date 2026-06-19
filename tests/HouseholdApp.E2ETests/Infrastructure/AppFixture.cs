@@ -13,6 +13,7 @@ public class AppFixture : AspireFixture<Projects.HouseholdApp_AppHost>
 
     protected override ResourceWaitBehavior WaitBehavior => ResourceWaitBehavior.Named;
     protected override IEnumerable<string> ResourcesToWaitFor() => ["web"];
+    protected override TimeSpan ResourceTimeout => TimeSpan.FromMinutes(3);
 
     protected override IEnumerable<string> ResourcesToRemove()
         => ["pgadmin"];
