@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Restore
+        run: dotnet restore tests/HouseholdApp.UnitTests/HouseholdApp.UnitTests.csproj tests/HouseholdApp.IntegrationTests/HouseholdApp.IntegrationTests.csproj
+
+      - name: Test
+        run: |
+          dotnet test tests/HouseholdApp.UnitTests/HouseholdApp.UnitTests.csproj --no-restore
+          dotnet test tests/HouseholdApp.IntegrationTests/HouseholdApp.IntegrationTests.csproj --no-restore
+
+  test-e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Restore
+        run: dotnet restore tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj
+
+      - name: Test
+        run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore
+
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, test-e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/yanpitangui/household-app
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/yanpitangui/household-app:cache
+          cache-to: type=registry,ref=ghcr.io/yanpitangui/household-app:cache,mode=max

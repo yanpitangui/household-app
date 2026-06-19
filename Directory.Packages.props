@@ -19,9 +19,9 @@
     <!-- Auth & Identity -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.9" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
-    <PackageVersion Include="Valtuutus.Data.InMemory" Version="0.10.1-beta" />
-    <PackageVersion Include="Valtuutus.Data.Postgres" Version="0.10.1-beta" />
-    <PackageVersion Include="Valtuutus.Lang.SourceGen" Version="0.10.1-beta" />
+    <PackageVersion Include="Valtuutus.Data.InMemory" Version="0.10.2-beta" />
+    <PackageVersion Include="Valtuutus.Data.Postgres" Version="0.10.2-beta" />
+    <PackageVersion Include="Valtuutus.Lang.SourceGen" Version="0.10.2-beta" />
 
     <!-- Caching & Messaging -->
     <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />

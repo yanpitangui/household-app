@@ -21,8 +21,7 @@ internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource) : IUnitOfWor
     public async Task BeginTransactionAsync(CancellationToken ct = default)
     {
         if (_transaction is not null) return;
-        var conn = await dataSource.OpenConnectionAsync(ct);
-        _connection ??= conn;
+        _connection ??= await dataSource.OpenConnectionAsync(ct);
         _transaction = await _connection.BeginTransactionAsync(ct);
     }
 
@@ -34,11 +33,6 @@ internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource) : IUnitOfWor
         await _transaction.DisposeAsync();
         _transaction = null;
         _committed = true;
-        if (_connection is not null)
-        {
-            await _connection.DisposeAsync();
-            _connection = null;
-        }
     }
 
     public async ValueTask DisposeAsync()

@@ -13,7 +13,7 @@ using Marten;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
 public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 {
     private static readonly ConcurrentDictionary<string, Lazy<IDocumentStore>> _stores = new();

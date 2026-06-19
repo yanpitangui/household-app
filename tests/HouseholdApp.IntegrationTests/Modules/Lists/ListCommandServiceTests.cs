@@ -12,7 +12,7 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace HouseholdApp.IntegrationTests.Modules.Lists;
 
-[ClassDataSource<PostgresFixture>(Shared = SharedType.PerClass)]
+[ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
 public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposable
 {
     private readonly ServiceProvider _provider = BuildProvider(db);
