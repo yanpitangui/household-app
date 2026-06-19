@@ -25,7 +25,9 @@ jobs:
           dotnet-quality: preview
 
       - name: Restore
-        run: dotnet restore tests/HouseholdApp.UnitTests/HouseholdApp.UnitTests.csproj tests/HouseholdApp.IntegrationTests/HouseholdApp.IntegrationTests.csproj
+        run: |
+          dotnet restore tests/HouseholdApp.UnitTests/HouseholdApp.UnitTests.csproj
+          dotnet restore tests/HouseholdApp.IntegrationTests/HouseholdApp.IntegrationTests.csproj
 
       - name: Test
         run: |
