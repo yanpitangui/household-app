@@ -71,14 +71,21 @@ public class ListsTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
         await NavigateToListAsync(page, householdId);
 
+        // Abort the auto-submit POST that selectCatalogItem triggers so the
+        // after-request handler never fires and doesn't reset the form fields.
+        await page.RouteAsync("**/Lists/**", async route =>
+        {
+            if (route.Request.Method == "POST" && route.Request.Url.Contains("handler=AddItem"))
+                await route.AbortAsync();
+            else
+                await route.ContinueAsync();
+        });
+
         await TypeIntoItemInput(page, "Mil");
         var firstSuggestion = page.Locator("#item-suggestions .suggestion-item").First;
         await firstSuggestion.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         var suggestedName = await firstSuggestion.Locator("strong").InnerTextAsync();
         await firstSuggestion.ClickAsync();
-
-        await page.WaitForFunctionAsync("document.getElementById('catalog-item-id').value !== ''",
-            null, new PageWaitForFunctionOptions { Timeout = 10_000 });
 
         await Assert.That(await page.InputValueAsync("#item-name-input")).IsEqualTo(suggestedName);
         await Assert.That(await page.InputValueAsync("#catalog-item-id")).IsNotEmpty();
