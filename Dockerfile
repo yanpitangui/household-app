@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:11.0-preview-alpine AS build
 WORKDIR /src
 
+COPY Directory.Packages.props .
 COPY src/HouseholdApp.Application/HouseholdApp.Application.csproj src/HouseholdApp.Application/
 COPY src/HouseholdApp.ServiceDefaults/HouseholdApp.ServiceDefaults.csproj src/HouseholdApp.ServiceDefaults/
 COPY src/HouseholdApp.Web/HouseholdApp.Web.csproj src/HouseholdApp.Web/
