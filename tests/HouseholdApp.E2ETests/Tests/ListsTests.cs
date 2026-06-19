@@ -71,26 +71,25 @@ public class ListsTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
         await NavigateToListAsync(page, householdId);
 
-        // Abort the auto-submit POST that selectCatalogItem triggers so the
-        // after-request handler never fires and doesn't reset the form fields.
-        await page.RouteAsync("**/Lists/**", async route =>
-        {
-            if (route.Request.Method == "POST" && route.Request.Url.Contains("handler=AddItem"))
-                await route.AbortAsync();
-            else
-                await route.ContinueAsync();
-        });
-
         await TypeIntoItemInput(page, "Mil");
         var firstSuggestion = page.Locator("#item-suggestions .suggestion-item").First;
         await firstSuggestion.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         var suggestedName = await firstSuggestion.Locator("strong").InnerTextAsync();
         await firstSuggestion.ClickAsync();
 
-        await Assert.That(await page.InputValueAsync("#item-name-input")).IsEqualTo(suggestedName);
-        await Assert.That(await page.InputValueAsync("#catalog-item-id")).IsNotEmpty();
-        var selectedCategory = await page.EvalOnSelectorAsync<string>("#category-select", "el => el.value");
-        await Assert.That(selectedCategory).IsNotEmpty();
+        // Read all three values in one atomic JS call. selectCatalogItem fills them
+        // synchronously then auto-submits via HTMX (which resets the form on after-request).
+        // A single EvaluateAsync round-trip beats the network response; three separate
+        // Playwright calls do not.
+        var values = await page.EvaluateAsync<string[]>(@"() => [
+            document.getElementById('item-name-input').value,
+            document.getElementById('catalog-item-id').value,
+            document.getElementById('category-select').value
+        ]");
+
+        await Assert.That(values[0]).IsEqualTo(suggestedName);
+        await Assert.That(values[1]).IsNotEmpty();
+        await Assert.That(values[2]).IsNotEmpty();
     }
 
     [Test]
