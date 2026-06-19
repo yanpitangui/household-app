@@ -45,6 +45,12 @@ public class AppFixture : AspireFixture<Projects.HouseholdApp_AppHost>
 
     protected override void ConfigureBuilder(IDistributedApplicationTestingBuilder builder)
     {
+        // Supply dummy values for parameters that come from user secrets in local dev.
+        // The web resource's actual OIDC env vars are overridden below with FakeOidc values.
+        builder.Configuration["Parameters:google-client-id"] = "test-client-id";
+        builder.Configuration["Parameters:google-client-secret"] = "test-client-secret";
+        builder.Configuration["Parameters:admin-email"] = "test@example.com";
+
         // Strip named volume mounts so each test run starts with a clean DB state.
         foreach (var resource in builder.Resources)
         {
