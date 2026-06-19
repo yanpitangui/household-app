@@ -77,6 +77,9 @@ public class ListsTests(PlaywrightFixture pw)
         var suggestedName = await firstSuggestion.Locator("strong").InnerTextAsync();
         await firstSuggestion.ClickAsync();
 
+        await page.WaitForFunctionAsync("document.getElementById('catalog-item-id').value !== ''",
+            null, new PageWaitForFunctionOptions { Timeout = 10_000 });
+
         await Assert.That(await page.InputValueAsync("#item-name-input")).IsEqualTo(suggestedName);
         await Assert.That(await page.InputValueAsync("#catalog-item-id")).IsNotEmpty();
         var selectedCategory = await page.EvalOnSelectorAsync<string>("#category-select", "el => el.value");
