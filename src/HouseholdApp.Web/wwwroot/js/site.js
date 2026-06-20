@@ -1,19 +1,5 @@
-function selectCatalogItem(el) {
-    document.getElementById('item-name-input').value = el.dataset.name;
-    document.getElementById('category-select').value = el.dataset.categoryId;
-    refreshCategoryPicker();
-    document.getElementById('catalog-item-id').value = el.dataset.catalogId;
-    document.getElementById('item-suggestions').innerHTML = '';
-    document.getElementById('add-item-btn').click();
-}
-
 window.householdApp ??= {};
 window.householdApp.appSelectId ??= 0;
-
-function refreshCategoryPicker() {
-    const select = document.getElementById('category-select');
-    if (select) refreshAppSelect(select);
-}
 
 function initAppSelects(root = document) {
     const selects = root instanceof HTMLSelectElement && root.matches('select.form-select')
@@ -127,29 +113,10 @@ function refreshAppSelect(select) {
     });
 }
 
-function showItemDetail(el) {
-    document.getElementById('detail-name').textContent = el.dataset.name;
-    document.getElementById('detail-item-id').value = el.dataset.itemId ?? '';
-    document.getElementById('detail-list-id').value = el.dataset.listId ?? '';
-    document.getElementById('detail-list-name').textContent = el.dataset.listName ?? '';
-    document.getElementById('detail-added-by').textContent = el.dataset.addedBy ?? '';
-
-    const catSelect = document.getElementById('detail-category-select');
-    catSelect.value = el.dataset.categoryId ?? '';
-    refreshAppSelect(catSelect);
-
-    document.getElementById('item-detail-dialog').showModal();
-}
-
 if (!window.householdApp.siteEventsBound) {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.app-select')) {
             closeOtherAppSelects(null);
-        }
-
-        if (!e.target.closest('#item-name-input') && !e.target.closest('#item-suggestions')) {
-            const el = document.getElementById('item-suggestions');
-            if (el) el.innerHTML = '';
         }
     });
 
@@ -159,12 +126,6 @@ if (!window.householdApp.siteEventsBound) {
 
     document.addEventListener('DOMContentLoaded', () => {
         initAppSelects();
-        const dialog = document.getElementById('item-detail-dialog');
-        if (dialog) {
-            dialog.addEventListener('click', (e) => {
-                if (e.target === dialog) dialog.close();
-            });
-        }
     });
 
     document.addEventListener('htmx:afterSwap', (e) => {

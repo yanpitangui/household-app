@@ -84,7 +84,7 @@ public class ListsTests(PlaywrightFixture pw)
         var values = await page.EvaluateAsync<string[]>(@"() => [
             document.getElementById('item-name-input').value,
             document.getElementById('catalog-item-id').value,
-            document.getElementById('category-select').value
+            document.getElementById('category-select-desktop').value
         ]");
 
         await Assert.That(values[0]).IsEqualTo(suggestedName);
@@ -212,7 +212,7 @@ public class ListsTests(PlaywrightFixture pw)
 
     private static async Task SubmitAddItemFormAsync(IPage page)
     {
-        await page.ClickAsync("button.btn-primary[hx-post]");
+        await page.Locator("#item-name-input").PressAsync("Enter");
     }
 
     private async Task NavigateToListAsync(IPage page, Guid householdId)

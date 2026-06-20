@@ -72,23 +72,26 @@
                                 hx-target="#items-list"
                                 hx-swap="outerHTML"
                                 >✓</button>
-                        <span class="check-item-text"
-                              style="flex:1; cursor:pointer"
-                              onclick="showItemDetail(this)"
-                              data-item-id="@item.Id"
-                              data-list-id="@Model.Id"
-                              data-name="@item.Name"
-                              data-category-id="@(item.CategoryId?.ToString() ?? "")"
-                              data-category="@item.CategoryName"
-                              data-category-emoji="@item.CategoryEmoji"
-                              data-added-by="@item.AddedByName"
-                              data-list-name="@Model.Name">@item.Name</span>
-                        @if (item.CategoryName is not null)
-                        {
-                            <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">
-                                @item.CategoryEmoji @item.CategoryName
-                            </span>
-                        }
+                        <div style="flex:1; min-width:0; cursor:pointer"
+                             onclick="showItemDetail(this)"
+                             data-item-id="@item.Id"
+                             data-list-id="@Model.Id"
+                             data-name="@item.Name"
+                             data-category-id="@(item.CategoryId?.ToString() ?? "")"
+                             data-category="@item.CategoryName"
+                             data-category-emoji="@item.CategoryEmoji"
+                             data-added-by="@item.AddedByName"
+                             data-list-name="@Model.Name">
+                            <span class="check-item-text">@item.Name</span>
+                            @if (item.CategoryName is not null)
+                            {
+                                <div style="margin-top:3px">
+                                    <span class="list-row-badge" style="background:rgba(245,158,11,0.12); color:var(--accent-lists)">
+                                        @item.CategoryEmoji @item.CategoryName
+                                    </span>
+                                </div>
+                            }
+                        </div>
                         <button class="btn btn-sm btn-outline-danger"
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
