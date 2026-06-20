@@ -38,17 +38,29 @@ function resetDesktopCategory() {
     if (noneBtn) selectDesktopCategory(noneBtn);
 }
 
+let _drawerSelectController = null;
+
 function openAddItemDrawer() {
     if (window.innerWidth >= 640) return;
     const drawer = document.getElementById('add-item-drawer');
     if (!drawer) return;
     drawer.showModal();
     setTimeout(() => document.getElementById('item-name-input-mobile')?.focus(), 80);
+
+    _drawerSelectController = new AbortController();
+    const catSel = document.getElementById('category-select-mobile');
+    if (catSel) {
+        const { signal } = _drawerSelectController;
+        catSel.addEventListener('focus', () => drawer.classList.add('lifted'), { signal });
+        catSel.addEventListener('blur', () => drawer.classList.remove('lifted'), { signal });
+    }
 }
 
 function closeAddItemDrawer() {
+    if (_drawerSelectController) { _drawerSelectController.abort(); _drawerSelectController = null; }
     const drawer = document.getElementById('add-item-drawer');
     if (!drawer) return;
+    drawer.classList.remove('lifted');
     drawer.close();
     const form = document.getElementById('add-item-form-mobile');
     if (form) form.reset();

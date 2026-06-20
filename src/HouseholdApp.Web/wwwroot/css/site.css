@@ -826,8 +826,14 @@ textarea.form-control { resize: vertical; }
     margin: 0;
     width: 100%;
     max-width: 100%;
+    min-height: 50dvh;
     box-shadow: 0 -8px 48px rgba(0,0,0,0.55);
     animation: confirm-slide-up 0.24s cubic-bezier(0.32,0.72,0,1) both;
+    transition: bottom 0.2s ease;
+}
+
+#add-item-drawer.lifted {
+    bottom: 260px;
 }
 
 #add-item-drawer::backdrop {
@@ -867,6 +873,7 @@ textarea.form-control { resize: vertical; }
     overflow: hidden;
     background: #0f0c09;
     border: 1px solid var(--border-color);
+    color: var(--text-primary);
 }
 
 .drawer-suggestions:empty,
