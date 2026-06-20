@@ -34,6 +34,14 @@ jobs:
           dotnet test tests/HouseholdApp.UnitTests/HouseholdApp.UnitTests.csproj --no-restore
           dotnet test tests/HouseholdApp.IntegrationTests/HouseholdApp.IntegrationTests.csproj --no-restore
 
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: tests/**/TestResults/*.html
+          retention-days: 14
+
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
@@ -53,6 +61,14 @@ jobs:
 
       - name: Test
         run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore
+
+      - name: Upload E2E test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-report
+          path: tests/HouseholdApp.E2ETests/bin/Debug/net11.0/TestResults/*.html
+          retention-days: 14
 
   docker:
     name: Build & Push Docker Image
