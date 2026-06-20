@@ -229,4 +229,33 @@
   <!-- Settings -->
   <data name="Settings.Title"><value>Settings</value></data>
   <data name="Settings.Language"><value>Language</value></data>
+
+  <!-- Expenses - Responsive Redesign -->
+  <data name="Expenses.YourBalance"><value>YOUR BALANCE</value></data>
+  <data name="Expenses.NetOwed"><value>You are owed in total</value></data>
+  <data name="Expenses.NetOwe"><value>You owe in total</value></data>
+  <data name="Expenses.TheyOwe"><value>owes you</value></data>
+  <data name="Expenses.YouOwe"><value>you owe</value></data>
+  <data name="Expenses.YouPaid"><value>you paid</value></data>
+  <data name="Expenses.YouLent"><value>you lent</value></data>
+  <data name="Expenses.YouBorrowed"><value>you owe</value></data>
+  <data name="Expenses.AddExpense"><value>Add expense</value></data>
+  <data name="Expenses.SplitOptions"><value>Split options</value></data>
+  <data name="Expenses.DoneBtn"><value>Done</value></data>
+  <data name="Expenses.SplitSummary.Equal"><value>split equally</value></data>
+  <data name="Expenses.SplitSummary.Exact"><value>exact amounts</value></data>
+  <data name="Expenses.SplitSummary.Percent"><value>by percentage</value></data>
+  <data name="Expenses.SplitSummary.Shares"><value>by shares</value></data>
+  <data name="Expenses.SplitSummary.Adjust"><value>with adjustment</value></data>
+  <data name="Expenses.SplitMode.EqualTitle"><value>Split equally</value></data>
+  <data name="Expenses.SplitMode.EqualDesc"><value>Select who owes an equal share.</value></data>
+  <data name="Expenses.SplitMode.ExactTitle"><value>Exact amounts</value></data>
+  <data name="Expenses.SplitMode.ExactDesc"><value>Specify exactly what each person owes.</value></data>
+  <data name="Expenses.SplitMode.PctTitle"><value>Percentages</value></data>
+  <data name="Expenses.SplitMode.PctDesc"><value>Enter the percentage each person owes.</value></data>
+  <data name="Expenses.SplitMode.SharesTitle"><value>Shares</value></data>
+  <data name="Expenses.SplitMode.SharesDesc"><value>Enter number of shares per person.</value></data>
+  <data name="Expenses.SplitMode.AdjustTitle"><value>Adjustment</value></data>
+  <data name="Expenses.SplitMode.AdjustDesc"><value>Enter adjustments; the rest splits equally.</value></data>
+  <data name="Expenses.AllMembersBtn"><value>All</value></data>
 </root>

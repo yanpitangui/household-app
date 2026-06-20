@@ -24,7 +24,7 @@ public class SettleModel(
     public Guid RecipientId { get; set; }
 
     [BindProperty, Range(0.01, double.MaxValue)]
-    public decimal AmountReais { get; set; }
+    public decimal Amount { get; set; }
 
     [BindProperty]
     public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Today);
@@ -47,7 +47,7 @@ public class SettleModel(
             return Page();
         }
 
-        var cents = (long)(AmountReais * 100);
+        var cents = (long)(Amount * 100);
         await expenseCommands.RecordSettlementAsync(
             HouseholdId, PayerId, RecipientId, cents,
             new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero));

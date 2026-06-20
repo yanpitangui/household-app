@@ -1,71 +1,458 @@
 @page "/h/{householdId:guid}/Expenses/Record"
 @model HouseholdApp.Web.Pages.Expenses.RecordExpenseModel
+@using System.Globalization
 @{
     ViewData["Title"] = L["Expenses.RecordExpenseHeading"];
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    var currentUserName = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.DisplayName ?? "";
+    var currentUserPic = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.PictureUrl;
+    var currentUserInitial = currentUserName.Length > 0 ? currentUserName[0].ToString() : "?";
 }
 
 <div class="page-heading">
     <span>@L["Expenses.RecordExpenseHeading"]</span>
-    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId"
+       style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
+        ← @L["Action.Cancel"]
+    </a>
 </div>
 
-<div class="app-card">
-    <form method="post">
+<form method="post" id="record-form">
+    @Html.AntiForgeryToken()
+    <div id="allocation-inputs"></div>
+    <input type="hidden" id="payer-id-input" name="PayerId" value="@Model.CurrentUserId" />
 
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label">@L["Expenses.Description"]</label>
-            <input asp-for="Description" class="form-control" placeholder="@L["Expenses.DescriptionPlaceholder"]" />
+    @* ═══════════ PANEL A: Main form ═══════════ *@
+    <div id="panel-a" class="app-card">
+        <div class="record-desc-row">
+            <div class="record-desc-icon">📝</div>
+            <input asp-for="Description" id="desc-input" class="record-desc-input"
+                   placeholder="@L["Expenses.DescriptionPlaceholder"]" autocomplete="off" />
         </div>
+        <span asp-validation-for="Description" class="text-danger" style="font-size:12px;display:block;margin-top:-14px;margin-bottom:10px"></span>
 
-        <div class="row mb-3">
-            <div class="col">
-                <label asp-for="Date" class="form-label">@L["Expenses.Date"]</label>
-                <input asp-for="Date" type="date" class="form-control" />
+        <div class="record-amount-row">
+            <span class="record-amount-currency">@currencySymbol</span>
+            <input id="amount-input" name="Amount" type="number" step="0.01" min="0.01"
+                   class="record-amount-input" placeholder="0,00"
+                   value="@(Model.Amount > 0 ? Model.Amount.ToString("F2") : "")" />
+        </div>
+        <span asp-validation-for="Amount" class="text-danger" style="font-size:12px;display:block;margin-top:-18px;margin-bottom:10px"></span>
+
+        <button type="button" class="record-split-btn" id="open-split-btn" onclick="openSplitPanel()">
+            <div class="record-split-icon">👥</div>
+            <div style="flex:1;min-width:0">
+                <div class="record-split-label">@L["Expenses.Participants"]</div>
+                <div class="record-split-value" id="split-summary-text">@currentUserName pagou, dividido igualmente</div>
             </div>
-            <div class="col">
-                <label asp-for="AmountReais" class="form-label">@L["Expenses.Amount"]</label>
-                <input asp-for="AmountReais" type="number" step="0.01" min="0.01" class="form-control" />
+            <span class="record-split-chevron">›</span>
+        </button>
+
+        <div class="record-meta-row">
+            <div class="record-date-chip">
+                📅 <span id="date-display">@Model.Date.ToString("d")</span>
+                <input asp-for="Date" type="date" id="date-input"
+                       onchange="document.getElementById('date-display').textContent = new Date(this.value + 'T12:00').toLocaleDateString()">
+            </div>
+            <div style="flex:1">
+                <select asp-for="GroupId" class="form-select" id="group-select">
+                    <option value="">@L["Expenses.SelectGroup"]</option>
+                    @foreach (var g in Model.Groups)
+                    {
+                        <option value="@g.Id">@g.Name</option>
+                    }
+                </select>
             </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="GroupId" class="form-label">@L["Expenses.Group"]</label>
-            <select asp-for="GroupId" class="form-select">
-                <option value="">@L["Expenses.SelectGroup"]</option>
-                @foreach (var g in Model.Groups)
-                {
-                    <option value="@g.Id">@g.Name</option>
-                }
-            </select>
+        <button type="submit" class="record-save-btn">@L["Expenses.Record"]</button>
+        <span asp-validation-summary="ModelOnly" class="text-danger" style="font-size:12px;display:block;margin-top:8px"></span>
+    </div>
+
+    @* ═══════════ PANEL B: Split options ═══════════ *@
+    <div id="panel-b" style="display:none">
+        <div class="split-header">
+            <button type="button" class="split-header-cancel" onclick="closeSplitPanel()">← @L["Action.Cancel"]</button>
+            <span class="split-header-title">@L["Expenses.SplitOptions"]</span>
+            <button type="button" class="split-header-done" onclick="commitSplitPanel()">@L["Expenses.DoneBtn"]</button>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="PayerId" class="form-label">@L["Expenses.Payer"]</label>
-            <select asp-for="PayerId" class="form-select">
+        <div class="dropdown" id="payer-dropdown">
+            <button type="button"
+                    style="width:100%;background:none;border:none;padding:14px 16px;border-bottom:1px solid var(--border-color);cursor:pointer;display:flex;align-items:center;gap:12px"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="split-payer-avatar" id="payer-avatar-el">
+                    @if (!string.IsNullOrEmpty(currentUserPic))
+                    {
+                        <img src="@currentUserPic" alt="@currentUserName" />
+                    }
+                    else
+                    {
+                        @currentUserInitial
+                    }
+                </div>
+                <span class="split-paid-label">
+                    @L["Expenses.Payer"] <strong id="payer-name-el">@currentUserName</strong>
+                </span>
+                <span style="color:var(--text-muted);margin-left:auto">›</span>
+            </button>
+            <ul class="dropdown-menu" style="background:var(--card-bg);border-color:var(--border-color);min-width:220px;border-radius:14px;padding:6px">
                 @foreach (var m in Model.Members)
                 {
-                    <option value="@m.UserId" selected="@(m.UserId == Model.CurrentUserId)">@m.DisplayName</option>
+                    var initial = m.DisplayName.Length > 0 ? m.DisplayName[0].ToString() : "?";
+                    <li>
+                        <button type="button" class="dropdown-item split-payer-opt"
+                                data-user-id="@m.UserId"
+                                data-name="@m.DisplayName"
+                                data-initial="@initial"
+                                data-pic="@m.PictureUrl"
+                                onclick="selectPayer(this)">
+                            @m.DisplayName
+                        </button>
+                    </li>
                 }
-            </select>
+            </ul>
         </div>
 
-        <div class="mb-4">
-            <label class="form-label">@L["Expenses.Participants"]</label>
-            @foreach (var m in Model.Members)
-            {
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox"
-                           name="SplitMemberIds" value="@m.UserId" checked="checked"
-                           id="split_@m.UserId" />
-                    <label class="form-check-label" style="color:var(--text-secondary); font-size:13px" for="split_@m.UserId">@m.DisplayName</label>
+        <div class="split-mode-tabs">
+            <div class="split-mode-tab active" data-mode="equal" onclick="switchMode('equal')">=</div>
+            <div class="split-mode-tab" data-mode="exact" onclick="switchMode('exact')">1.23</div>
+            <div class="split-mode-tab" data-mode="pct" onclick="switchMode('pct')">%</div>
+            <div class="split-mode-tab" data-mode="shares" onclick="switchMode('shares')">|||</div>
+            <div class="split-mode-tab" data-mode="adjust" onclick="switchMode('adjust')">+/−</div>
+        </div>
+
+        <div class="split-mode-desc">
+            <div class="split-mode-desc-title" id="mode-title">@L["Expenses.SplitMode.EqualTitle"]</div>
+            <div class="split-mode-desc-sub" id="mode-desc">@L["Expenses.SplitMode.EqualDesc"]</div>
+        </div>
+
+        @foreach (var m in Model.Members)
+        {
+            var initial = m.DisplayName.Length > 0 ? m.DisplayName[0].ToString() : "?";
+            <div class="split-member-row" data-user-id="@m.UserId" data-name="@m.DisplayName">
+                <div class="split-member-avatar">
+                    @if (!string.IsNullOrEmpty(m.PictureUrl))
+                    {
+                        <img src="@m.PictureUrl" alt="@m.DisplayName" />
+                    }
+                    else
+                    {
+                        @initial
+                    }
                 </div>
-            }
-            <small style="color:var(--text-muted); font-size:11px">@L["Expenses.EqualSplitHint"]</small>
-        </div>
+                <div class="split-member-info">
+                    <div class="split-member-name">@m.DisplayName</div>
+                    <div class="split-member-sub"></div>
+                </div>
 
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">@L["Expenses.Record"]</button>
-            <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
+                <div class="split-input" data-for="equal">
+                    <button type="button" class="split-check-btn active" onclick="toggleEqual(this)">✓</button>
+                </div>
+
+                <div class="split-input" data-for="exact" style="display:none;align-items:center">
+                    <span class="split-input-prefix">@currencySymbol</span>
+                    <input type="text" inputmode="decimal" class="split-money-inp exact-inp"
+                           placeholder="0,00" oninput="updateSummaryBar()">
+                </div>
+
+                <div class="split-input" data-for="pct" style="display:none;align-items:center">
+                    <input type="number" min="0" max="100" step="1" class="split-pct-inp"
+                           placeholder="0" oninput="updateSummaryBar()">
+                    <span class="split-pct-suffix">%</span>
+                </div>
+
+                <div class="split-input" data-for="shares" style="display:none;align-items:center">
+                    <input type="number" min="0" step="1" value="1" class="split-shares-inp"
+                           oninput="updateSummaryBar()">
+                    <span class="split-shares-suffix">pts</span>
+                </div>
+
+                <div class="split-input" data-for="adjust" style="display:none;align-items:center">
+                    <span class="split-input-prefix">+</span>
+                    <input type="text" inputmode="decimal" class="split-money-inp adjust-inp"
+                           placeholder="0,00" oninput="updateSummaryBar()">
+                </div>
+            </div>
+        }
+
+        <div class="split-summary-bar">
+            <div>
+                <div class="split-bar-info" id="split-bar-main">—</div>
+                <div class="split-bar-sub" id="split-bar-sub"></div>
+            </div>
+            <button type="button" class="split-all-btn" id="split-all-btn" onclick="selectAllEqual()">
+                @L["Expenses.AllMembersBtn"] ✓
+            </button>
         </div>
-    </form>
-</div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+(function () {
+    const meta = JSON.parse(document.getElementById('mode-meta').textContent);
+    const currencySymbol = '@currencySymbol';
+    let currentMode = 'equal';
+    let payerName = document.getElementById('payer-name-el')?.textContent ?? '';
+
+    window.openSplitPanel = function () {
+        document.getElementById('panel-a').style.display = 'none';
+        document.getElementById('panel-b').style.display = 'block';
+        updateSummaryBar();
+    };
+
+    window.closeSplitPanel = function () {
+        document.getElementById('panel-b').style.display = 'none';
+        document.getElementById('panel-a').style.display = 'block';
+    };
+
+    window.commitSplitPanel = function () {
+        updateSplitSummaryButton();
+        closeSplitPanel();
+    };
+
+    window.selectPayer = function (btn) {
+        payerName = btn.dataset.name;
+        document.getElementById('payer-id-input').value = btn.dataset.userId;
+        document.getElementById('payer-name-el').textContent = payerName;
+        const avatarEl = document.getElementById('payer-avatar-el');
+        if (btn.dataset.pic) {
+            avatarEl.innerHTML = `<img src="${btn.dataset.pic}" alt="${payerName}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        } else {
+            avatarEl.textContent = btn.dataset.initial;
+        }
+        updateSplitSummaryButton();
+    };
+
+    window.switchMode = function (mode) {
+        currentMode = mode;
+        document.querySelectorAll('.split-mode-tab').forEach(t =>
+            t.classList.toggle('active', t.dataset.mode === mode));
+        document.querySelectorAll('.split-input').forEach(el => {
+            el.style.display = el.dataset.for === mode ? 'flex' : 'none';
+        });
+        const m = meta.modes[mode];
+        document.getElementById('mode-title').textContent = m.title;
+        document.getElementById('mode-desc').textContent = m.desc;
+        const allBtn = document.getElementById('split-all-btn');
+        if (allBtn) allBtn.style.display = mode === 'equal' ? 'flex' : 'none';
+        updateSummaryBar();
+        updateMemberSubs();
+    };
+
+    window.toggleEqual = function (btn) {
+        btn.classList.toggle('active');
+        updateSummaryBar();
+    };
+
+    window.selectAllEqual = function () {
+        document.querySelectorAll('.split-check-btn').forEach(b => b.classList.add('active'));
+        updateSummaryBar();
+    };
+
+    function totalCents() {
+        const v = parseFloat((document.getElementById('amount-input')?.value ?? '0').replace(',', '.')) || 0;
+        return Math.round(v * 100);
+    }
+
+    function parseMoneyCents(str) {
+        return Math.round(parseFloat((str || '0').replace(',', '.')) * 100) || 0;
+    }
+
+    function centsToDisplay(c) {
+        return (c / 100).toFixed(2).replace('.', ',');
+    }
+
+    window.updateSummaryBar = function () {
+        const tc = totalCents();
+        const mainEl = document.getElementById('split-bar-main');
+        const subEl = document.getElementById('split-bar-sub');
+        const allBtn = document.getElementById('split-all-btn');
+
+        if (currentMode === 'equal') {
+            const n = document.querySelectorAll('.split-check-btn.active').length;
+            if (n > 0 && tc > 0) {
+                mainEl.textContent = `${currencySymbol} ${centsToDisplay(Math.round(tc / n))} / pessoa`;
+                subEl.textContent = `${n} pessoa${n > 1 ? 's' : ''}`;
+            } else {
+                mainEl.textContent = '—';
+                subEl.textContent = '';
+            }
+            if (allBtn) allBtn.className = 'split-all-btn' + (n === memberCount() ? ' ok' : '');
+        } else if (currentMode === 'exact') {
+            let sum = 0;
+            document.querySelectorAll('.exact-inp').forEach(i => { sum += parseMoneyCents(i.value); });
+            const rem = tc - sum;
+            mainEl.textContent = `${currencySymbol} ${centsToDisplay(sum)} de R$ ${centsToDisplay(tc)}`;
+            subEl.textContent = rem === 0 ? '✓ OK' : `${currencySymbol} ${centsToDisplay(Math.abs(rem))} ${rem > 0 ? 'restantes' : 'a mais'}`;
+            mainEl.style.color = rem === 0 ? 'var(--accent-tasks)' : 'var(--text-primary)';
+        } else if (currentMode === 'pct') {
+            let sum = 0;
+            document.querySelectorAll('.split-pct-inp').forEach(i => { sum += parseInt(i.value || '0', 10); });
+            const rem = 100 - sum;
+            mainEl.textContent = `${sum}% de 100%`;
+            subEl.textContent = rem === 0 ? '✓ OK' : `${Math.abs(rem)}% ${rem > 0 ? 'restantes' : 'a mais'}`;
+            mainEl.style.color = rem === 0 ? 'var(--accent-tasks)' : 'var(--text-primary)';
+        } else if (currentMode === 'shares') {
+            let total = 0;
+            document.querySelectorAll('.split-shares-inp').forEach(i => { total += parseInt(i.value || '0', 10); });
+            mainEl.textContent = `${total} parte${total !== 1 ? 's' : ''} do total`;
+            subEl.textContent = total > 0 && tc > 0 ? `${currencySymbol} ${centsToDisplay(Math.round(tc / total))} / parte` : '';
+            mainEl.style.color = 'var(--text-primary)';
+            updateMemberSubs();
+        } else if (currentMode === 'adjust') {
+            const n = memberCount();
+            const base = n > 0 ? Math.floor(tc / n) : 0;
+            let adjSum = 0;
+            document.querySelectorAll('.adjust-inp').forEach(i => { adjSum += parseMoneyCents(i.value); });
+            const finalAmt = tc - adjSum;
+            mainEl.textContent = `Base: R$ ${centsToDisplay(base)}/pessoa`;
+            subEl.textContent = adjSum !== 0 ? `Total ajustes: R$ ${centsToDisplay(adjSum)}` : '';
+            mainEl.style.color = finalAmt >= 0 ? 'var(--text-primary)' : '#f87171';
+            updateMemberSubs();
+        }
+    };
+
+    function memberCount() {
+        return document.querySelectorAll('.split-member-row').length;
+    }
+
+    function updateMemberSubs() {
+        const tc = totalCents();
+        if (currentMode === 'shares') {
+            let totalShares = 0;
+            document.querySelectorAll('.split-shares-inp').forEach(i => { totalShares += parseInt(i.value || '0', 10); });
+            document.querySelectorAll('.split-member-row').forEach(row => {
+                const n = parseInt(row.querySelector('.split-shares-inp')?.value || '0', 10);
+                const sub = row.querySelector('.split-member-sub');
+                if (sub) sub.textContent = totalShares > 0 && tc > 0 ? `${currencySymbol} ${centsToDisplay(Math.round(n / totalShares * tc))}` : '';
+            });
+        } else if (currentMode === 'adjust') {
+            const n = memberCount();
+            const base = n > 0 ? Math.floor(tc / n) : 0;
+            const rem = tc % n;
+            document.querySelectorAll('.split-member-row').forEach((row, i) => {
+                const sub = row.querySelector('.split-member-sub');
+                if (sub) sub.textContent = `base R$ ${centsToDisplay(base + (i === 0 ? rem : 0))}`;
+            });
+        }
+    }
+
+    function updateSplitSummaryButton() {
+        const el = document.getElementById('split-summary-text');
+        if (!el) return;
+        el.textContent = `${payerName} pagou, ${meta.modes[currentMode].summary}`;
+    }
+
+    function computeAllocations() {
+        const tc = totalCents();
+        if (tc <= 0) return null;
+
+        if (currentMode === 'equal') {
+            const rows = [...document.querySelectorAll('.split-member-row')].filter(r =>
+                r.querySelector('.split-check-btn')?.classList.contains('active'));
+            if (rows.length === 0) return null;
+            const base = Math.floor(tc / rows.length);
+            const rem = tc % rows.length;
+            return rows.map((r, i) => ({ userId: r.dataset.userId, cents: base + (i === 0 ? rem : 0) }));
+        }
+
+        if (currentMode === 'exact') {
+            const rows = [...document.querySelectorAll('.split-member-row')];
+            const result = [];
+            let sum = 0;
+            rows.forEach(r => {
+                const c = parseMoneyCents(r.querySelector('.exact-inp')?.value);
+                if (c > 0) { result.push({ userId: r.dataset.userId, cents: c }); sum += c; }
+            });
+            if (sum !== tc) return null;
+            return result;
+        }
+
+        if (currentMode === 'pct') {
+            const rows = [...document.querySelectorAll('.split-member-row')];
+            const pcts = rows.map(r => ({ id: r.dataset.userId, pct: parseInt(r.querySelector('.split-pct-inp')?.value || '0', 10) }));
+            if (pcts.reduce((s, x) => s + x.pct, 0) !== 100) return null;
+            let rem = tc;
+            return pcts.filter(x => x.pct > 0).map((x, i, arr) => {
+                const c = i === arr.length - 1 ? rem : Math.round(x.pct / 100 * tc);
+                rem -= c;
+                return { userId: x.id, cents: c };
+            });
+        }
+
+        if (currentMode === 'shares') {
+            const rows = [...document.querySelectorAll('.split-member-row')];
+            const sh = rows.map(r => ({ id: r.dataset.userId, n: parseInt(r.querySelector('.split-shares-inp')?.value || '0', 10) }));
+            const total = sh.reduce((s, x) => s + x.n, 0);
+            if (total === 0) return null;
+            let rem = tc;
+            return sh.filter(x => x.n > 0).map((x, i, arr) => {
+                const c = i === arr.length - 1 ? rem : Math.round(x.n / total * tc);
+                rem -= c;
+                return { userId: x.id, cents: c };
+            });
+        }
+
+        if (currentMode === 'adjust') {
+            const rows = [...document.querySelectorAll('.split-member-row')];
+            const n = rows.length;
+            if (n === 0) return null;
+            let adjTotal = 0;
+            const adjs = rows.map(r => {
+                const a = parseMoneyCents(r.querySelector('.adjust-inp')?.value);
+                adjTotal += a;
+                return { id: r.dataset.userId, adj: a };
+            });
+            const remaining = tc - adjTotal;
+            if (remaining < 0) return null;
+            const base = Math.floor(remaining / n);
+            const rem = remaining % n;
+            return adjs.map((x, i) => ({ userId: x.id, cents: base + (i === 0 ? rem : 0) + x.adj }));
+        }
+
+        return null;
+    }
+
+    document.getElementById('record-form')?.addEventListener('submit', function () {
+        const container = document.getElementById('allocation-inputs');
+        container.innerHTML = '';
+
+        const allocations = computeAllocations();
+        if (!allocations || allocations.length === 0) {
+            document.querySelectorAll('.split-member-row').forEach(r => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'SplitMemberIds'; inp.value = r.dataset.userId;
+                container.appendChild(inp);
+            });
+            return;
+        }
+
+        allocations.forEach(a => {
+            const uid = document.createElement('input');
+            uid.type = 'hidden'; uid.name = 'AllocationUserIds'; uid.value = a.userId;
+            const cents = document.createElement('input');
+            cents.type = 'hidden'; cents.name = 'AllocationCents'; cents.value = a.cents;
+            container.appendChild(uid);
+            container.appendChild(cents);
+        });
+    });
+
+    switchMode('equal');
+    updateSummaryBar();
+})();
+</script>
+}
+
+<script id="mode-meta" type="application/json">
+{
+  "modes": {
+    "equal":  { "title": "@L["Expenses.SplitMode.EqualTitle"]",  "desc": "@L["Expenses.SplitMode.EqualDesc"]",  "summary": "@L["Expenses.SplitSummary.Equal"]"  },
+    "exact":  { "title": "@L["Expenses.SplitMode.ExactTitle"]",  "desc": "@L["Expenses.SplitMode.ExactDesc"]",  "summary": "@L["Expenses.SplitSummary.Exact"]"  },
+    "pct":    { "title": "@L["Expenses.SplitMode.PctTitle"]",    "desc": "@L["Expenses.SplitMode.PctDesc"]",    "summary": "@L["Expenses.SplitSummary.Percent"]" },
+    "shares": { "title": "@L["Expenses.SplitMode.SharesTitle"]", "desc": "@L["Expenses.SplitMode.SharesDesc"]", "summary": "@L["Expenses.SplitSummary.Shares"]"  },
+    "adjust": { "title": "@L["Expenses.SplitMode.AdjustTitle"]", "desc": "@L["Expenses.SplitMode.AdjustDesc"]", "summary": "@L["Expenses.SplitSummary.Adjust"]"  }
+  }
+}
+</script>

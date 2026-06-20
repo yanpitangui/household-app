@@ -30,8 +30,8 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label">@L["Expenses.Amount"]</label>
-                <input asp-for="NewAmountReais" type="number" step="0.01" min="0.01" class="form-control" />
-                <span asp-validation-for="NewAmountReais" class="text-danger" style="font-size:12px"></span>
+                <input asp-for="NewAmount" type="number" step="0.01" min="0.01" class="form-control" />
+                <span asp-validation-for="NewAmount" class="text-danger" style="font-size:12px"></span>
             </div>
             <div class="col-md-2">
                 <label class="form-label">@L["Expenses.Frequency"]</label>
@@ -97,16 +97,18 @@ else
             </div>
             @if (e.IsActive)
             {
-                <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="document.getElementById('edit-@e.Id').style.display = document.getElementById('edit-@e.Id').style.display === 'none' ? 'block' : 'none'">
-                    @L["Action.Edit"]
-                </button>
-                <form method="post" asp-page-handler="Deactivate" style="display:inline">
-                    <input type="hidden" name="recurringExpenseId" value="@e.Id" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="@L["Confirm.DeactivateExpense"]">@L["Expenses.Deactivate"]</button>
-                </form>
+                <div class="d-flex flex-column flex-sm-row align-items-end gap-1">
+                    <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="document.getElementById('edit-@e.Id').style.display = document.getElementById('edit-@e.Id').style.display === 'none' ? 'block' : 'none'">
+                        @L["Action.Edit"]
+                    </button>
+                    <form method="post" asp-page-handler="Deactivate" style="display:inline">
+                        <input type="hidden" name="recurringExpenseId" value="@e.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                data-confirm="@L["Confirm.DeactivateExpense"]">@L["Expenses.Deactivate"]</button>
+                    </form>
+                </div>
             }
             else
             {
@@ -139,7 +141,7 @@ else
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">@L["Expenses.Amount"]</label>
-                            <input asp-for="EditAmountReais" type="number" step="0.01" min="0.01" class="form-control" />
+                            <input asp-for="EditAmount" type="number" step="0.01" min="0.01" class="form-control" />
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">@L["Expenses.Payer"]</label>

@@ -33,7 +33,7 @@ public class RecurringExpensesModel(
     public DateTimeOffset NewStartAt { get; set; }
 
     [BindProperty, Range(0.01, double.MaxValue)]
-    public decimal NewAmountReais { get; set; }
+    public decimal NewAmount { get; set; }
 
     [BindProperty]
     public Guid NewPayerId { get; set; }
@@ -58,7 +58,7 @@ public class RecurringExpensesModel(
     public DateTimeOffset EditStartAt { get; set; }
 
     [BindProperty, Range(0.01, double.MaxValue)]
-    public decimal EditAmountReais { get; set; }
+    public decimal EditAmount { get; set; }
 
     [BindProperty]
     public Guid EditPayerId { get; set; }
@@ -89,7 +89,7 @@ public class RecurringExpensesModel(
             return Page();
         }
 
-        var cents = (long)(NewAmountReais * 100);
+        var cents = (long)(NewAmount * 100);
         var share = cents / NewSplitMemberIds.Count;
         var remainder = cents % NewSplitMemberIds.Count;
 
@@ -116,7 +116,7 @@ public class RecurringExpensesModel(
             return Page();
         }
 
-        var cents = (long)(EditAmountReais * 100);
+        var cents = (long)(EditAmount * 100);
         var share = cents / EditSplitMemberIds.Count;
         var remainder = cents % EditSplitMemberIds.Count;
 

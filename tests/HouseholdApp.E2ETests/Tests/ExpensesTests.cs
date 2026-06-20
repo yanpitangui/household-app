@@ -50,7 +50,7 @@ public class ExpensesTests(PlaywrightFixture pw)
     }
 
     [Test]
-    public async Task Recorded_expense_shows_payer_chip_on_list()
+    public async Task Recorded_expense_appears_in_list()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
@@ -67,7 +67,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         // Fill the form — payer is the current user (first/only member)
         await page.FillAsync("input[name='Description']", "Test Groceries");
-        await page.FillAsync("input[name='AmountReais']", "100");
+        await page.FillAsync("input[name='Amount']", "100");
 
         // Select the group
         var groupSelect = page.Locator("select[name='GroupId']");
@@ -77,9 +77,10 @@ public class ExpensesTests(PlaywrightFixture pw)
         await page.ClickAsync("button[type='submit']:has-text('Record')");
         await page.WaitForURLAsync($"**/h/{householdId}/expenses");
 
-        // Payer chip must appear in the expense row
+        // Expense row must appear in the list
+        await page.Locator(".expense-row-header").First.WaitForAsync();
         await Assert.That(
-            await page.Locator(".payer-chip").First.IsVisibleAsync()
+            await page.Locator(".expense-row-header:has-text('Test Groceries')").IsVisibleAsync()
         ).IsTrue();
     }
 }

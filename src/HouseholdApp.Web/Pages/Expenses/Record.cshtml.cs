@@ -25,7 +25,7 @@ public class RecordExpenseModel(
     public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
     [BindProperty, Range(0.01, double.MaxValue)]
-    public decimal AmountReais { get; set; }
+    public decimal Amount { get; set; }
 
     [BindProperty]
     public Guid GroupId { get; set; }
@@ -35,6 +35,12 @@ public class RecordExpenseModel(
 
     [BindProperty]
     public List<Guid> SplitMemberIds { get; set; } = [];
+
+    [BindProperty]
+    public List<Guid> AllocationUserIds { get; set; } = [];
+
+    [BindProperty]
+    public List<long> AllocationCents { get; set; } = [];
 
     public IReadOnlyList<ExpenseGroupSummary> Groups { get; private set; } = [];
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
@@ -47,22 +53,44 @@ public class RecordExpenseModel(
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (SplitMemberIds.Count == 0)
-            ModelState.AddModelError("SplitMemberIds", "Select at least one member.");
         if (!ModelState.IsValid)
         {
             await LoadLookups();
             return Page();
         }
 
-        var cents = (long)(AmountReais * 100);
-        var share = cents / SplitMemberIds.Count;
-        var remainder = cents % SplitMemberIds.Count;
-
+        var cents = (long)(Amount * 100);
         var funding = new[] { new FundingSourceDto(PayerId, cents) };
-        var allocations = SplitMemberIds
-            .Select((id, i) => new AllocationDto(id, share + (i == 0 ? remainder : 0)))
-            .ToList();
+
+        List<AllocationDto> allocations;
+
+        if (AllocationUserIds.Count > 0 && AllocationUserIds.Count == AllocationCents.Count)
+        {
+            var sum = AllocationCents.Sum();
+            if (sum != cents)
+            {
+                ModelState.AddModelError("", "Allocation amounts do not sum to the total.");
+                await LoadLookups();
+                return Page();
+            }
+            allocations = AllocationUserIds
+                .Zip(AllocationCents, (id, c) => new AllocationDto(id, c))
+                .ToList();
+        }
+        else
+        {
+            if (SplitMemberIds.Count == 0)
+            {
+                ModelState.AddModelError("SplitMemberIds", "Select at least one member.");
+                await LoadLookups();
+                return Page();
+            }
+            var share = cents / SplitMemberIds.Count;
+            var remainder = cents % SplitMemberIds.Count;
+            allocations = SplitMemberIds
+                .Select((id, i) => new AllocationDto(id, share + (i == 0 ? remainder : 0)))
+                .ToList();
+        }
 
         await expenseCommands.RecordExpenseAsync(
             HouseholdId, GroupId, Description,

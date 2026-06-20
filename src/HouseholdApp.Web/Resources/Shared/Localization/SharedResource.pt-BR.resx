@@ -229,4 +229,33 @@
   <!-- Settings -->
   <data name="Settings.Title"><value>Configurações</value></data>
   <data name="Settings.Language"><value>Idioma</value></data>
+
+  <!-- Expenses - Responsive Redesign -->
+  <data name="Expenses.YourBalance"><value>SEU SALDO</value></data>
+  <data name="Expenses.NetOwed"><value>Te devem no total</value></data>
+  <data name="Expenses.NetOwe"><value>Você deve no total</value></data>
+  <data name="Expenses.TheyOwe"><value>te deve</value></data>
+  <data name="Expenses.YouOwe"><value>você deve</value></data>
+  <data name="Expenses.YouPaid"><value>você pagou</value></data>
+  <data name="Expenses.YouLent"><value>você emprestou</value></data>
+  <data name="Expenses.YouBorrowed"><value>você deve</value></data>
+  <data name="Expenses.AddExpense"><value>Adicionar despesa</value></data>
+  <data name="Expenses.SplitOptions"><value>Opções de divisão</value></data>
+  <data name="Expenses.DoneBtn"><value>Feito</value></data>
+  <data name="Expenses.SplitSummary.Equal"><value>dividido igualmente</value></data>
+  <data name="Expenses.SplitSummary.Exact"><value>valores exatos</value></data>
+  <data name="Expenses.SplitSummary.Percent"><value>por percentual</value></data>
+  <data name="Expenses.SplitSummary.Shares"><value>por partes</value></data>
+  <data name="Expenses.SplitSummary.Adjust"><value>com ajuste</value></data>
+  <data name="Expenses.SplitMode.EqualTitle"><value>Dividir igualmente</value></data>
+  <data name="Expenses.SplitMode.EqualDesc"><value>Selecione quem deve uma parte igual.</value></data>
+  <data name="Expenses.SplitMode.ExactTitle"><value>Valores exatos</value></data>
+  <data name="Expenses.SplitMode.ExactDesc"><value>Especifique exatamente o valor que cada pessoa deve.</value></data>
+  <data name="Expenses.SplitMode.PctTitle"><value>Por percentual</value></data>
+  <data name="Expenses.SplitMode.PctDesc"><value>Insira o percentual que cada pessoa deve.</value></data>
+  <data name="Expenses.SplitMode.SharesTitle"><value>Por partes</value></data>
+  <data name="Expenses.SplitMode.SharesDesc"><value>Insira o número de partes de cada pessoa.</value></data>
+  <data name="Expenses.SplitMode.AdjustTitle"><value>Por ajuste</value></data>
+  <data name="Expenses.SplitMode.AdjustDesc"><value>Insira ajustes; o restante é dividido igualmente.</value></data>
+  <data name="Expenses.AllMembersBtn"><value>Todos</value></data>
 </root>
