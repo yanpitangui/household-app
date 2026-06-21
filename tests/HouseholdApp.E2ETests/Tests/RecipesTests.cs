@@ -25,6 +25,28 @@ public class RecipesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task View_recipe_shows_ingredients_and_instructions()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Recipe HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/recipes/create");
+
+        var recipeTitle = $"View pasta {Guid.NewGuid().ToString("N")[..8]}";
+        await page.FillAsync("input[name='Title']", recipeTitle);
+        await page.FillAsync("textarea[name='InstructionsText']", "Mix everything together.");
+        await page.ClickAsync("button[type='submit']");
+        await page.Locator(".page-heading:has-text('Recipes')").WaitForAsync();
+
+        // Navigate to detail — wait for heading containing the recipe title (not the index "Recipes" heading)
+        await page.ClickAsync($"text={recipeTitle}");
+        await page.Locator($".page-heading:has-text('{recipeTitle}')").WaitForAsync();
+
+        await Assert.That(await page.Locator("text=Mix everything together.").IsVisibleAsync()).IsTrue();
+    }
+
+    [Test]
     public async Task Delete_recipe_removes_it()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
@@ -38,9 +60,12 @@ public class RecipesTests(PlaywrightFixture pw)
         await page.Locator(".page-heading:has-text('Recipes')").WaitForAsync();
         await Assert.That(await page.Locator($"text={recipeTitle}").IsVisibleAsync()).IsTrue();
 
+        // Navigate to detail page then delete
+        await page.ClickAsync($"text={recipeTitle}");
+        await page.Locator(".page-heading").WaitForAsync();
         await page.ClickAsync("button:has-text('Delete')");
         await page.ClickAsync("#confirm-ok");
-        await page.Locator($"text={recipeTitle}").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden });
+        await page.Locator(".page-heading:has-text('Recipes')").WaitForAsync();
         await Assert.That(await page.Locator($"text={recipeTitle}").IsVisibleAsync()).IsFalse();
     }
 }

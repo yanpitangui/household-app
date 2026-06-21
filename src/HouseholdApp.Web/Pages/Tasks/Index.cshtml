@@ -9,33 +9,68 @@
     <a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary btn-sm">@L["Tasks.Recurring"]</a>
 </div>
 
-<div class="app-card mb-4">
-    <form method="post" asp-page-handler="Create">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label">@L["Tasks.Title"]</label>
-                <input asp-for="NewTitle" class="form-control" placeholder="@L["Tasks.TaskNamePlaceholder"]" />
+@* Desktop form *@
+<div class="desktop-only">
+    <div class="app-card mb-4">
+        <form method="post" asp-page-handler="Create">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">@L["Tasks.Title"]</label>
+                    <input asp-for="NewTitle" class="form-control" placeholder="@L["Tasks.TaskNamePlaceholder"]" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">@L["Tasks.AssignTo"]</label>
+                    <select asp-for="NewAssignedTo" class="form-select">
+                        <option value="">@L["Tasks.Unassigned"]</option>
+                        @foreach (var m in Model.Members)
+                        {
+                            <option value="@m.UserId">@m.DisplayName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">@L["Tasks.DueDate"]</label>
+                    <input asp-for="NewDueDate" type="date" class="form-control" />
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">@L["Tasks.AddTask"]</button>
+                </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">@L["Tasks.AssignTo"]</label>
-                <select asp-for="NewAssignedTo" class="form-select">
-                    <option value="">@L["Tasks.Unassigned"]</option>
-                    @foreach (var m in Model.Members)
-                    {
-                        <option value="@m.UserId">@m.DisplayName</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">@L["Tasks.DueDate"]</label>
-                <input asp-for="NewDueDate" type="date" class="form-control" />
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary">@L["Tasks.AddTask"]</button>
-            </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
+
+@* Mobile trigger *@
+<div class="mobile-only">
+    <button type="button" class="add-item-trigger" onclick="openAddTaskDrawer()">
+        <span class="add-item-trigger-plus" style="color:var(--accent-tasks)">+</span>
+        <span>@L["Tasks.TaskNamePlaceholder"]</span>
+    </button>
+</div>
+
+@* Mobile drawer *@
+<dialog id="add-task-drawer">
+    <div class="drawer-handle"></div>
+    <form method="post" asp-page-handler="Create" id="add-task-form-mobile">
+        <div class="drawer-input-row">
+            <input asp-for="NewTitle" id="task-name-input-mobile"
+                   autocomplete="off"
+                   enterkeyhint="send"
+                   class="drawer-input"
+                   placeholder="@L["Tasks.TaskNamePlaceholder"]" />
+            <button type="submit" class="drawer-send-btn drawer-send-btn--tasks"
+                    aria-label="@L["Tasks.AddTask"]">↑</button>
+        </div>
+        <select asp-for="NewAssignedTo" class="form-select" style="margin-top:10px">
+            <option value="">@L["Tasks.Unassigned"]</option>
+            @foreach (var m in Model.Members)
+            {
+                <option value="@m.UserId">@m.DisplayName</option>
+            }
+        </select>
+        <input asp-for="NewDueDate" type="date" class="form-control" style="margin-top:8px" />
+    </form>
+</dialog>
 
 <div class="d-flex gap-2 mb-3">
     <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" asp-route-showCompleted="false"

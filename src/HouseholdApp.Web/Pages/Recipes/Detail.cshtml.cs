@@ -1,0 +1,36 @@
+using HouseholdApp.Application.Modules.Recipes.Application.Ports;
+using HouseholdApp.Application.Shared.Authorization;
+using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Web.Shared.Web;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HouseholdApp.Web.Pages.Recipes;
+
+public class RecipeDetailModel(
+    ICurrentUser currentUser,
+    IHouseholdGuard guard,
+    IRecipeQueries recipeQueries,
+    IRecipeCommands recipeCommands) : HouseholdPageModel(currentUser, guard)
+{
+    [BindProperty(SupportsGet = true)]
+    public override Guid HouseholdId { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public Guid RecipeId { get; set; }
+
+    public RecipeDetail? Recipe { get; private set; }
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        Recipe = await recipeQueries.GetAsync(RecipeId);
+        if (Recipe is null) return NotFound();
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostDeleteAsync()
+    {
+        await recipeCommands.DeleteRecipeAsync(RecipeId);
+        TempData["Success"] = Loc["Flash.RecipeDeleted"].Value;
+        return RedirectToPage("Index", new { householdId = HouseholdId });
+    }
+}

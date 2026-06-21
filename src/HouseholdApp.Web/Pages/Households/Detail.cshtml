@@ -84,10 +84,23 @@
 @if (Model.InviteToken is not null)
 {
     var joinUrl = $"{Request.Scheme}://{Request.Host}/households/join?token={Model.InviteToken}";
-    <div class="alert alert-success mt-3">
-        <strong>@L["Dashboard.InviteSingleUse"]</strong><br />
-        <code style="font-size:12px;word-break:break-all">@joinUrl</code>
-        <button class="btn btn-sm btn-outline-secondary ms-2 mt-2"
-                onclick="navigator.clipboard.writeText('@joinUrl')">@L["Dashboard.Copy"]</button>
+    var displayUrl = joinUrl.Length > 60 ? joinUrl[..60] + "…" : joinUrl;
+    <div class="invite-card">
+        <div class="invite-card-label">@L["Dashboard.InviteSingleUse"]</div>
+        <div class="invite-card-url">@displayUrl</div>
+        <div class="invite-card-actions">
+            <button class="invite-card-btn invite-btn-copy"
+                    data-invite-url="@joinUrl"
+                    onclick="copyInviteUrl(this)">
+                ⧉ @L["Dashboard.Copy"]
+            </button>
+            <button class="invite-card-btn invite-btn-share"
+                    data-invite-url="@joinUrl"
+                    style="display:none"
+                    onclick="shareInviteUrl(this)">
+                ↗ Share
+            </button>
+        </div>
+        <div class="invite-card-hint">@L["Dashboard.InviteSingleUseHint"]</div>
     </div>
 }

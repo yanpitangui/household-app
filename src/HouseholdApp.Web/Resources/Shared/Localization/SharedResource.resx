@@ -55,6 +55,7 @@
   <data name="Dashboard.GenerateInvite"><value>Generate invite link</value></data>
   <data name="Dashboard.InviteSingleUse"><value>Single-use invite:</value></data>
   <data name="Dashboard.Copy"><value>Copy</value></data>
+  <data name="Dashboard.InviteSingleUseHint"><value>Expires after one use</value></data>
   <data name="Dashboard.Remove"><value>Remove</value></data>
   <data name="Dashboard.HouseholdNotFound"><value>Household not found.</value></data>
 
@@ -169,6 +170,10 @@
   <data name="Recipes.RecipeTitlePlaceholder"><value>Recipe name</value></data>
   <data name="Recipes.ShortDescriptionPlaceholder"><value>Short description</value></data>
   <data name="Recipes.DetailsPlaceholder"><value>Details...</value></data>
+  <data name="Recipes.ImportUrlPlaceholder"><value>Paste a recipe URL to auto-fill…</value></data>
+  <data name="Recipes.ImportBtn"><value>Import</value></data>
+  <data name="Recipes.OrFillManually"><value>or fill manually</value></data>
+  <data name="Recipes.IngredientPlaceholder"><value>e.g. 2 cups flour — press Enter to add</value></data>
 
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Record</value></data>

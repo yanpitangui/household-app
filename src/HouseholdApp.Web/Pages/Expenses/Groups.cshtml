@@ -16,7 +16,7 @@
             <div class="col-md-4">
                 <label class="form-label">@L["Expenses.GroupName"]</label>
                 <input asp-for="NewName" class="form-control" placeholder="@L["Expenses.GroupNamePlaceholder"]" />
-                <span asp-validation-for="NewName" class="text-danger" style="font-size:12px"></span>
+                <span asp-validation-for="NewName" class="field-error"></span>
             </div>
             <div class="col-md-5">
                 <label class="form-label">@L["Expenses.GroupDescription"]</label>

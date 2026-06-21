@@ -6,6 +6,8 @@ using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Shared.Web;
 using HouseholdApp.Application.Modules.Recipes;
+using HouseholdApp.Application.Modules.Recipes.Application.Ports;
+using HouseholdApp.Application.Modules.Recipes.Infrastructure;
 using HouseholdApp.Application.Modules.Catalog;
 using HouseholdApp.Application.Modules.Lists;
 using HouseholdApp.Application.Modules.Tasks;
@@ -50,6 +52,11 @@ builder.Services.AddCatalogModule();
 builder.Services.AddListsModule();
 builder.Services.AddTasksModule();
 builder.Services.AddRecipesModule();
+builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; HouseholdApp/1.0)");
+});
 
 var connStr = builder.Configuration.GetConnectionString("householdapp")
     ?? throw new InvalidOperationException("Missing connection string 'householdapp'");

@@ -17,7 +17,8 @@ else
 {
     @foreach (var r in Model.Recipes)
     {
-        <div class="list-row" style="align-items:flex-start">
+        <a asp-page="Detail" asp-route-householdId="@Model.HouseholdId" asp-route-recipeId="@r.Id"
+           class="list-row" style="align-items:flex-start;text-decoration:none;color:inherit">
             <div class="list-row-icon" style="background:rgba(255,107,74,0.12)">🍳</div>
             <div class="list-row-body">
                 <div class="list-row-name">@r.Title</div>
@@ -30,17 +31,7 @@ else
                     <div class="list-row-meta">@r.Servings @L["Recipes.ServingsLabel"]</div>
                 }
             </div>
-            <div class="d-flex gap-1 align-items-center">
-                @if (r.SourceUrl is not null)
-                {
-                    <a href="@r.SourceUrl" target="_blank" class="btn btn-sm btn-outline-secondary">@L["Recipes.SourceLink"]</a>
-                }
-                <form method="post" asp-page-handler="Delete">
-                    <input type="hidden" name="recipeId" value="@r.Id" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="@L["Confirm.DeleteRecipe"]">@L["Action.Delete"]</button>
-                </form>
-            </div>
-        </div>
+            <span style="color:var(--text-muted);font-size:18px;padding-left:8px">›</span>
+        </a>
     }
 }

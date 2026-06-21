@@ -1,6 +1,59 @@
 window.householdApp ??= {};
 window.householdApp.appSelectId ??= 0;
 
+function initToasts() {
+    document.querySelectorAll('.toast-success').forEach(function (toast) {
+        setTimeout(function () {
+            toast.style.transition = 'opacity 0.3s';
+            toast.style.opacity = '0';
+            setTimeout(function () { toast.remove(); }, 300);
+        }, 4000);
+    });
+}
+
+window.copyInviteUrl = function (btn) {
+    var url = btn.dataset.inviteUrl;
+    navigator.clipboard.writeText(url).then(function () {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '✓ Copied!';
+        setTimeout(function () { btn.innerHTML = orig; }, 1800);
+    });
+};
+
+window.shareInviteUrl = function (btn) {
+    navigator.share({ title: 'Join my household', url: btn.dataset.inviteUrl });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.invite-btn-share').forEach(function (btn) {
+        if (navigator.canShare && navigator.canShare({ url: btn.dataset.inviteUrl })) {
+            btn.style.display = '';
+        }
+    });
+});
+
+window.openAddTaskDrawer = function () {
+    var drawer = document.getElementById('add-task-drawer');
+    if (!drawer) return;
+    drawer.showModal();
+    setTimeout(function () {
+        document.getElementById('task-name-input-mobile')?.focus();
+    }, 80);
+};
+
+window.closeAddTaskDrawer = function () {
+    var drawer = document.getElementById('add-task-drawer');
+    if (!drawer) return;
+    drawer.close();
+    var form = document.getElementById('add-task-form-mobile');
+    if (form) form.reset();
+};
+
+document.addEventListener('click', function (e) {
+    var drawer = document.getElementById('add-task-drawer');
+    if (drawer && e.target === drawer) drawer.close();
+});
+
 function initAppSelects(root = document) {
     const selects = root instanceof HTMLSelectElement && root.matches('select.form-select')
         ? [root]

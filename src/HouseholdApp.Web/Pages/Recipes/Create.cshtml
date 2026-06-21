@@ -6,59 +6,217 @@
 
 <div class="page-heading">
     <span>@L["Recipes.AddRecipeHeading"]</span>
-    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId"
+       style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
+        ← @L["Action.Cancel"]
+    </a>
 </div>
 
 <div class="app-card">
+    <div class="recipe-import-bar">
+        <input id="recipe-import-url" type="url" class="recipe-import-input"
+               placeholder="@L["Recipes.ImportUrlPlaceholder"]" />
+        <button id="recipe-import-btn" type="button" class="recipe-import-btn">
+            @L["Recipes.ImportBtn"]
+        </button>
+    </div>
+
+    <div id="recipe-import-status" class="recipe-import-status" style="display:none"></div>
+
+    <div class="recipe-import-divider"><span>@L["Recipes.OrFillManually"]</span></div>
+
     <form method="post">
+        @Html.AntiForgeryToken()
 
-        <div class="row mb-3">
-            <div class="col-md-8">
-                <label asp-for="Title" class="form-label">@L["Recipes.RecipeTitle"]</label>
-                <input asp-for="Title" class="form-control" placeholder="@L["Recipes.RecipeTitlePlaceholder"]" />
+        <div class="recipe-row">
+            <div class="recipe-field-group">
+                <label class="recipe-label" for="recipe-title">@L["Recipes.RecipeTitle"]</label>
+                <input asp-for="Title" id="recipe-title" class="recipe-input"
+                       placeholder="@L["Recipes.RecipeTitlePlaceholder"]" />
+                <span asp-validation-for="Title" class="field-error"></span>
             </div>
-            <div class="col-md-4">
-                <label asp-for="Servings" class="form-label">@L["Recipes.Servings"]</label>
-                <input asp-for="Servings" type="number" min="1" class="form-control" />
+            <div class="recipe-field-group">
+                <label class="recipe-label" for="recipe-servings">@L["Recipes.Servings"]</label>
+                <input asp-for="Servings" id="recipe-servings" type="number" min="1" class="recipe-input" />
             </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label">@L["Recipes.Description"]</label>
-            <input asp-for="Description" class="form-control" placeholder="@L["Recipes.ShortDescriptionPlaceholder"]" />
+        <div class="recipe-field-group">
+            <label class="recipe-label" for="recipe-description">@L["Recipes.Description"]</label>
+            <input asp-for="Description" id="recipe-description" class="recipe-input"
+                   placeholder="@L["Recipes.ShortDescriptionPlaceholder"]" />
         </div>
 
-        <div class="mb-3">
-            <label asp-for="SourceUrl" class="form-label">@L["Recipes.SourceUrl"]</label>
-            <input asp-for="SourceUrl" type="url" class="form-control" placeholder="https://..." />
+        <div class="recipe-field-group">
+            <label class="recipe-label" for="recipe-source-url">@L["Recipes.SourceUrl"]</label>
+            <input asp-for="SourceUrl" id="recipe-source-url" type="url" class="recipe-input"
+                   placeholder="https://…" />
         </div>
 
-        <div class="mb-3">
-            <label asp-for="IngredientsText" class="form-label">
-                @L["Recipes.Ingredients"]
-                <small style="color:var(--text-muted); font-weight:400">@L["Recipes.IngredientsHint"] <code style="font-size:11px; color:var(--text-secondary)">name, quantity, unit</code></small>
-            </label>
-            <textarea asp-for="IngredientsText" class="form-control font-monospace" rows="8"
-                      placeholder="Flour, 2, cups&#10;Eggs, 3&#10;Sugar, 1, cup"></textarea>
+        <div class="recipe-field-group">
+            <label class="recipe-label">@L["Recipes.Ingredients"]</label>
+            <div class="recipe-ingredients-list" id="ingredient-rows">
+                @for (int i = 0; i < Model.Ingredients.Count; i++)
+                {
+                    <div class="recipe-ingredient-row">
+                        <input type="text" name="Ingredients" class="recipe-ingredient-input"
+                               value="@Model.Ingredients[i]"
+                               placeholder="@L["Recipes.IngredientPlaceholder"]" />
+                        <button type="button" class="recipe-ingredient-remove">✕</button>
+                    </div>
+                }
+                <div class="recipe-ingredient-add-row" id="ingredient-add-row">
+                    <input type="text" id="ingredient-add-input" class="recipe-ingredient-input"
+                           placeholder="@L["Recipes.IngredientPlaceholder"]" />
+                </div>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="InstructionsText" class="form-label">
-                @L["Recipes.Instructions"]
-                <small style="color:var(--text-muted); font-weight:400">@L["Recipes.InstructionsHint"]</small>
-            </label>
-            <textarea asp-for="InstructionsText" class="form-control" rows="8"
-                      placeholder="Preheat oven to 180°C&#10;Mix flour and sugar&#10;Bake for 30 minutes"></textarea>
+        <div class="recipe-field-group">
+            <label class="recipe-label" for="recipe-instructions">@L["Recipes.Instructions"]</label>
+            <small style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:6px">@L["Recipes.InstructionsHint"]</small>
+            <textarea asp-for="InstructionsText" id="recipe-instructions" class="recipe-textarea"
+                      rows="8" placeholder="Step 1&#10;Step 2&#10;…"></textarea>
         </div>
 
-        <div class="mb-4">
-            <label asp-for="Notes" class="form-label">@L["Recipes.Notes"]</label>
-            <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+        <div class="recipe-field-group">
+            <label class="recipe-label" for="recipe-notes">@L["Recipes.Notes"]</label>
+            <textarea asp-for="Notes" id="recipe-notes" class="recipe-textarea" rows="3"></textarea>
         </div>
 
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">@L["Action.Save"]</button>
-            <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
-        </div>
+        <button type="submit" class="recipe-save-btn">@L["Action.Save"]</button>
     </form>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    var importBtn   = document.getElementById('recipe-import-btn');
+    var importInput = document.getElementById('recipe-import-url');
+    var statusEl    = document.getElementById('recipe-import-status');
+    var antiforgery = document.querySelector("meta[name='request-verification-token']")?.content ?? '';
+
+    function setStatus(type, message) {
+        if (!statusEl) return;
+        statusEl.className = 'recipe-import-status ' + type;
+        statusEl.style.display = message ? '' : 'none';
+        statusEl.innerHTML = type === 'loading'
+            ? '<div class="recipe-spinner"></div>' + message
+            : message;
+    }
+
+    function addIngredientRow(value, imported) {
+        var list   = document.getElementById('ingredient-rows');
+        var addRow = document.getElementById('ingredient-add-row');
+        var row    = document.createElement('div');
+        row.className = 'recipe-ingredient-row' + (imported ? ' imported' : '');
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'Ingredients';
+        input.className = 'recipe-ingredient-input';
+        input.placeholder = '@L["Recipes.IngredientPlaceholder"]';
+        input.value = value;
+        input.addEventListener('keydown', handleIngredientKeydown);
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'recipe-ingredient-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.addEventListener('click', function () { row.remove(); });
+
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        list.insertBefore(row, addRow);
+        return input;
+    }
+
+    function handleIngredientKeydown(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addIngredientRow('', false).focus();
+        }
+        if (e.key === 'Backspace' && e.target.value === '') {
+            var row  = e.target.closest('.recipe-ingredient-row');
+            var prev = row.previousElementSibling;
+            if (prev && prev.classList.contains('recipe-ingredient-row')) {
+                row.remove();
+                prev.querySelector('input')?.focus();
+            }
+        }
+    }
+
+    var addRowInput = document.getElementById('ingredient-add-input');
+    if (addRowInput) {
+        addRowInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && addRowInput.value.trim()) {
+                e.preventDefault();
+                var newInput = addIngredientRow(addRowInput.value.trim(), false);
+                addRowInput.value = '';
+                newInput.focus();
+            }
+        });
+        addRowInput.addEventListener('blur', function () {
+            if (addRowInput.value.trim()) {
+                addIngredientRow(addRowInput.value.trim(), false);
+                addRowInput.value = '';
+            }
+        });
+    }
+
+    document.querySelectorAll('.recipe-ingredient-remove').forEach(function (btn) {
+        btn.addEventListener('click', function () { btn.closest('.recipe-ingredient-row').remove(); });
+    });
+    document.querySelectorAll('.recipe-ingredient-input:not(#ingredient-add-input)').forEach(function (input) {
+        input.addEventListener('keydown', handleIngredientKeydown);
+    });
+
+    if (importBtn) {
+        importBtn.addEventListener('click', async function () {
+            var url = importInput?.value?.trim();
+            if (!url) return;
+
+            importBtn.disabled = true;
+            setStatus('loading', 'Reading recipe…');
+
+            try {
+                var res = await fetch('?handler=Import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': antiforgery
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                var data = await res.json();
+
+                if (!data.success) {
+                    setStatus('error', '⚠ ' + (data.errorMessage ?? 'No recipe data found on this page.'));
+                    importBtn.disabled = false;
+                    return;
+                }
+
+                if (data.title)        { var el = document.getElementById('recipe-title');        if (el) { el.value = data.title;        el.classList.add('imported'); } }
+                if (data.description)  { var el = document.getElementById('recipe-description');  if (el) { el.value = data.description;  el.classList.add('imported'); } }
+                if (data.servings)     { var el = document.getElementById('recipe-servings');     if (el) { el.value = data.servings;     el.classList.add('imported'); } }
+                if (data.sourceUrl)    { var el = document.getElementById('recipe-source-url');   if (el) { el.value = data.sourceUrl;    el.classList.add('imported'); } }
+                if (data.instructions) { var el = document.getElementById('recipe-instructions'); if (el) { el.value = data.instructions; el.classList.add('imported'); } }
+
+                if (data.ingredients && data.ingredients.length > 0) {
+                    document.querySelectorAll('.recipe-ingredient-row').forEach(function (r) { r.remove(); });
+                    data.ingredients.forEach(function (ing) { addIngredientRow(ing, true); });
+                }
+
+                setStatus('success', '✓ Recipe imported — review and save');
+                importBtn.disabled = false;
+
+            } catch (err) {
+                setStatus('error', '⚠ Failed to import. Check the URL and try again.');
+                importBtn.disabled = false;
+            }
+        });
+    }
+})();
+</script>
+}

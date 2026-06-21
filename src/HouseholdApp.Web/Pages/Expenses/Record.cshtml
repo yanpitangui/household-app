@@ -29,7 +29,7 @@
             <input asp-for="Description" id="desc-input" class="record-desc-input"
                    placeholder="@L["Expenses.DescriptionPlaceholder"]" autocomplete="off" />
         </div>
-        <span asp-validation-for="Description" class="text-danger" style="font-size:12px;display:block;margin-top:-14px;margin-bottom:10px"></span>
+        <span asp-validation-for="Description" class="field-error"></span>
 
         <div class="record-amount-row">
             <span class="record-amount-currency">@currencySymbol</span>
@@ -37,7 +37,7 @@
                    class="record-amount-input" placeholder="0,00"
                    value="@(Model.Amount > 0 ? Model.Amount.ToString("F2") : "")" />
         </div>
-        <span asp-validation-for="Amount" class="text-danger" style="font-size:12px;display:block;margin-top:-18px;margin-bottom:10px"></span>
+        <span asp-validation-for="Amount" class="field-error"></span>
 
         <button type="button" class="record-split-btn" id="open-split-btn" onclick="openSplitPanel()">
             <div class="record-split-icon">👥</div>
@@ -66,7 +66,7 @@
         </div>
 
         <button type="submit" class="record-save-btn">@L["Expenses.Record"]</button>
-        <span asp-validation-summary="ModelOnly" class="text-danger" style="font-size:12px;display:block;margin-top:8px"></span>
+        <span asp-validation-summary="ModelOnly" class="field-error" style="margin-top:8px"></span>
     </div>
 
     @* ═══════════ PANEL B: Split options ═══════════ *@

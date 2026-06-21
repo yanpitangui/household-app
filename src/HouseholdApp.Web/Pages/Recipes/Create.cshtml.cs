@@ -10,7 +10,8 @@ namespace HouseholdApp.Web.Pages.Recipes;
 public class CreateRecipeModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
-    IRecipeCommands recipeCommands) : HouseholdPageModel(currentUser, guard)
+    IRecipeCommands recipeCommands,
+    IRecipeImporter recipeImporter) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -31,7 +32,7 @@ public class CreateRecipeModel(
     public string? Notes { get; set; }
 
     [BindProperty]
-    public string? IngredientsText { get; set; }
+    public List<string> Ingredients { get; set; } = [];
 
     [BindProperty]
     public string? InstructionsText { get; set; }
@@ -42,7 +43,11 @@ public class CreateRecipeModel(
     {
         if (!ModelState.IsValid) return Page();
 
-        var ingredients = ParseIngredients(IngredientsText ?? "");
+        var ingredients = Ingredients
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => new IngredientDto(s.Trim(), null, null))
+            .ToList();
+
         var instructions = ParseInstructions(InstructionsText ?? "");
 
         await recipeCommands.CreateRecipeAsync(
@@ -53,19 +58,15 @@ public class CreateRecipeModel(
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }
 
-    private static List<IngredientDto> ParseIngredients(string text)
+    public async Task<IActionResult> OnPostImportAsync(
+        [FromBody] ImportRequest request,
+        CancellationToken ct)
     {
-        return text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line =>
-            {
-                var parts = line.Split(',', 3, StringSplitOptions.TrimEntries);
-                return new IngredientDto(
-                    parts[0],
-                    parts.Length > 1 ? parts[1] : null,
-                    parts.Length > 2 ? parts[2] : null);
-            })
-            .Where(i => !string.IsNullOrWhiteSpace(i.Name))
-            .ToList();
+        if (string.IsNullOrWhiteSpace(request?.Url))
+            return new JsonResult(new { success = false, errorMessage = "URL is required" });
+
+        var result = await recipeImporter.ImportAsync(request.Url, ct);
+        return new JsonResult(result);
     }
 
     private static List<InstructionStepDto> ParseInstructions(string text)
@@ -75,4 +76,6 @@ public class CreateRecipeModel(
             .Where(s => !string.IsNullOrWhiteSpace(s.Text))
             .ToList();
     }
+
+    public sealed record ImportRequest(string? Url);
 }

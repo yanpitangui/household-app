@@ -17,7 +17,7 @@
             <div class="col-md-4">
                 <label class="form-label">@L["Expenses.Description"]</label>
                 <input asp-for="NewDescription" class="form-control" placeholder="e.g. Netflix" />
-                <span asp-validation-for="NewDescription" class="text-danger" style="font-size:12px"></span>
+                <span asp-validation-for="NewDescription" class="field-error"></span>
             </div>
             <div class="col-md-3">
                 <label class="form-label">@L["Expenses.Group"]</label>
@@ -31,7 +31,7 @@
             <div class="col-md-2">
                 <label class="form-label">@L["Expenses.Amount"]</label>
                 <input asp-for="NewAmount" type="number" step="0.01" min="0.01" class="form-control" />
-                <span asp-validation-for="NewAmount" class="text-danger" style="font-size:12px"></span>
+                <span asp-validation-for="NewAmount" class="field-error"></span>
             </div>
             <div class="col-md-2">
                 <label class="form-label">@L["Expenses.Frequency"]</label>
@@ -69,7 +69,7 @@
                         </div>
                     }
                 </div>
-                <span asp-validation-for="NewSplitMemberIds" class="text-danger" style="font-size:12px"></span>
+                <span asp-validation-for="NewSplitMemberIds" class="field-error"></span>
             </div>
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">+ @L["Action.Create"]</button>

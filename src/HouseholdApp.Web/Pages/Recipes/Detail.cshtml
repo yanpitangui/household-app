@@ -1,0 +1,98 @@
+@page "/h/{householdId:guid}/Recipes/{recipeId:guid}"
+@model HouseholdApp.Web.Pages.Recipes.RecipeDetailModel
+@{
+    ViewData["Title"] = Model.Recipe?.Title ?? L["Nav.Recipes"].Value;
+}
+
+@if (Model.Recipe is null)
+{
+    <p style="color:var(--text-secondary)">Recipe not found.</p>
+    return;
+}
+
+<div class="page-heading">
+    <span>@Model.Recipe.Title</span>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId"
+       style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
+        ← @L["Action.Back"]
+    </a>
+</div>
+
+<div class="app-card">
+    @if (Model.Recipe.Description is not null)
+    {
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px">@Model.Recipe.Description</p>
+    }
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+        @if (Model.Recipe.Servings.HasValue)
+        {
+            <span class="list-row-badge" style="background:rgba(255,107,74,0.1);color:var(--accent-home)">
+                🍽 @Model.Recipe.Servings @L["Recipes.ServingsLabel"]
+            </span>
+        }
+        @if (Model.Recipe.SourceUrl is not null)
+        {
+            <a href="@Model.Recipe.SourceUrl" target="_blank" rel="noopener"
+               class="list-row-badge"
+               style="background:rgba(59,130,246,0.1);color:var(--accent-expenses);text-decoration:none">
+                @L["Recipes.SourceLink"]
+            </a>
+        }
+    </div>
+
+    @if (Model.Recipe.Ingredients.Count > 0)
+    {
+        <div style="margin-bottom:24px">
+            <div class="section-title" style="margin-top:0">@L["Recipes.Ingredients"]</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+                @foreach (var ing in Model.Recipe.Ingredients)
+                {
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:8px 12px;background:var(--app-bg);border:1px solid var(--border-color);border-radius:10px;font-size:13px">
+                        <span style="color:var(--accent-home);flex-shrink:0">·</span>
+                        <span style="color:var(--text-primary)">
+                            @if (ing.Quantity is not null || ing.Unit is not null)
+                            {
+                                <span style="color:var(--text-secondary)">@ing.Quantity @ing.Unit</span>
+                                @(" " + ing.Name)
+                            }
+                            else
+                            {
+                                @ing.Name
+                            }
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.Recipe.Instructions.Count > 0)
+    {
+        <div style="margin-bottom:24px">
+            <div class="section-title" style="margin-top:0">@L["Recipes.Instructions"]</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                @foreach (var step in Model.Recipe.Instructions)
+                {
+                    <div style="display:flex;gap:12px;padding:12px;background:var(--app-bg);border:1px solid var(--border-color);border-radius:10px">
+                        <span style="font-family:var(--font-display);font-size:18px;color:var(--accent-home);flex-shrink:0;line-height:1.4">@step.Order</span>
+                        <span style="font-size:13px;color:var(--text-secondary);line-height:1.6">@step.Text</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.Recipe.Notes is not null)
+    {
+        <div style="margin-bottom:24px">
+            <div class="section-title" style="margin-top:0">@L["Recipes.Notes"]</div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;padding:12px;background:var(--app-bg);border:1px solid var(--border-color);border-radius:10px">@Model.Recipe.Notes</p>
+        </div>
+    }
+
+    <form method="post" asp-page-handler="Delete" style="margin-top:8px">
+        <button type="submit" class="btn btn-outline-danger btn-sm"
+                data-confirm="@L["Confirm.DeleteRecipe"]">@L["Action.Delete"]</button>
+    </form>
+</div>
