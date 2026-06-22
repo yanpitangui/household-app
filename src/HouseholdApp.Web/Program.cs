@@ -88,7 +88,17 @@ builder.Services.AddAuthentication(options =>
         options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
         options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
     })
-    .AddCookie()
+    .AddCookie(options =>
+    {
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+        options.SlidingExpiration = true;
+        options.Events.OnSigningIn = ctx =>
+        {
+            ctx.Properties.IsPersistent = true;
+            ctx.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
+            return Task.CompletedTask;
+        };
+    })
     .AddOpenIdConnect(options =>
     {
         options.Authority = builder.Configuration["Oidc:Authority"];
