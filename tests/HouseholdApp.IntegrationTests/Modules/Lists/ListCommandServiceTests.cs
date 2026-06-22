@@ -69,6 +69,72 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
     }
 
     [Test]
+    public async Task AddItemAsync_persists_quantity_and_unit()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Test");
+
+        Guid itemId;
+        await using (var s = Scope(userId))
+            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>()
+                .AddItemAsync(listId, "batatas", null, null, quantity: "4", unit: "médias");
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var row = await conn.QuerySingleAsync<(string? Qty, string? Unit)>(
+            "SELECT quantity, unit FROM lists.items WHERE id = @itemId", new { itemId });
+
+        await Assert.That(row.Qty).IsEqualTo("4");
+        await Assert.That(row.Unit).IsEqualTo("médias");
+    }
+
+    [Test]
+    public async Task BulkAddItemsAsync_adds_all_items_with_quantity_and_category()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @householdId, NULL, 'Legumes', '🥬')",
+            new { id = catId, householdId });
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name, category_id) VALUES (gen_random_uuid(), NULL, 'pt-BR', 'tomate', @catId) ON CONFLICT DO NOTHING",
+            new { catId });
+        var catalogItemId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM catalog.items WHERE lower(name) = 'tomate' AND language = 'pt-BR' AND household_id IS NULL");
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        var items = new List<BulkAddItem>
+        {
+            new("batatas", "4", "médias", catalogItemId, catId),
+            new("água", "5", "xícaras", null, null),
+        };
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().BulkAddItemsAsync(listId, items);
+
+        var rows = (await conn.QueryAsync<(string Name, string? Qty, string? Unit, Guid? CatId)>(
+            "SELECT name, quantity, unit, category_id FROM lists.items WHERE list_id = @listId ORDER BY sort_order",
+            new { listId })).ToList();
+
+        await Assert.That(rows).HasCount().EqualTo(2);
+        await Assert.That(rows[0].Name).IsEqualTo("batatas");
+        await Assert.That(rows[0].Qty).IsEqualTo("4");
+        await Assert.That(rows[0].Unit).IsEqualTo("médias");
+        await Assert.That(rows[0].CatId).IsEqualTo(catId);
+        await Assert.That(rows[1].Name).IsEqualTo("água");
+        await Assert.That(rows[1].CatId).IsNull();
+    }
+
+    [Test]
     public async Task ChangeItemCategoryAsync_updates_catalog_so_suggestion_includes_category()
     {
         var userId = Guid.NewGuid();

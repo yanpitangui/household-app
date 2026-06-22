@@ -235,6 +235,79 @@ public sealed class CatalogRepositoryTests(PostgresFixture db) : IAsyncDisposabl
     }
 
     // ------------------------------------------------------------------
+    // MatchIngredientsAsync
+    // ------------------------------------------------------------------
+
+    [Test]
+    public async Task MatchIngredientsAsync_matches_plural_portuguese_via_fts()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (gen_random_uuid(), NULL, 'pt-BR', 'batata') ON CONFLICT DO NOTHING");
+        var itemId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM catalog.items WHERE lower(name) = 'batata' AND language = 'pt-BR' AND household_id IS NULL");
+
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .MatchIngredientsAsync(householdId, ["batatas"]);
+
+        await Assert.That(result.ContainsKey("batatas")).IsTrue();
+        await Assert.That(result["batatas"]?.Id).IsEqualTo(itemId);
+    }
+
+    [Test]
+    public async Task MatchIngredientsAsync_matches_english_ingredient_against_en_catalog()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (gen_random_uuid(), NULL, 'en', 'potato') ON CONFLICT DO NOTHING");
+        var itemId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM catalog.items WHERE lower(name) = 'potato' AND language = 'en' AND household_id IS NULL");
+
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .MatchIngredientsAsync(householdId, ["potatoes"]);
+
+        await Assert.That(result.ContainsKey("potatoes")).IsTrue();
+        await Assert.That(result["potatoes"]?.Id).IsEqualTo(itemId);
+    }
+
+    [Test]
+    public async Task MatchIngredientsAsync_returns_empty_for_unmatched_ingredient()
+    {
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .MatchIngredientsAsync(Guid.NewGuid(), ["xyzzy_no_match_ingredient_abc"]);
+
+        await Assert.That(result.ContainsKey("xyzzy_no_match_ingredient_abc")).IsFalse();
+    }
+
+    [Test]
+    public async Task MatchIngredientsAsync_handles_batch_of_multiple_ingredients()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (gen_random_uuid(), NULL, 'pt-BR', 'batata') ON CONFLICT DO NOTHING");
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.items (id, household_id, language, name) VALUES (gen_random_uuid(), NULL, 'pt-BR', 'cenoura') ON CONFLICT DO NOTHING");
+        var batataId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM catalog.items WHERE lower(name) = 'batata' AND language = 'pt-BR' AND household_id IS NULL");
+        var cenourasId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM catalog.items WHERE lower(name) = 'cenoura' AND language = 'pt-BR' AND household_id IS NULL");
+
+        await using var scope = QueryScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ICatalogQueries>()
+            .MatchIngredientsAsync(householdId, ["batatas", "cenouras", "xyzzy_no_match"]);
+
+        await Assert.That(result["batatas"]?.Id).IsEqualTo(batataId);
+        await Assert.That(result["cenouras"]?.Id).IsEqualTo(cenourasId);
+        await Assert.That(result.ContainsKey("xyzzy_no_match")).IsFalse();
+    }
+
+    // ------------------------------------------------------------------
     // IncrementPopularityAsync
     // ------------------------------------------------------------------
 

@@ -11,6 +11,7 @@ public static class RecipesModule
         services.AddScoped<IRecipeRepository, RecipeRepository>();
         services.AddScoped<IRecipeCommands, RecipeCommandService>();
         services.AddScoped<IRecipeQueries, RecipeQueryService>();
+        services.AddScoped<IRecipeListImport, RecipeListImportService>();
         return services;
     }
 }

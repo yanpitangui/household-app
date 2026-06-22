@@ -67,7 +67,7 @@ public sealed class ListCommandServiceTests
     public async Task CompleteItemAsync_marks_item_as_completed()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Eggs", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Eggs", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
@@ -90,7 +90,7 @@ public sealed class ListCommandServiceTests
     public async Task UncompleteItemAsync_marks_item_as_uncompleted()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Eggs", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Eggs", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.CompleteItem(item.Id, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
@@ -114,7 +114,7 @@ public sealed class ListCommandServiceTests
     public async Task RemoveItemAsync_removes_item_from_list()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Bread", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Bread", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         list.ClearEvents();
 
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
@@ -137,7 +137,7 @@ public sealed class ListCommandServiceTests
     public async Task ChangeItemCategoryAsync_updates_item_category()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Milk", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         var categoryId = Guid.NewGuid();
         list.ClearEvents();
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
@@ -151,7 +151,7 @@ public sealed class ListCommandServiceTests
     public async Task ChangeItemCategoryAsync_propagates_category_to_catalog()
     {
         var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
-        var item = list.AddItem("Pão", null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Pão", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
         var categoryId = Guid.NewGuid();
         list.ClearEvents();
         _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);

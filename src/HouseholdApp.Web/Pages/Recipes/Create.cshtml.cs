@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HouseholdApp.Application.Modules.Recipes.Application.Operations;
 using HouseholdApp.Application.Modules.Recipes.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
@@ -45,7 +46,10 @@ public class CreateRecipeModel(
 
         var ingredients = Ingredients
             .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => new IngredientDto(s.Trim(), null, null))
+            .Select(s => {
+                var (qty, unit, name) = IngredientParser.Parse(s.Trim());
+                return new IngredientDto(name, qty, unit);
+            })
             .ToList();
 
         var instructions = ParseInstructions(InstructionsText ?? "");

@@ -188,6 +188,58 @@ public class SchemaOrgRecipeImporterTests : IDisposable
     }
 
     [Test]
+    public async Task Parse_DoubleEncodedHtmlEntities_DecodesCorrectly()
+    {
+        Stub("/encoded", """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@type": "Recipe",
+              "name": "Caldo Verde",
+              "description": "Sopa &amp;eacute; janta, sim!",
+              "recipeIngredient": ["4 batatas m&amp;eacute;dias"],
+              "recipeInstructions": [
+                {"@type": "HowToStep", "text": "Cozinhe a batata at&amp;eacute; amolecer."}
+              ]
+            }
+            </script>
+            </head><body></body></html>
+            """);
+
+        var result = await _importer.ImportAsync($"{_server.Url}/encoded");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(result.Description).IsEqualTo("Sopa é janta, sim!");
+        await Assert.That(result.Ingredients![0]).IsEqualTo("4 batatas médias");
+        await Assert.That(result.Instructions).Contains("amolecer");
+        await Assert.That(result.Instructions!).DoesNotContain("&amp;");
+        await Assert.That(result.Instructions!).DoesNotContain("&eacute;");
+    }
+
+    [Test]
+    public async Task Parse_SingleEncodedHtmlEntities_DecodesCorrectly()
+    {
+        Stub("/singleenc", """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@type": "Recipe",
+              "name": "P&atilde;o",
+              "recipeIngredient": ["farinha de trigo"],
+              "recipeInstructions": "Misture &agrave; vontade."
+            }
+            </script>
+            </head><body></body></html>
+            """);
+
+        var result = await _importer.ImportAsync($"{_server.Url}/singleenc");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(result.Title).IsEqualTo("Pão");
+        await Assert.That(result.Instructions).IsEqualTo("Misture à vontade.");
+    }
+
+    [Test]
     public async Task Parse_MultipleIngredients_PreservesOrderAndWhitespace()
     {
         Stub("/order", """

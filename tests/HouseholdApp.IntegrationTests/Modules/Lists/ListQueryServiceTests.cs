@@ -82,10 +82,34 @@ public sealed class ListQueryServiceTests(PostgresFixture db)
         await Assert.That(result).IsNull();
     }
 
+    [Test]
+    public async Task GetAsync_returns_quantity_and_unit_on_item()
+    {
+        var householdId = Guid.NewGuid();
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+
+        var listId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO lists.lists (id, household_id, name, created_by) VALUES (@id, @householdId, 'QtyList', @createdBy)",
+            new { id = listId, householdId, createdBy = Guid.NewGuid() });
+        await conn.ExecuteAsync(
+            "INSERT INTO lists.items (id, list_id, name, quantity, unit, sort_order) VALUES (@id, @listId, 'farinha', '2', 'xícaras', 1000)",
+            new { id = Guid.NewGuid(), listId });
+
+        var detail = await Sut().GetAsync(listId);
+
+        var item = detail!.Items.Single();
+        await Assert.That(item.Quantity).IsEqualTo("2");
+        await Assert.That(item.Unit).IsEqualTo("xícaras");
+    }
+
     private sealed class NullCatalogQueries : ICatalogQueries
     {
         public Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CatalogItemSuggestion>>([]);
+
+        public Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<string, CatalogItemSuggestion>>(new Dictionary<string, CatalogItemSuggestion>());
 
         public Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CategoryDto>>([]);

@@ -5,6 +5,7 @@ namespace HouseholdApp.Application.Modules.Catalog.Application.Ports;
 internal interface ICatalogRepository
 {
     Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default);
+    Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default);
     Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, CategoryDto>> GetCategoriesByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default);
     Task IncrementPopularityAsync(Guid catalogItemId, CancellationToken ct = default);

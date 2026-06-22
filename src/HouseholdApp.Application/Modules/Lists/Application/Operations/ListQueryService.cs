@@ -32,7 +32,7 @@ public sealed class ListQueryService(NpgsqlDataSource db, ICatalogQueries catalo
         await using var multi = await conn.QueryMultipleAsync(
             """
             SELECT id, name FROM lists.lists WHERE id = @listId;
-            SELECT id, name, catalog_item_id AS CatalogItemId, category_id AS CategoryId,
+            SELECT id, name, quantity, unit, catalog_item_id AS CatalogItemId, category_id AS CategoryId,
                    added_by AS AddedBy, sort_order AS SortOrder, is_completed AS IsCompleted
             FROM lists.items WHERE list_id = @listId ORDER BY sort_order
             """,
@@ -62,6 +62,7 @@ public sealed class ListQueryService(NpgsqlDataSource db, ICatalogQueries catalo
             users.TryGetValue(i.AddedBy, out var user);
             return new ListItemDto(
                 i.Id, i.Name,
+                i.Quantity, i.Unit,
                 i.CatalogItemId, i.CategoryId, cat?.Name, cat?.Emoji,
                 i.AddedBy, user?.DisplayName ?? string.Empty,
                 i.SortOrder, i.IsCompleted);
@@ -72,6 +73,7 @@ public sealed class ListQueryService(NpgsqlDataSource db, ICatalogQueries catalo
 
     private sealed record RawListItem(
         Guid Id, string Name,
+        string? Quantity, string? Unit,
         Guid? CatalogItemId, Guid? CategoryId,
         Guid AddedBy, int SortOrder, bool IsCompleted);
 }

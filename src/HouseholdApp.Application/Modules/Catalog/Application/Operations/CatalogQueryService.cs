@@ -7,6 +7,10 @@ internal sealed class CatalogQueryService(ICatalogRepository repo) : ICatalogQue
     public Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default)
         => repo.SuggestAsync(householdId, query, language, ct);
 
+    public Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(
+        Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default)
+        => repo.MatchIngredientsAsync(householdId, ingredientNames, ct);
+
     public Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default)
         => repo.GetCategoriesAsync(householdId, language, ct);
 

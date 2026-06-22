@@ -39,6 +39,14 @@
                 @L["Recipes.SourceLink"]
             </a>
         }
+        @if (Model.Recipe.Ingredients.Count > 0)
+        {
+            <a asp-page="AddToList" asp-route-householdId="@Model.HouseholdId" asp-route-recipeId="@Model.Recipe.Id"
+               class="list-row-badge"
+               style="background:rgba(245,158,11,0.12);color:var(--accent-lists);text-decoration:none">
+                🛒 @L["Recipes.AddToList"]
+            </a>
+        }
     </div>
 
     @if (Model.Recipe.Ingredients.Count > 0)

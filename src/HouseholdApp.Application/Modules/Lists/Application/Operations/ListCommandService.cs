@@ -25,12 +25,12 @@ public sealed class ListCommandService(
         return list.Id;
     }
 
-    public async Task<Guid> AddItemAsync(Guid listId, string name, Guid? catalogItemId, Guid? categoryId, CancellationToken ct = default)
+    public async Task<Guid> AddItemAsync(Guid listId, string name, Guid? catalogItemId, Guid? categoryId, string? quantity = null, string? unit = null, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);
         var list = await repo.GetAsync(listId, ct)
             ?? throw new InvalidOperationException("List not found.");
-        var item = list.AddItem(name, catalogItemId, categoryId, currentUser.Id, time.GetUtcNow());
+        var item = list.AddItem(name, quantity, unit, catalogItemId, categoryId, currentUser.Id, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
         await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
@@ -41,6 +41,31 @@ public sealed class ListCommandService(
             await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, name, categoryId, ct);
 
         return item.Id;
+    }
+
+    public async Task BulkAddItemsAsync(Guid listId, IReadOnlyList<BulkAddItem> items, CancellationToken ct = default)
+    {
+        if (items.Count == 0) return;
+
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+        var now = time.GetUtcNow();
+
+        foreach (var item in items)
+            list.AddItem(item.Name, item.Quantity, item.Unit, item.CatalogItemId, item.CategoryId, currentUser.Id, now);
+
+        await repo.SaveListAsync(list, ct);
+        await eventBus.PublishAllAsync(list, ct);
+        await uow.CommitAsync(ct);
+
+        foreach (var item in items)
+        {
+            if (item.CatalogItemId.HasValue)
+                await catalogCommands.IncrementPopularityAsync(item.CatalogItemId.Value, ct);
+            else
+                await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, item.Name, item.CategoryId, ct);
+        }
     }
 
     public async Task CompleteItemAsync(Guid listId, Guid itemId, CancellationToken ct = default)

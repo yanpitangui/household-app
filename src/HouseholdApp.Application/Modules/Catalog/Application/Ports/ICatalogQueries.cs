@@ -18,6 +18,7 @@ public sealed record CategoryDto(
 public interface ICatalogQueries
 {
     Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default);
+    Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default);
     Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, CategoryDto>> GetCategoriesByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default);
 }

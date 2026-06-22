@@ -1,5 +1,6 @@
 using AngleSharp.Html.Parser;
 using HouseholdApp.Application.Modules.Recipes.Application.Ports;
+using System.Net;
 using System.Text.Json;
 
 namespace HouseholdApp.Application.Modules.Recipes.Infrastructure;
@@ -93,10 +94,18 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
         return false;
     }
 
+    private static string? DecodeHtml(string? text)
+    {
+        if (text is null) return null;
+        string decoded;
+        do { decoded = text; text = WebUtility.HtmlDecode(decoded); } while (text != decoded);
+        return text;
+    }
+
     private static RecipeImportResult ParseRecipe(JsonElement recipe, string sourceUrl)
     {
-        var title       = recipe.TryGetProperty("name",        out var n) ? n.GetString()      : null;
-        var description = recipe.TryGetProperty("description", out var d) ? d.GetString()      : null;
+        var title       = DecodeHtml(recipe.TryGetProperty("name",        out var n) ? n.GetString() : null);
+        var description = DecodeHtml(recipe.TryGetProperty("description", out var d) ? d.GetString() : null);
         var servings    = recipe.TryGetProperty("recipeYield", out var y) ? ExtractServings(y) : null;
         var schemaUrl   = recipe.TryGetProperty("url",         out var u) ? u.GetString()      : null;
 
@@ -106,7 +115,7 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
         {
             foreach (var item in ing.EnumerateArray())
             {
-                var s = item.GetString();
+                var s = DecodeHtml(item.GetString());
                 if (!string.IsNullOrWhiteSpace(s)) ingredients.Add(s.Trim());
             }
         }
@@ -141,17 +150,18 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
     private static string ExtractInstructions(JsonElement instr)
     {
         if (instr.ValueKind == JsonValueKind.String)
-            return instr.GetString() ?? "";
+            return DecodeHtml(instr.GetString()) ?? "";
 
         if (instr.ValueKind == JsonValueKind.Array)
         {
             var steps = new List<string>();
             foreach (var item in instr.EnumerateArray())
             {
-                var text = item.ValueKind == JsonValueKind.String
+                var raw = item.ValueKind == JsonValueKind.String
                     ? item.GetString()
                     : item.TryGetProperty("text", out var t) ? t.GetString() : null;
 
+                var text = DecodeHtml(raw);
                 if (!string.IsNullOrWhiteSpace(text)) steps.Add(text!.Trim());
             }
             return string.Join("\n", steps);

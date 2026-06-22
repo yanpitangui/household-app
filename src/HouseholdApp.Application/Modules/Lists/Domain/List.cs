@@ -7,17 +7,21 @@ public sealed class ListItem
     public Guid Id { get; set; }
     public Guid ListId { get; set; }
     public string Name { get; set; } = default!;
+    public string? Quantity { get; set; }
+    public string? Unit { get; set; }
     public Guid? CatalogItemId { get; set; }
     public Guid? CategoryId { get; set; }
     public Guid AddedBy { get; set; }
     public int SortOrder { get; set; }
     public bool IsCompleted { get; set; }
 
-    internal ListItem(Guid listId, string name, Guid? catalogItemId, Guid? categoryId, Guid addedBy, int sortOrder)
+    internal ListItem(Guid listId, string name, string? quantity, string? unit, Guid? catalogItemId, Guid? categoryId, Guid addedBy, int sortOrder)
     {
         Id = Guid.CreateVersion7();
         ListId = listId;
         Name = name;
+        Quantity = quantity;
+        Unit = unit;
         CatalogItemId = catalogItemId;
         CategoryId = categoryId;
         AddedBy = addedBy;
@@ -65,10 +69,10 @@ public sealed class HouseholdList : AggregateRoot
         return list;
     }
 
-    public ListItem AddItem(string name, Guid? catalogItemId, Guid? categoryId, Guid addedBy, DateTimeOffset now)
+    public ListItem AddItem(string name, string? quantity, string? unit, Guid? catalogItemId, Guid? categoryId, Guid addedBy, DateTimeOffset now)
     {
         var sortOrder = _items.Count == 0 ? 1000 : _items.Max(i => i.SortOrder) + 1000;
-        var item = new ListItem(Id, name, catalogItemId, categoryId, addedBy, sortOrder);
+        var item = new ListItem(Id, name, quantity, unit, catalogItemId, categoryId, addedBy, sortOrder);
         _items.Add(item);
         Raise(new ListItemAdded(Guid.CreateVersion7(), now, Id, item.Id, name, catalogItemId, categoryId, addedBy, sortOrder));
         return item;

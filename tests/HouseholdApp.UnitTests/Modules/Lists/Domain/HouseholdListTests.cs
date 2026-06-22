@@ -29,7 +29,7 @@ public sealed class HouseholdListTests
     {
         var list = CreateList();
 
-        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
 
         await Assert.That(item.SortOrder).IsEqualTo(1000);
     }
@@ -38,10 +38,10 @@ public sealed class HouseholdListTests
     public async Task AddItem_subsequent_item_increments_sort_order()
     {
         var list = CreateList();
-        list.AddItem("Milk", null, null, CreatorId, Now);
+        list.AddItem("Milk", null, null, null, null, CreatorId, Now);
         list.ClearEvents();
 
-        var item = list.AddItem("Eggs", null, null, CreatorId, Now);
+        var item = list.AddItem("Eggs", null, null, null, null, CreatorId, Now);
 
         await Assert.That(item.SortOrder).IsEqualTo(2000);
         await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
@@ -51,7 +51,7 @@ public sealed class HouseholdListTests
     public async Task CompleteItem_marks_item_completed_and_raises_event()
     {
         var list = CreateList();
-        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
         list.ClearEvents();
 
         list.CompleteItem(item.Id, CreatorId, Now);
@@ -75,7 +75,7 @@ public sealed class HouseholdListTests
     public async Task UncompleteItem_marks_item_uncompleted_and_raises_event()
     {
         var list = CreateList();
-        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
         list.CompleteItem(item.Id, CreatorId, Now);
         list.ClearEvents();
 
@@ -100,7 +100,7 @@ public sealed class HouseholdListTests
     public async Task RemoveItem_removes_from_list_and_raises_event()
     {
         var list = CreateList();
-        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
         list.ClearEvents();
 
         list.RemoveItem(item.Id, Now);
@@ -124,7 +124,7 @@ public sealed class HouseholdListTests
     public async Task ChangeItemCategory_sets_category_and_raises_event()
     {
         var list = CreateList();
-        var item = list.AddItem("Milk", null, null, CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
         var categoryId = Guid.NewGuid();
         list.ClearEvents();
 
@@ -139,7 +139,7 @@ public sealed class HouseholdListTests
     public async Task ChangeItemCategory_clears_category_when_null()
     {
         var list = CreateList();
-        var item = list.AddItem("Milk", null, Guid.NewGuid(), CreatorId, Now);
+        var item = list.AddItem("Milk", null, null, null, Guid.NewGuid(), CreatorId, Now);
         list.ClearEvents();
 
         list.ChangeItemCategory(item.Id, null, Now);

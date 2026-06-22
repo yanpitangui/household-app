@@ -1,0 +1,94 @@
+@page "/h/{householdId:guid}/Recipes/{recipeId:guid}/AddToList"
+@model HouseholdApp.Web.Pages.Recipes.AddToListModel
+@{
+    ViewData["Title"] = L["Recipes.AddToList"].Value;
+}
+
+<div class="page-heading">
+    <span>@L["Recipes.AddToList"]</span>
+    <a asp-page="Detail" asp-route-householdId="@Model.HouseholdId" asp-route-recipeId="@Model.RecipeId"
+       style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
+        ← @L["Action.Back"]
+    </a>
+</div>
+
+@if (Model.Recipe is null)
+{
+    <p>Recipe not found.</p>
+    return;
+}
+
+<div class="app-card">
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+        @L["Recipes.FromRecipe"]: <strong>@Model.Recipe.Title</strong>
+    </p>
+
+    <form method="post">
+        <input type="hidden" asp-for="RecipeId" />
+        <input type="hidden" asp-for="HouseholdId" />
+
+        @* List selector *@
+        <div style="margin-bottom:20px">
+            <div class="section-title" style="margin-top:0">@L["Recipes.AddToWhichList"]</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                @if (Model.Lists.Any())
+                {
+                    <select asp-for="TargetListId"
+                            style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:10px;background:var(--card-bg);color:var(--text-primary);font-size:14px">
+                        <option value="">— @L["Recipes.SelectList"] —</option>
+                        @foreach (var list in Model.Lists)
+                        {
+                            <option value="@list.Id">@list.Name</option>
+                        }
+                    </select>
+                }
+                <input asp-for="NewListName" placeholder="@L["Recipes.NewListName"]"
+                       style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:10px;background:var(--card-bg);color:var(--text-primary);font-size:14px;box-sizing:border-box" />
+            </div>
+        </div>
+
+        @* Ingredient review table *@
+        <div class="section-title">@L["Recipes.ReviewIngredients"]</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
+            @for (var i = 0; i < Model.Items.Count; i++)
+            {
+                var proposed = Model.ProposedItems.Count > i ? Model.ProposedItems[i] : null;
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--app-bg);border:1px solid var(--border-color);border-radius:10px;font-size:13px;flex-wrap:wrap">
+                    <input type="checkbox" asp-for="Items[i].Include" style="flex-shrink:0" />
+                    <input type="hidden" asp-for="Items[i].CatalogItemId" />
+
+                    <input asp-for="Items[i].Name"
+                           style="flex:2;min-width:100px;padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);font-size:13px" />
+                    <input asp-for="Items[i].Quantity" placeholder="@L["Recipes.Qty"]"
+                           style="width:56px;padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);font-size:13px" />
+                    <input asp-for="Items[i].Unit" placeholder="@L["Recipes.Unit"]"
+                           style="width:80px;padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);font-size:13px" />
+
+                    @{
+                        var isMatched = proposed?.Matched ?? false;
+                        var borderColor = isMatched ? "var(--border-color)" : "var(--accent-home)";
+                        var defaultOption = isMatched
+                            ? $"{proposed!.CategoryEmoji} {proposed!.CategoryName}"
+                            : $"⚠ {L["Recipes.NoMatch"].Value}";
+                    }
+                    <select asp-for="Items[i].CategoryId"
+                            style="flex:1;min-width:100px;padding:4px 8px;border:1px solid @borderColor;border-radius:6px;background:var(--card-bg);color:var(--text-primary);font-size:13px">
+                        <option value="">@defaultOption</option>
+                        @foreach (var cat in Model.Categories)
+                        {
+                            <option value="@cat.Id">@cat.Emoji @cat.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <a asp-page="Detail" asp-route-householdId="@Model.HouseholdId" asp-route-recipeId="@Model.RecipeId"
+               class="btn btn-outline-secondary btn-sm">@L["Action.Cancel"]</a>
+            <button type="submit" class="btn btn-primary btn-sm">
+                @L["Recipes.AddItemsToList"] (@Model.Items.Count)
+            </button>
+        </div>
+    </form>
+</div>

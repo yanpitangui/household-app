@@ -263,4 +263,34 @@
   <data name="Expenses.SplitMode.AdjustTitle"><value>Adjustment</value></data>
   <data name="Expenses.SplitMode.AdjustDesc"><value>Enter adjustments; the rest splits equally.</value></data>
   <data name="Expenses.AllMembersBtn"><value>All</value></data>
+  <data name="Recipes.AddToList" xml:space="preserve">
+    <value>Add to Shopping List</value>
+  </data>
+  <data name="Recipes.FromRecipe" xml:space="preserve">
+    <value>From recipe</value>
+  </data>
+  <data name="Recipes.AddToWhichList" xml:space="preserve">
+    <value>Add to which list?</value>
+  </data>
+  <data name="Recipes.SelectList" xml:space="preserve">
+    <value>Select a list</value>
+  </data>
+  <data name="Recipes.NewListName" xml:space="preserve">
+    <value>Or create new list…</value>
+  </data>
+  <data name="Recipes.ReviewIngredients" xml:space="preserve">
+    <value>Review ingredients</value>
+  </data>
+  <data name="Recipes.Qty" xml:space="preserve">
+    <value>Qty</value>
+  </data>
+  <data name="Recipes.Unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="Recipes.NoMatch" xml:space="preserve">
+    <value>No category</value>
+  </data>
+  <data name="Recipes.AddItemsToList" xml:space="preserve">
+    <value>Add items to list</value>
+  </data>
 </root>

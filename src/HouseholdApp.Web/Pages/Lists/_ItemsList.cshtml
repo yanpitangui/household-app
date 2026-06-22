@@ -47,7 +47,13 @@
                               data-category="@item.CategoryName"
                               data-category-emoji="@item.CategoryEmoji"
                               data-added-by="@item.AddedByName"
-                              data-list-name="@Model.Name">@item.Name</span>
+                              data-list-name="@Model.Name">
+                            @if (item.Quantity is not null || item.Unit is not null)
+                            {
+                                <span style="color:var(--text-muted);font-size:11px;margin-right:4px">@item.Quantity@(item.Quantity is not null && item.Unit is not null ? " " : "")@item.Unit</span>
+                            }
+                            @item.Name
+                        </span>
                         <button class="btn btn-sm btn-outline-danger"
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
@@ -82,7 +88,13 @@
                              data-category-emoji="@item.CategoryEmoji"
                              data-added-by="@item.AddedByName"
                              data-list-name="@Model.Name">
-                            <span class="check-item-text">@item.Name</span>
+                            <span class="check-item-text">
+                                @if (item.Quantity is not null || item.Unit is not null)
+                                {
+                                    <span style="color:var(--text-muted);font-size:11px;margin-right:4px">@item.Quantity@(item.Quantity is not null && item.Unit is not null ? " " : "")@item.Unit</span>
+                                }
+                                @item.Name
+                            </span>
                             @if (item.CategoryName is not null)
                             {
                                 <div style="margin-top:3px">

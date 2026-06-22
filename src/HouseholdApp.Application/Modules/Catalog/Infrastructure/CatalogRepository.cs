@@ -27,6 +27,50 @@ internal sealed class CatalogRepository(NpgsqlDataSource db) : ICatalogRepositor
         return rows.ToList();
     }
 
+    public async Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(
+        Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default)
+    {
+        if (ingredientNames.Count == 0) return new Dictionary<string, CatalogItemSuggestion>();
+
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(string Term, Guid Id, string Name, Guid? CategoryId, string? CategoryName, string? CategoryEmoji, string? DefaultUnit)>(
+            """
+            WITH terms(term) AS (
+                SELECT unnest(@names::text[])
+            )
+            SELECT t.term,
+                   ci.id, ci.name,
+                   cc.id          AS CategoryId,
+                   cc.name        AS CategoryName,
+                   cc.emoji       AS CategoryEmoji,
+                   ci.default_unit AS DefaultUnit
+            FROM terms t
+            CROSS JOIN LATERAL (
+                SELECT ci2.id, ci2.name, ci2.category_id, ci2.household_id, ci2.default_unit,
+                       GREATEST(
+                           similarity(f_unaccent(ci2.name), f_unaccent(t.term)),
+                           CASE WHEN to_tsvector('portuguese', ci2.name) @@ plainto_tsquery('portuguese', t.term) THEN 0.8 ELSE 0 END,
+                           CASE WHEN to_tsvector('english',    ci2.name) @@ plainto_tsquery('english',    t.term) THEN 0.8 ELSE 0 END
+                       ) AS score
+                FROM catalog.items ci2
+                WHERE (ci2.household_id = @householdId OR ci2.household_id IS NULL)
+                  AND (
+                      to_tsvector('portuguese', ci2.name) @@ plainto_tsquery('portuguese', t.term)
+                      OR to_tsvector('english',    ci2.name) @@ plainto_tsquery('english',    t.term)
+                      OR similarity(f_unaccent(ci2.name), f_unaccent(t.term)) > 0.3
+                  )
+                ORDER BY CASE WHEN ci2.household_id = @householdId THEN 0 ELSE 1 END, score DESC
+                LIMIT 1
+            ) ci
+            LEFT JOIN catalog.categories cc ON cc.id = ci.category_id
+            """,
+            new { names = ingredientNames.ToArray(), householdId });
+
+        return rows.ToDictionary(
+            r => r.Term,
+            r => new CatalogItemSuggestion(r.Id, r.Name, r.CategoryId, r.CategoryName, r.CategoryEmoji, r.DefaultUnit));
+    }
+
     public async Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(Guid householdId, string language, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);

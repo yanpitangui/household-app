@@ -1,0 +1,2 @@
+ALTER TABLE lists.items ADD COLUMN IF NOT EXISTS quantity TEXT;
+ALTER TABLE lists.items ADD COLUMN IF NOT EXISTS unit     TEXT;

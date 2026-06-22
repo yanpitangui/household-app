@@ -47,6 +47,35 @@ public class RecipesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Add_recipe_ingredients_to_new_shopping_list()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Recipe HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+
+        var recipeTitle = $"AddToList {Guid.NewGuid().ToString("N")[..8]}";
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/recipes/create");
+        await page.FillAsync("input[name='Title']", recipeTitle);
+        await page.FillAsync("#ingredient-add-input", "eggs");
+        await page.ClickAsync("input[name='Title']"); // blur commits ingredient
+        await page.ClickAsync("button[type='submit']");
+        await page.Locator(".page-heading:has-text('Recipes')").WaitForAsync();
+
+        await page.ClickAsync($"text={recipeTitle}");
+        await page.Locator($".page-heading:has-text('{recipeTitle}')").WaitForAsync();
+
+        await page.ClickAsync("a:has-text('🛒')");
+        await page.Locator(".page-heading:has-text('Add to')").WaitForAsync();
+
+        var listName = $"My List {Guid.NewGuid().ToString("N")[..6]}";
+        await page.FillAsync("input[name='NewListName']", listName);
+        await page.ClickAsync("button[type='submit']");
+        await page.WaitForURLAsync("**/lists/**");
+
+        await Assert.That(await page.Locator(".check-item-text", new() { HasText = "eggs" }).IsVisibleAsync()).IsTrue();
+    }
+
+    [Test]
     public async Task Delete_recipe_removes_it()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();

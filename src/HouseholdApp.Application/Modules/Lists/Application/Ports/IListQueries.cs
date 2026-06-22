@@ -3,6 +3,7 @@ namespace HouseholdApp.Application.Modules.Lists.Application.Ports;
 public sealed record ListSummary(Guid Id, string Name, long TotalItems, long CompletedItems);
 public sealed record ListItemDto(
     Guid Id, string Name,
+    string? Quantity, string? Unit,
     Guid? CatalogItemId, Guid? CategoryId, string? CategoryName, string? CategoryEmoji,
     Guid AddedBy, string AddedByName,
     int SortOrder, bool IsCompleted);
