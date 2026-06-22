@@ -135,7 +135,7 @@ public sealed class RecipeQueryServiceTests(PostgresFixture db) : IAsyncDisposab
         var proposed = await s2.ServiceProvider.GetRequiredService<IRecipeListImport>()
             .ProposeListItemsAsync(householdId, recipeId);
 
-        await Assert.That(proposed).HasCount().EqualTo(1);
+        await Assert.That(proposed.Count).IsEqualTo(1);
         var item = proposed[0];
         var expectedName = await conn.QuerySingleAsync<string>(
             "SELECT name FROM catalog.items WHERE id = @catalogItemId", new { catalogItemId });

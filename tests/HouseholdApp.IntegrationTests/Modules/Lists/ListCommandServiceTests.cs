@@ -125,7 +125,7 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
             "SELECT name, quantity, unit, category_id FROM lists.items WHERE list_id = @listId ORDER BY sort_order",
             new { listId })).ToList();
 
-        await Assert.That(rows).HasCount().EqualTo(2);
+        await Assert.That(rows.Count).IsEqualTo(2);
         await Assert.That(rows[0].Name).IsEqualTo("batatas");
         await Assert.That(rows[0].Qty).IsEqualTo("4");
         await Assert.That(rows[0].Unit).IsEqualTo("médias");
