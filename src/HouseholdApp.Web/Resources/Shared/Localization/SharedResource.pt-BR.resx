@@ -165,7 +165,7 @@
   <data name="Recipes.Ingredients"><value>Ingredientes</value></data>
   <data name="Recipes.IngredientsHint"><value>— um por linha, formato: nome, quantidade, unidade</value></data>
   <data name="Recipes.Instructions"><value>Instruções</value></data>
-  <data name="Recipes.InstructionsHint"><value>— um passo por linha</value></data>
+  <data name="Recipes.InstructionsHint"><value>— um passo por parágrafo, separe os passos com uma linha em branco</value></data>
   <data name="Recipes.Notes"><value>Notas</value></data>
   <data name="Recipes.RecipeTitlePlaceholder"><value>Nome da receita</value></data>
   <data name="Recipes.ShortDescriptionPlaceholder"><value>Descrição curta</value></data>

@@ -75,8 +75,11 @@ public class CreateRecipeModel(
 
     private static List<InstructionStepDto> ParseInstructions(string text)
     {
-        return text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select((line, i) => new InstructionStepDto(i + 1, line.Trim()))
+        // Steps are separated by blank lines; each step may span multiple lines.
+        // Normalize \r\n so splitting works regardless of line-ending style.
+        var normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");
+        return normalized.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries)
+            .Select((block, i) => new InstructionStepDto(i + 1, block.Trim()))
             .Where(s => !string.IsNullOrWhiteSpace(s.Text))
             .ToList();
     }

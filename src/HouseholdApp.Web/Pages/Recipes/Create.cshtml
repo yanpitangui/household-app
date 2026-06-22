@@ -76,7 +76,7 @@
             <label class="recipe-label" for="recipe-instructions">@L["Recipes.Instructions"]</label>
             <small style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:6px">@L["Recipes.InstructionsHint"]</small>
             <textarea asp-for="InstructionsText" id="recipe-instructions" class="recipe-textarea"
-                      rows="8" placeholder="Step 1&#10;Step 2&#10;…"></textarea>
+                      rows="8" placeholder="Step 1 text&#10;&#10;Step 2 text&#10;&#10;…"></textarea>
         </div>
 
         <div class="recipe-field-group">
@@ -199,7 +199,7 @@
 
                 if (data.title)        { var el = document.getElementById('recipe-title');        if (el) { el.value = data.title;        el.classList.add('imported'); } }
                 if (data.description)  { var el = document.getElementById('recipe-description');  if (el) { el.value = data.description;  el.classList.add('imported'); } }
-                if (data.servings)     { var el = document.getElementById('recipe-servings');     if (el) { el.value = data.servings;     el.classList.add('imported'); } }
+                if (data.servings)     { var el = document.getElementById('recipe-servings');     if (el) { var m = String(data.servings).match(/\d+/); if (m) { el.value = m[0]; el.classList.add('imported'); } } }
                 if (data.sourceUrl)    { var el = document.getElementById('recipe-source-url');   if (el) { el.value = data.sourceUrl;    el.classList.add('imported'); } }
                 if (data.instructions) { var el = document.getElementById('recipe-instructions'); if (el) { el.value = data.instructions; el.classList.add('imported'); } }
 

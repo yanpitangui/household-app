@@ -240,6 +240,73 @@ public class SchemaOrgRecipeImporterTests : IDisposable
     }
 
     [Test]
+    public async Task Parse_HowToStepWithItemListElement_ExtractsText()
+    {
+        // Panelinha-style: text nested inside itemListElement.text
+        Stub("/panelinha", """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@type": "Recipe",
+              "name": "Frango com Quiabo",
+              "recipeIngredient": ["4 coxas de frango"],
+              "recipeInstructions": [
+                {"@type": "HowToStep", "position": 0, "itemListElement": {"@type": "HowToDirection", "text": "Tempere o frango com sal."}},
+                {"@type": "HowToStep", "position": 1, "itemListElement": {"@type": "HowToDirection", "text": "Doure na panela por 4 minutos."}}
+              ]
+            }
+            </script>
+            </head><body></body></html>
+            """);
+
+        var result = await _importer.ImportAsync($"{_server.Url}/panelinha");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(result.Instructions).Contains("Tempere o frango com sal.");
+        await Assert.That(result.Instructions).Contains("Doure na panela por 4 minutos.");
+    }
+
+    [Test]
+    public async Task Parse_HowToSection_FlattensSectionSteps()
+    {
+        Stub("/sections", """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@type": "Recipe",
+              "name": "Layered Recipe",
+              "recipeIngredient": ["1 cup flour"],
+              "recipeInstructions": [
+                {
+                  "@type": "HowToSection",
+                  "name": "Prep",
+                  "itemListElement": [
+                    {"@type": "HowToStep", "text": "Chop vegetables."},
+                    {"@type": "HowToStep", "text": "Boil water."}
+                  ]
+                },
+                {
+                  "@type": "HowToSection",
+                  "name": "Cook",
+                  "itemListElement": [
+                    {"@type": "HowToStep", "text": "Combine and simmer."}
+                  ]
+                }
+              ]
+            }
+            </script>
+            </head><body></body></html>
+            """);
+
+        var result = await _importer.ImportAsync($"{_server.Url}/sections");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(result.Instructions).Contains("Chop vegetables.");
+        await Assert.That(result.Instructions).Contains("Boil water.");
+        await Assert.That(result.Instructions).Contains("Combine and simmer.");
+    }
+
+    [Test]
     public async Task Parse_MultipleIngredients_PreservesOrderAndWhitespace()
     {
         Stub("/order", """

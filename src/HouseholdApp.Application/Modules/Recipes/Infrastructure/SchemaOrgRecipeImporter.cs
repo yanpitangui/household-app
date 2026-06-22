@@ -155,18 +155,66 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
         if (instr.ValueKind == JsonValueKind.Array)
         {
             var steps = new List<string>();
-            foreach (var item in instr.EnumerateArray())
-            {
-                var raw = item.ValueKind == JsonValueKind.String
-                    ? item.GetString()
-                    : item.TryGetProperty("text", out var t) ? t.GetString() : null;
-
-                var text = DecodeHtml(raw);
-                if (!string.IsNullOrWhiteSpace(text)) steps.Add(text!.Trim());
-            }
-            return string.Join("\n", steps);
+            CollectSteps(instr, steps);
+            return string.Join("\n\n", steps);
         }
 
         return "";
+    }
+
+    // Recursively collect step texts, handling HowToStep, HowToSection, HowToDirection,
+    // itemListElement nesting, and plain strings — for maximum site compatibility.
+    private static void CollectSteps(JsonElement node, List<string> steps)
+    {
+        if (node.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in node.EnumerateArray())
+                CollectSteps(item, steps);
+            return;
+        }
+
+        if (node.ValueKind == JsonValueKind.String)
+        {
+            var s = DecodeHtml(node.GetString());
+            if (!string.IsNullOrWhiteSpace(s)) steps.Add(s!.Trim());
+            return;
+        }
+
+        if (node.ValueKind != JsonValueKind.Object) return;
+
+        // HowToSection — recurse into its itemListElement
+        if (node.TryGetProperty("@type", out var type) &&
+            type.ValueKind == JsonValueKind.String &&
+            type.GetString()?.Equals("HowToSection", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            if (node.TryGetProperty("itemListElement", out var sectionItems))
+                CollectSteps(sectionItems, steps);
+            return;
+        }
+
+        // Try direct text / name
+        var text = ExtractStepText(node);
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            var decoded = DecodeHtml(text);
+            if (!string.IsNullOrWhiteSpace(decoded)) steps.Add(decoded!.Trim());
+            return;
+        }
+
+        // itemListElement nesting without a top-level text
+        if (node.TryGetProperty("itemListElement", out var ile))
+            CollectSteps(ile, steps);
+    }
+
+    private static string? ExtractStepText(JsonElement item)
+    {
+        // text is preferred; name is a fallback some sites use
+        if (item.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+            return t.GetString();
+
+        if (item.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String)
+            return n.GetString();
+
+        return null;
     }
 }
