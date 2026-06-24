@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
 using StackExchange.Redis;
@@ -28,6 +29,7 @@ using TickerQ.Caching.StackExchangeRedis.DependencyInjection;
 using TickerQ.Dashboard.DependencyInjection;
 using TickerQ.DependencyInjection;
 using Valtuutus.Core.Configuration;
+using Valtuutus.Data.Caching;
 using Valtuutus.Data.Postgres;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Backplane.StackExchangeRedis;
@@ -77,6 +79,10 @@ var redisOptions = ConfigurationOptions.Parse(redisConnStr);
 redisOptions.AbortOnConnectFail = false;
 var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
 builder.Services.AddSingleton<IConnectionMultiplexer>(redisMultiplexer);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redisMultiplexer, "household-app:dp-keys")
+    .SetApplicationName("household-app");
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(connStr, healthQuery: "SELECT 1 FROM households.households LIMIT 0")
@@ -186,7 +192,8 @@ var schemaStream = typeof(HouseholdsModule).Assembly
 builder.Services.AddValtuutusCore(schemaStream);
 builder.Services.AddPostgres(
     _ => () => new NpgsqlConnection(connStr),
-    new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"));
+    new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"))
+    .AddCaching();
 builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
