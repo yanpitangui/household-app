@@ -2,8 +2,8 @@ using HouseholdApp.Application.Modules.Lists.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Services;
+using R3;
 using StackExchange.Redis;
-using System.Threading.Channels;
 
 namespace HouseholdApp.Web.Lists;
 
@@ -18,6 +18,7 @@ public static class ListStreamEndpoints
                    IListQueries listQueries,
                    IViewRenderService viewRender,
                    IConnectionMultiplexer redis,
+                   TimeProvider timeProvider,
                    HttpContext ctx,
                    CancellationToken ct) =>
             {
@@ -27,16 +28,11 @@ public static class ListStreamEndpoints
                     return;
                 }
 
-                var signals = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
-                {
-                    FullMode = BoundedChannelFullMode.DropNewest,
-                    SingleWriter = true,
-                    SingleReader = true
-                });
                 var sub = redis.GetSubscriber();
                 var redisChannel = RedisChannel.Literal($"list:{listId}");
+                var subject = new Subject<Unit>();
 
-                await sub.SubscribeAsync(redisChannel, (_, _) => signals.Writer.TryWrite(0));
+                await sub.SubscribeAsync(redisChannel, (_, _) => subject.OnNext(Unit.Default));
 
                 ctx.Response.Headers["Content-Type"] = "text/event-stream";
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
@@ -49,24 +45,25 @@ public static class ListStreamEndpoints
                     await WriteSseAsync(ctx.Response, html, ct);
                 }
 
+                using var _ = subject
+                    .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
+                    .SubscribeAwait(async (__, innerCt) =>
+                    {
+                        var current = await listQueries.GetAsync(listId, innerCt);
+                        if (current is null) return;
+                        var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", current);
+                        await WriteSseAsync(ctx.Response, html, innerCt);
+                    }, AwaitOperation.Sequential);
+
                 try
                 {
-                    await foreach (var _ in signals.Reader.ReadAllAsync(ct))
-                    {
-                        await Task.Delay(200, ct);        // trailing debounce: wait for burst to settle
-                        while (signals.Reader.TryRead(out var __)) { }  // drain any signals that arrived during the wait
-
-                        list = await listQueries.GetAsync(listId, ct);
-                        if (list is null) continue;
-                        var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", list);
-                        await WriteSseAsync(ctx.Response, html, ct);
-                    }
+                    await Task.Delay(Timeout.Infinite, ct);
                 }
                 catch (OperationCanceledException) { }
                 finally
                 {
+                    subject.OnCompleted();
                     await sub.UnsubscribeAsync(redisChannel);
-                    signals.Writer.TryComplete();
                 }
             }).RequireAuthorization();
 

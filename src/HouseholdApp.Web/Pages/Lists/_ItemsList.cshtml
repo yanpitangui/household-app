@@ -34,8 +34,7 @@
                         <button class="check-box"
                                 hx-post="?handler=CompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
-                                hx-target="#items-list"
-                                hx-swap="outerHTML"
+                                hx-swap="none"
                                 >✓</button>
                         <span class="check-item-text"
                               style="flex:1; cursor:pointer"
@@ -57,8 +56,7 @@
                         <button class="btn btn-sm btn-outline-danger"
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
-                                hx-target="#items-list"
-                                hx-swap="outerHTML"
+                                hx-swap="none"
                                 hx-confirm="Remove item?">✕</button>
                     </div>
                 }
@@ -75,8 +73,7 @@
                         <button class="check-box checked"
                                 hx-post="?handler=UncompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
-                                hx-target="#items-list"
-                                hx-swap="outerHTML"
+                                hx-swap="none"
                                 >✓</button>
                         <div style="flex:1; min-width:0; cursor:pointer"
                              onclick="showItemDetail(this)"
@@ -107,8 +104,7 @@
                         <button class="btn btn-sm btn-outline-danger"
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
-                                hx-target="#items-list"
-                                hx-swap="outerHTML"
+                                hx-swap="none"
                                 hx-confirm="Remove item?">✕</button>
                     </div>
                 }

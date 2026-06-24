@@ -23,8 +23,7 @@
     <div class="app-card mb-4">
         <form id="add-item-form" class="d-flex gap-2 flex-wrap"
               hx-post="?handler=AddItem"
-              hx-target="#items-list"
-              hx-swap="outerHTML"
+              hx-swap="none"
               hx-on::after-request="if(event.target===this && event.detail.successful){document.getElementById('add-item-form').reset(); const sg=document.getElementById('item-suggestions'); if(sg) sg.innerHTML=''; document.getElementById('catalog-item-id').value=''; resetDesktopCategory();}">
             <input type="hidden" name="ListId" value="@Model.List.Id" />
             <input type="hidden" name="CatalogItemId" id="catalog-item-id" />
@@ -139,8 +138,7 @@
     </div>
     <form id="add-item-form-mobile"
           hx-post="?handler=AddItem"
-          hx-target="#items-list"
-          hx-swap="outerHTML"
+          hx-swap="none"
           hx-on::after-request="if(event.target===this && event.detail.successful){closeAddItemDrawer();}">
         <input type="hidden" name="ListId" value="@Model.List.Id" />
         <input type="hidden" name="CatalogItemId" id="catalog-item-id-mobile" />
@@ -174,8 +172,7 @@
         <select id="detail-category-select" name="categoryId" class="form-select"
                 hx-post="?handler=ChangeItemCategory"
                 hx-include="#detail-item-id,#detail-list-id"
-                hx-target="#items-list"
-                hx-swap="outerHTML"
+                hx-swap="none"
                 hx-trigger="change"
                 hx-on::after-request="document.getElementById('item-detail-dialog').close()">
             @await Html.PartialAsync("_CategoryOptions", Model.Categories)

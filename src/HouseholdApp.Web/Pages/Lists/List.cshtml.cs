@@ -52,15 +52,13 @@ public class ListModel(
     public async Task<IActionResult> OnPostAddItemAsync(Guid listId, string itemName, Guid? catalogItemId, Guid? categoryId)
     {
         await listCommands.AddItemAsync(listId, itemName, catalogItemId, categoryId);
-        var updated = await listQueries.GetAsync(listId);
-        return Partial("_ItemsList", updated);
+        return StatusCode(204);
     }
 
     public async Task<IActionResult> OnPostChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId)
     {
         await listCommands.ChangeItemCategoryAsync(listId, itemId, categoryId);
-        var updated = await listQueries.GetAsync(listId);
-        return Partial("_ItemsList", updated);
+        return StatusCode(204);
     }
 
     public async Task<IActionResult> OnPostAddCategoryAsync(string categoryName, string categoryEmoji)
@@ -74,21 +72,18 @@ public class ListModel(
     public async Task<IActionResult> OnPostCompleteItemAsync(Guid listId, Guid itemId)
     {
         await listCommands.CompleteItemAsync(listId, itemId);
-        var updated = await listQueries.GetAsync(listId);
-        return Partial("_ItemsList", updated);
+        return StatusCode(204);
     }
 
     public async Task<IActionResult> OnPostUncompleteItemAsync(Guid listId, Guid itemId)
     {
         await listCommands.UncompleteItemAsync(listId, itemId);
-        var updated = await listQueries.GetAsync(listId);
-        return Partial("_ItemsList", updated);
+        return StatusCode(204);
     }
 
     public async Task<IActionResult> OnPostRemoveItemAsync(Guid listId, Guid itemId)
     {
         await listCommands.RemoveItemAsync(listId, itemId);
-        var updated = await listQueries.GetAsync(listId);
-        return Partial("_ItemsList", updated);
+        return StatusCode(204);
     }
 }
