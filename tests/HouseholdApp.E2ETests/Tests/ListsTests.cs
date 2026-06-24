@@ -204,6 +204,42 @@ public class ListsTests(PlaywrightFixture pw)
         await Assert.That(options.Any(o => o.Contains("Lab Supplies"))).IsTrue();
     }
 
+    [Test]
+    public async Task Completing_item_on_one_page_updates_another_page_without_refresh()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"RT HH {Guid.NewGuid().ToString("N")[..8]}");
+
+        var page1 = await ctx.NewPageAsync();
+        await NavigateToListAsync(page1, householdId);
+        var listUrl = page1.Url;
+
+        var itemName = $"RealtimeItem{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page1, itemName);
+        await SubmitAddItemFormAsync(page1);
+        await page1.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        // Open the same list in a second page — SSE connection opens automatically
+        var page2 = await ctx.NewPageAsync();
+        await page2.GotoAsync(listUrl);
+        await page2.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        // Complete the item on page1
+        await page1.Locator($".check-item:has(.check-item-text:has-text('{itemName}')) .check-box").ClickAsync();
+
+        // page2 should show it in the done section without any manual refresh
+        await page2.Locator(".check-item.done").Filter(new LocatorFilterOptions { HasText = itemName })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await Assert.That(
+            await page2.Locator(".check-item.done")
+                .Filter(new LocatorFilterOptions { HasText = itemName })
+                .IsVisibleAsync()
+        ).IsTrue();
+    }
+
     private static async Task TypeIntoItemInput(IPage page, string text)
     {
         await page.ClickAsync("#item-name-input");

@@ -4,15 +4,18 @@ using HouseholdApp.Application.Modules.Identity;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Web.Services;
 using HouseholdApp.Web.Shared.Web;
 using HouseholdApp.Application.Modules.Recipes;
 using HouseholdApp.Application.Modules.Recipes.Application.Ports;
 using HouseholdApp.Application.Modules.Recipes.Infrastructure;
 using HouseholdApp.Application.Modules.Catalog;
 using HouseholdApp.Application.Modules.Lists;
+using HouseholdApp.Application.Modules.Lists.Domain;
 using HouseholdApp.Application.Modules.Tasks;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
+using HouseholdApp.Web.Lists;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -44,12 +47,18 @@ builder.Services.AddRazorPages(options =>
 }).AddViewLocalization();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IViewRenderService, ViewRenderService>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddEventBus();
 builder.Services.AddIdentityModule();
 builder.Services.AddHouseholdsModule();
 builder.Services.AddCatalogModule();
 builder.Services.AddListsModule();
+builder.Services.AddEventHandler<ListItemAdded, ListRealtimeNotifier>();
+builder.Services.AddEventHandler<ListItemCompleted, ListRealtimeNotifier>();
+builder.Services.AddEventHandler<ListItemUncompleted, ListRealtimeNotifier>();
+builder.Services.AddEventHandler<ListItemRemoved, ListRealtimeNotifier>();
+builder.Services.AddEventHandler<ListItemCategoryChanged, ListRealtimeNotifier>();
 builder.Services.AddTasksModule();
 builder.Services.AddRecipesModule();
 builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client =>
@@ -67,6 +76,7 @@ var redisConnStr = builder.Configuration.GetConnectionString("redis")
 var redisOptions = ConfigurationOptions.Parse(redisConnStr);
 redisOptions.AbortOnConnectFail = false;
 var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync(redisOptions);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redisMultiplexer);
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(connStr, healthQuery: "SELECT 1 FROM households.households LIMIT 0")
@@ -230,6 +240,7 @@ app.MapGet("/sw.js", () => Results.Text(swContent, "application/javascript"))
 
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
+app.MapListStream();
 app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 {
     var props = new AuthenticationProperties { RedirectUri = returnUrl ?? "/" };

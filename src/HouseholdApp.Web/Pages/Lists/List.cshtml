@@ -121,7 +121,10 @@
     </button>
 </div>
 
-<div id="items-list">
+<div id="items-list-sse"
+     hx-ext="sse"
+     sse-connect="/h/@Model.HouseholdId/Lists/@Model.List.Id/stream"
+     sse-swap="items-list">
     @await Html.PartialAsync("_ItemsList", Model.List)
 </div>
 
