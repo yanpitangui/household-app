@@ -24,7 +24,7 @@ public sealed class TaskCommandService(
         var task = HouseholdTask.Create(householdId, title, description, assignedTo, dueDate, time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveTaskAsync(task, ct);
-        await eventBus.PublishAllAsync(task, ct);
+        eventBus.EnqueueAll(task);
         await uow.CommitAsync(ct);
         return task.Id;
     }
@@ -36,7 +36,7 @@ public sealed class TaskCommandService(
             ?? throw new InvalidOperationException("Task not found.");
         task.Assign(userId, time.GetUtcNow());
         await repo.SaveTaskAsync(task, ct);
-        await eventBus.PublishAllAsync(task, ct);
+        eventBus.EnqueueAll(task);
         await uow.CommitAsync(ct);
     }
 
@@ -47,7 +47,7 @@ public sealed class TaskCommandService(
             ?? throw new InvalidOperationException("Task not found.");
         task.Complete(currentUser.Id, time.GetUtcNow());
         await repo.SaveTaskAsync(task, ct);
-        await eventBus.PublishAllAsync(task, ct);
+        eventBus.EnqueueAll(task);
         await uow.CommitAsync(ct);
     }
 
@@ -58,7 +58,7 @@ public sealed class TaskCommandService(
             ?? throw new InvalidOperationException("Task not found.");
         task.Uncomplete(time.GetUtcNow());
         await repo.SaveTaskAsync(task, ct);
-        await eventBus.PublishAllAsync(task, ct);
+        eventBus.EnqueueAll(task);
         await uow.CommitAsync(ct);
     }
 
@@ -70,7 +70,7 @@ public sealed class TaskCommandService(
         var task = recurring.Spawn(time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveTaskAsync(task, ct);
-        await eventBus.PublishAllAsync(task, ct);
+        eventBus.EnqueueAll(task);
         await uow.CommitAsync(ct);
     }
 

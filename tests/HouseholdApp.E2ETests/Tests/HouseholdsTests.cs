@@ -3,6 +3,7 @@ using HouseholdApp.E2ETests.Infrastructure;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[NotInParallel]
 public class HouseholdsTests(PlaywrightFixture pw)
 {
     [Test]

@@ -263,6 +263,6 @@ public sealed class ExpenseCommandServiceRecurringTests
 
         _session.Events.Received(1).Append(Arg.Any<Guid>(), Arg.Any<object[]>());
         await _session.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _eventBus.Received(1).PublishAsync(Arg.Any<IDomainEvent>(), Arg.Any<CancellationToken>());
+        _eventBus.Received(1).Enqueue(Arg.Any<IDomainEvent>());
     }
 }

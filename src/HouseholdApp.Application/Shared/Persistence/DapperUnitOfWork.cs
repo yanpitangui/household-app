@@ -1,9 +1,10 @@
 using System.Data;
+using HouseholdApp.Application.Shared.Events;
 using Npgsql;
 
 namespace HouseholdApp.Application.Shared.Persistence;
 
-internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource) : IUnitOfWork, IAsyncDisposable
+internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource, IEventBus eventBus) : IUnitOfWork, IAsyncDisposable
 {
     private NpgsqlConnection? _connection;
     private NpgsqlTransaction? _transaction;
@@ -29,10 +30,12 @@ internal sealed class DapperUnitOfWork(NpgsqlDataSource dataSource) : IUnitOfWor
     {
         if (_transaction is null)
             throw new InvalidOperationException("No transaction started.");
+        await eventBus.FlushTransactionalAsync(ct);
         await _transaction.CommitAsync(ct);
         await _transaction.DisposeAsync();
         _transaction = null;
         _committed = true;
+        await eventBus.FlushDeferredAsync(ct);
     }
 
     public async ValueTask DisposeAsync()

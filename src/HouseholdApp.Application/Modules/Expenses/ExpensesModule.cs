@@ -27,8 +27,6 @@ public static class ExpensesModule
             opts.Events.AddEventType<ExpenseRecorded>();
             opts.Events.AddEventType<ExpenseVoided>();
             opts.Events.AddEventType<SettlementRecorded>();
-            opts.Events.AddEventType<ExpenseGroupCreated>();
-            opts.Events.AddEventType<ExpenseGroupDeleted>();
 
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);

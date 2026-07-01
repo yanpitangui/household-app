@@ -65,15 +65,13 @@ public sealed class ExpenseCommandService(
         var group = ExpenseGroup.Create(householdId, name, description, [], time.GetUtcNow());
         var doc = new ExpenseGroupDocument { Id = group.Id, HouseholdId = group.HouseholdId, Name = group.Name, Description = group.Description };
         session.Store(doc);
-        session.Events.Append(group.Id, group.DomainEvents.Cast<object>().ToArray());
         await session.SaveChangesAsync(ct);
-        await eventBus.PublishAllAsync(group, ct);
         return group.Id;
     }
 
     public async Task DeleteExpenseGroupAsync(Guid groupId, CancellationToken ct = default)
     {
-        var doc = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct)
+        _ = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct)
             ?? throw new InvalidOperationException("Expense group not found.");
 
         var hasActiveExpenses = await session.Query<ExpenseReadModel>()
@@ -82,8 +80,6 @@ public sealed class ExpenseCommandService(
         if (hasActiveExpenses)
             throw new InvalidOperationException("Cannot delete an expense group with active expenses.");
 
-        var @event = new ExpenseGroupDeleted(Guid.CreateVersion7(), time.GetUtcNow(), groupId, doc.HouseholdId);
-        session.Events.Append(groupId, @event);
         session.Delete<ExpenseGroupDocument>(groupId);
         await session.SaveChangesAsync(ct);
     }

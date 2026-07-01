@@ -4,6 +4,7 @@ using Microsoft.Playwright;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[NotInParallel]
 public class SelectRegressionTest(PlaywrightFixture pw)
 {
     private async Task<bool> IsNativeSelectVisible(IPage page)

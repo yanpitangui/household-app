@@ -32,15 +32,6 @@ public sealed class ExpenseGroupTests
     }
 
     [Test]
-    public async Task Create_raises_ExpenseGroupCreated_event()
-    {
-        var group = ExpenseGroup.Create(HouseholdId, "Shared", null, [], Now);
-
-        await Assert.That(group.DomainEvents.Count).IsEqualTo(1);
-        await Assert.That(group.DomainEvents[0] is ExpenseGroupCreated).IsTrue();
-    }
-
-    [Test]
     public async Task Create_throws_when_rules_do_not_sum_to_100()
     {
         var rules = new[]

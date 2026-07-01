@@ -28,7 +28,7 @@ public sealed class RecipeCommandService(
 
         await uow.BeginTransactionAsync(ct);
         await repo.SaveAsync(recipe, ct);
-        await eventBus.PublishAllAsync(recipe, ct);
+        eventBus.EnqueueAll(recipe);
         await uow.CommitAsync(ct);
         return recipe.Id;
     }

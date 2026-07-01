@@ -43,18 +43,17 @@ public sealed class ExpenseCommandServiceDeleteTests
     }
 
     [Test]
-    public async Task CreateExpenseGroupAsync_stores_document_and_appends_event()
+    public async Task CreateExpenseGroupAsync_stores_document()
     {
         ExpenseGroupDocument? storedDoc = null;
         _session.When(s => s.Store(Arg.Any<ExpenseGroupDocument[]>()))
             .Do(ci => storedDoc = ci.Arg<ExpenseGroupDocument[]>().FirstOrDefault());
 
         var householdId = Guid.NewGuid();
-        var id = await _sut.CreateExpenseGroupAsync(householdId, "Utilities", "Monthly bills");
+        await _sut.CreateExpenseGroupAsync(householdId, "Utilities", "Monthly bills");
 
         await Assert.That(storedDoc).IsNotNull();
         await Assert.That(storedDoc!.HouseholdId).IsEqualTo(householdId);
         await Assert.That(storedDoc.Name).IsEqualTo("Utilities");
-        _session.Events.Received(1).Append(id, Arg.Any<object[]>());
     }
 }

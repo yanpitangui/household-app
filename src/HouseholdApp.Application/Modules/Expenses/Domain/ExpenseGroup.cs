@@ -1,10 +1,8 @@
-using HouseholdApp.Application.Shared.Domain;
-
 namespace HouseholdApp.Application.Modules.Expenses.Domain;
 
 public sealed record DefaultAllocationRule(Guid UserId, decimal Percentage);
 
-public sealed class ExpenseGroup : AggregateRoot
+public sealed class ExpenseGroup
 {
     public Guid Id { get; private set; }
     public Guid HouseholdId { get; private set; }
@@ -35,7 +33,6 @@ public sealed class ExpenseGroup : AggregateRoot
             DefaultRules = defaultRules,
             CreatedAt = now
         };
-        group.Raise(new ExpenseGroupCreated(Guid.CreateVersion7(), now, group.Id, householdId, name));
         return group;
     }
 }

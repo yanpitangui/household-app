@@ -1,6 +1,7 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Catalog;
 using HouseholdApp.Application.Modules.Catalog.Application.Ports;
+using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ public sealed class CatalogRepositoryTests(PostgresFixture db) : IAsyncDisposabl
         var services = new ServiceCollection();
         services.AddSingleton(db.DataSource);
         services.AddPersistence();
+        services.AddEventBus();
         services.AddCatalogModule();
         return services.BuildServiceProvider();
     }

@@ -26,8 +26,6 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
             opts.Events.AddEventType<ExpenseRecorded>();
             opts.Events.AddEventType<ExpenseVoided>();
             opts.Events.AddEventType<SettlementRecorded>();
-            opts.Events.AddEventType<ExpenseGroupCreated>();
-            opts.Events.AddEventType<ExpenseGroupDeleted>();
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
             opts.AutoCreateSchemaObjects = AutoCreate.All;

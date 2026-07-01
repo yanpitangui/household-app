@@ -252,7 +252,7 @@ public sealed class TaskCommandServiceTests
         await _sut.SpawnRecurringTaskAsync(recurring.Id);
 
         await _repo.Received(1).SaveTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
-        await _eventBus.Received(1).PublishAsync(Arg.Any<IDomainEvent>(), Arg.Any<CancellationToken>());
+        _eventBus.Received(1).Enqueue(Arg.Any<IDomainEvent>());
         await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 }

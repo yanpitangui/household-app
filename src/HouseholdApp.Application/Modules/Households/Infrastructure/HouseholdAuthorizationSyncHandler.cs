@@ -9,10 +9,10 @@ using Valtuutus.Lang;
 namespace HouseholdApp.Application.Modules.Households.Infrastructure;
 
 public sealed class HouseholdAuthorizationSyncHandler(IDbDataWriterProvider writer, IUnitOfWork uow)
-    : IEventHandler<HouseholdCreated>,
-      IEventHandler<HouseholdMemberJoined>,
-      IEventHandler<HouseholdMemberRemoved>,
-      IEventHandler<HouseholdRoleChanged>
+    : ITransactionalEventHandler<HouseholdCreated>,
+      ITransactionalEventHandler<HouseholdMemberJoined>,
+      ITransactionalEventHandler<HouseholdMemberRemoved>,
+      ITransactionalEventHandler<HouseholdRoleChanged>
 {
     public async Task HandleAsync(HouseholdCreated evt, CancellationToken ct)
     {

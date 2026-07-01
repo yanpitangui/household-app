@@ -4,6 +4,7 @@ using Microsoft.Playwright;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[NotInParallel]
 public class TasksTests(PlaywrightFixture pw)
 {
     [Test]

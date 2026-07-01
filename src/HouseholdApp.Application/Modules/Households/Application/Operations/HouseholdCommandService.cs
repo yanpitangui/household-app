@@ -20,7 +20,7 @@ public sealed class HouseholdCommandService(
         var household = Household.Create(name, currentUser.Id, time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveAsync(household, ct);
-        await eventBus.PublishAllAsync(household, ct);
+        eventBus.EnqueueAll(household);
         await uow.CommitAsync(ct);
         return household.Id;
     }
@@ -33,7 +33,7 @@ public sealed class HouseholdCommandService(
         var invitation = household.Invite(currentUser.Id, time.GetUtcNow(), InvitationExpiry);
         await repo.SaveAsync(household, ct);
         await repo.SaveInvitationAsync(invitation, ct);
-        await eventBus.PublishAllAsync(household, ct);
+        eventBus.EnqueueAll(household);
         await uow.CommitAsync(ct);
         return invitation.Token;
     }
@@ -57,7 +57,7 @@ public sealed class HouseholdCommandService(
 
         household.AcceptInvitation(invitation, userId, now);
         await repo.SaveAsync(household, ct);
-        await eventBus.PublishAllAsync(household, ct);
+        eventBus.EnqueueAll(household);
         await uow.CommitAsync(ct);
         return true;
     }
@@ -79,7 +79,7 @@ public sealed class HouseholdCommandService(
             ?? throw new InvalidOperationException("Household not found.");
         household.RemoveMember(currentUser.Id, targetUserId, time.GetUtcNow());
         await repo.SaveAsync(household, ct);
-        await eventBus.PublishAllAsync(household, ct);
+        eventBus.EnqueueAll(household);
         await uow.CommitAsync(ct);
     }
 
@@ -93,7 +93,7 @@ public sealed class HouseholdCommandService(
             ?? throw new InvalidOperationException("Household not found.");
         household.ChangeRole(currentUser.Id, targetUserId, role, time.GetUtcNow());
         await repo.SaveAsync(household, ct);
-        await eventBus.PublishAllAsync(household, ct);
+        eventBus.EnqueueAll(household);
         await uow.CommitAsync(ct);
     }
 }

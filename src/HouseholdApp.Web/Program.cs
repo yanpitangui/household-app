@@ -184,7 +184,13 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
-builder.AddNpgsqlDataSource("householdapp");
+builder.AddNpgsqlDataSource("householdapp", configureDataSourceBuilder: dsBuilder =>
+{
+    // Default is 100; Postgres is configured for max_connections=300 (see AppHost),
+    // leaving headroom for Marten's own pool. Raised as a buffer against connection-pool
+    // queuing under concurrent request load.
+    dsBuilder.ConnectionStringBuilder.MaxPoolSize = 150;
+});
 builder.Services.AddPersistence();
 
 var schemaStream = typeof(HouseholdsModule).Assembly

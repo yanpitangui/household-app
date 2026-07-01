@@ -5,10 +5,6 @@ namespace HouseholdApp.Application.Modules.Expenses.Domain;
 public sealed record FundingSource(Guid UserId, long Cents);
 public sealed record Allocation(Guid UserId, long Cents);
 
-public sealed record ExpenseGroupCreated(
-    Guid EventId, DateTimeOffset OccurredAt,
-    Guid GroupId, Guid HouseholdId, string Name) : IDomainEvent;
-
 public sealed record ExpenseRecorded(
     Guid EventId,
     DateTimeOffset OccurredAt,
@@ -36,7 +32,3 @@ public sealed record SettlementRecorded(
     Guid RecipientId,
     long Cents,
     DateTimeOffset Date) : IDomainEvent;
-
-public sealed record ExpenseGroupDeleted(
-    Guid EventId, DateTimeOffset OccurredAt,
-    Guid GroupId, Guid HouseholdId) : IDomainEvent;
