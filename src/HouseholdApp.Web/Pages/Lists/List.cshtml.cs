@@ -86,4 +86,10 @@ public class ListModel(
         await listCommands.RemoveItemAsync(listId, itemId);
         return StatusCode(204);
     }
+
+    public async Task<IActionResult> OnPostRemoveCompletedItemsAsync(Guid listId)
+    {
+        await listCommands.RemoveCompletedItemsAsync(listId);
+        return StatusCode(204);
+    }
 }

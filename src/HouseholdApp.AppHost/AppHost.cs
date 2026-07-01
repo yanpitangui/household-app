@@ -9,7 +9,8 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
     .WithImageTag("18-alpine")
     .WithPgAdmin()
     .WithDataVolume("household-postgres-data")
-    .WithEnvironment("POSTGRES_DB", "householdapp");
+    .WithEnvironment("POSTGRES_DB", "householdapp")
+    .WithArgs("-c", "max_connections=300");
 
 var appDb = postgres.AddDatabase("householdapp");
 

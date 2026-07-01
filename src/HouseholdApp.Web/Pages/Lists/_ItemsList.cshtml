@@ -15,6 +15,27 @@
 }
 
 <div id="items-list">
+    <div class="list-options-menu dropdown">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" title="@L["Lists.MoreOptions"]">⋯</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            @if (doneItems.Any())
+            {
+                <li>
+                    <button type="button" class="dropdown-item"
+                            hx-post="?handler=RemoveCompletedItems"
+                            hx-vals='{"ListId": "@Model.Id"}'
+                            hx-swap="none"
+                            hx-confirm="@L["Confirm.DeleteDoneItems"]"
+                            hx-on::after-request="optimisticRemoveCompletedItems(this, event.detail.successful)">@L["Lists.DeleteDoneItems"]</button>
+                </li>
+            }
+            else
+            {
+                <li><button type="button" class="dropdown-item" disabled>@L["Lists.DeleteDoneItems"]</button></li>
+            }
+        </ul>
+    </div>
+
     @if (!Model.Items.Any())
     {
         <p class="section-title">@L["Lists.NoItems"]</p>
@@ -23,10 +44,9 @@
     {
         @foreach (var group in activeGroups)
         {
-            if (group.Key.CategoryName is not null)
-            {
-                <p class="category-group-title">@group.Key.CategoryEmoji @group.Key.CategoryName</p>
-            }
+            var title = group.Key.CategoryName ?? L["Lists.NoCategory"].Value;
+            var emoji = group.Key.CategoryName is null ? "" : group.Key.CategoryEmoji + " ";
+            <p class="category-group-title">@emoji@title (@group.Count())</p>
             <div class="app-card">
                 @foreach (var item in group.OrderBy(i => i.SortOrder))
                 {
@@ -35,6 +55,10 @@
                                 hx-post="?handler=CompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-swap="none"
+                                hx-sync="this:abort"
+                                hx-on::before-request="optimisticToggleStart(this)"
+                                hx-on::response-error="optimisticToggleRevert(this)"
+                                hx-on::send-error="optimisticToggleRevert(this)"
                                 >✓</button>
                         <span class="check-item-text"
                               style="flex:1; cursor:pointer"
@@ -57,7 +81,7 @@
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-swap="none"
-                                hx-confirm="Remove item?">✕</button>
+                                hx-confirm="@L["Confirm.RemoveItem"]">✕</button>
                     </div>
                 }
             </div>
@@ -65,8 +89,8 @@
 
         @if (doneItems.Any())
         {
-            <p class="section-title">@L["Tasks.Done"]</p>
-            <div class="app-card">
+            <p class="section-title" id="done-section-title">@L["Tasks.Done"]</p>
+            <div class="app-card" id="done-items-card">
                 @foreach (var item in doneItems)
                 {
                     <div class="check-item done">
@@ -74,6 +98,10 @@
                                 hx-post="?handler=UncompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-swap="none"
+                                hx-sync="this:abort"
+                                hx-on::before-request="optimisticToggleStart(this)"
+                                hx-on::response-error="optimisticToggleRevert(this)"
+                                hx-on::send-error="optimisticToggleRevert(this)"
                                 >✓</button>
                         <div style="flex:1; min-width:0; cursor:pointer"
                              onclick="showItemDetail(this)"
@@ -105,7 +133,7 @@
                                 hx-post="?handler=RemoveItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
                                 hx-swap="none"
-                                hx-confirm="Remove item?">✕</button>
+                                hx-confirm="@L["Confirm.RemoveItem"]">✕</button>
                     </div>
                 }
             </div>

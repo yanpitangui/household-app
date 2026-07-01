@@ -91,6 +91,8 @@
   <data name="Confirm.DeleteGroup"><value>Delete group &apos;{0}&apos;? Cannot delete groups with active expenses.</value></data>
   <data name="Confirm.DeactivateExpense"><value>Deactivate this recurring expense?</value></data>
   <data name="Confirm.DeactivateTask"><value>Deactivate this recurring task?</value></data>
+  <data name="Confirm.RemoveItem"><value>Remove item?</value></data>
+  <data name="Confirm.DeleteDoneItems"><value>Delete all done items?</value></data>
 
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Expense recorded.</value></data>
@@ -129,6 +131,9 @@
   <data name="Lists.ItemDetail.Category"><value>Category</value></data>
   <data name="Lists.ItemDetail.List"><value>List</value></data>
   <data name="Lists.ItemDetail.AddedBy"><value>Added by</value></data>
+  <data name="Lists.NoCategory"><value>No Category</value></data>
+  <data name="Lists.DeleteDoneItems"><value>Delete done items</value></data>
+  <data name="Lists.MoreOptions"><value>More options</value></data>
   <data name="Catalog.NewCategory"><value>New category</value></data>
   <data name="Catalog.NewCategoryName"><value>Category name...</value></data>
 

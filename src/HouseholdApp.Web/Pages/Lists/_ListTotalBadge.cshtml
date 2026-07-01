@@ -1,0 +1,2 @@
+@model HouseholdApp.Application.Modules.Lists.Application.Ports.ListDetail
+<span id="list-total-badge" class="list-total-badge" hx-swap-oob="true">(@Model.Items.Count(i => !i.IsCompleted))</span>

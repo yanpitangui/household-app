@@ -15,7 +15,7 @@
 }
 
 <div class="page-heading">
-    <span>@Model.List.Name</span>
+    <span>@Model.List.Name <span id="list-total-badge" class="list-total-badge">(@Model.List.Items.Count(i => !i.IsCompleted))</span></span>
     <a href="javascript:history.back()" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
 </div>
 
@@ -123,7 +123,8 @@
 <div id="items-list-sse"
      hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Lists/@Model.List.Id/stream"
-     sse-swap="items-list">
+     sse-swap="items-list"
+     data-done-label="@L["Tasks.Done"]">
     @await Html.PartialAsync("_ItemsList", Model.List)
 </div>
 

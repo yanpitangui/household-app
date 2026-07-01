@@ -20,8 +20,8 @@ public sealed class ListCommandService(
         var list = HouseholdList.Create(householdId, name, currentUser.Id, time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
         return list.Id;
     }
 
@@ -30,15 +30,20 @@ public sealed class ListCommandService(
         await uow.BeginTransactionAsync(ct);
         var list = await repo.GetAsync(listId, ct)
             ?? throw new InvalidOperationException("List not found.");
+        var eventCountBefore = list.DomainEvents.Count;
         var item = list.AddItem(name, quantity, unit, catalogItemId, categoryId, currentUser.Id, time.GetUtcNow());
+        var wasAdded = list.DomainEvents.Count > eventCountBefore;
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
 
-        if (catalogItemId.HasValue)
-            await catalogCommands.IncrementPopularityAsync(catalogItemId.Value, ct);
-        else
-            await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, name, categoryId, ct);
+        if (wasAdded)
+        {
+            if (catalogItemId.HasValue)
+                await catalogCommands.IncrementPopularityAsync(catalogItemId.Value, ct);
+            else
+                await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, name, categoryId, ct);
+        }
 
         return item.Id;
     }
@@ -52,15 +57,22 @@ public sealed class ListCommandService(
             ?? throw new InvalidOperationException("List not found.");
         var now = time.GetUtcNow();
 
-        foreach (var item in items)
-            list.AddItem(item.Name, item.Quantity, item.Unit, item.CatalogItemId, item.CategoryId, currentUser.Id, now);
+        var wasAdded = new bool[items.Count];
+        for (var i = 0; i < items.Count; i++)
+        {
+            var eventCountBefore = list.DomainEvents.Count;
+            list.AddItem(items[i].Name, items[i].Quantity, items[i].Unit, items[i].CatalogItemId, items[i].CategoryId, currentUser.Id, now);
+            wasAdded[i] = list.DomainEvents.Count > eventCountBefore;
+        }
 
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
 
-        foreach (var item in items)
+        for (var i = 0; i < items.Count; i++)
         {
+            if (!wasAdded[i]) continue;
+            var item = items[i];
             if (item.CatalogItemId.HasValue)
                 await catalogCommands.IncrementPopularityAsync(item.CatalogItemId.Value, ct);
             else
@@ -75,8 +87,8 @@ public sealed class ListCommandService(
             ?? throw new InvalidOperationException("List not found.");
         list.CompleteItem(itemId, currentUser.Id, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
     }
 
     public async Task UncompleteItemAsync(Guid listId, Guid itemId, CancellationToken ct = default)
@@ -86,8 +98,8 @@ public sealed class ListCommandService(
             ?? throw new InvalidOperationException("List not found.");
         list.UncompleteItem(itemId, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
     }
 
     public async Task RemoveItemAsync(Guid listId, Guid itemId, CancellationToken ct = default)
@@ -98,8 +110,8 @@ public sealed class ListCommandService(
         list.RemoveItem(itemId, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
         await repo.DeleteItemAsync(itemId, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
     }
 
     public async Task ChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId, CancellationToken ct = default)
@@ -111,10 +123,34 @@ public sealed class ListCommandService(
             ?? throw new InvalidOperationException("Item not found.");
         list.ChangeItemCategory(itemId, categoryId, time.GetUtcNow());
         await repo.SaveListAsync(list, ct);
-        await eventBus.PublishAllAsync(list, ct);
         await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
 
         await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, item.Name, categoryId, ct);
+    }
+
+    public async Task RemoveCompletedItemsAsync(Guid listId, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+
+        var completedIds = list.Items.Where(i => i.IsCompleted).Select(i => i.Id).ToList();
+        if (completedIds.Count == 0)
+        {
+            await uow.CommitAsync(ct);
+            return;
+        }
+
+        var now = time.GetUtcNow();
+        foreach (var itemId in completedIds)
+            list.RemoveItem(itemId, now);
+
+        await repo.SaveListAsync(list, ct);
+        foreach (var itemId in completedIds)
+            await repo.DeleteItemAsync(itemId, ct);
+        await uow.CommitAsync(ct);
+        await eventBus.PublishAllAsync(list, ct);
     }
 
     public async Task DeleteListAsync(Guid listId, CancellationToken ct = default)

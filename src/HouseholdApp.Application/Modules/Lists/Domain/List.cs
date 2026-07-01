@@ -71,6 +71,12 @@ public sealed class HouseholdList : AggregateRoot
 
     public ListItem AddItem(string name, string? quantity, string? unit, Guid? catalogItemId, Guid? categoryId, Guid addedBy, DateTimeOffset now)
     {
+        var existing = _items.FirstOrDefault(i =>
+            !i.IsCompleted &&
+            i.CategoryId == categoryId &&
+            string.Equals(i.Name.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing;
+
         var sortOrder = _items.Count == 0 ? 1000 : _items.Max(i => i.SortOrder) + 1000;
         var item = new ListItem(Id, name, quantity, unit, catalogItemId, categoryId, addedBy, sortOrder);
         _items.Add(item);

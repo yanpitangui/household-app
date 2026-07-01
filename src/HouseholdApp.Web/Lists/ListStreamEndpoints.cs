@@ -42,7 +42,8 @@ public static class ListStreamEndpoints
                 if (list is not null)
                 {
                     var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", list);
-                    await WriteSseAsync(ctx.Response, html, ct);
+                    var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", list);
+                    await WriteSseAsync(ctx.Response, html + badgeHtml, ct);
                 }
 
                 using var _ = subject
@@ -52,7 +53,8 @@ public static class ListStreamEndpoints
                         var current = await listQueries.GetAsync(listId, innerCt);
                         if (current is null) return;
                         var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", current);
-                        await WriteSseAsync(ctx.Response, html, innerCt);
+                        var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", current);
+                        await WriteSseAsync(ctx.Response, html + badgeHtml, innerCt);
                     }, AwaitOperation.Sequential);
 
                 try

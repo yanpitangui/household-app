@@ -35,6 +35,9 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
 
   if (request.method !== 'GET') return;
+  // SSE streams are long-lived; the browser can terminate an idle service worker
+  // mid-stream and break the connection. Let these bypass the worker entirely.
+  if (request.headers.get('accept') === 'text/event-stream') return;
 
   const url = new URL(request.url);
   const isAssetRequest = CACHEABLE_DESTINATIONS.has(request.destination)

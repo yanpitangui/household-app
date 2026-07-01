@@ -55,6 +55,35 @@ public sealed class ListCommandServiceTests
     }
 
     [Test]
+    public async Task AddItemAsync_duplicate_does_not_increment_catalog_popularity()
+    {
+        var catalogItemId = Guid.NewGuid();
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        list.AddItem("Milk", null, null, catalogItemId, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.AddItemAsync(list.Id, "Milk", catalogItemId, null);
+
+        await _catalogCommands.DidNotReceive().IncrementPopularityAsync(catalogItemId, Arg.Any<CancellationToken>());
+        await Assert.That(list.Items.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AddItemAsync_duplicate_does_not_upsert_catalog_household_item()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.AddItemAsync(list.Id, "Milk", null, null);
+
+        await _catalogCommands.DidNotReceive().UpsertHouseholdItemAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task CompleteItemAsync_throws_when_list_not_found()
     {
         _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
@@ -170,5 +199,45 @@ public sealed class ListCommandServiceTests
         await _sut.DeleteListAsync(listId);
 
         await _repo.Received(1).DeleteListAsync(listId, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RemoveCompletedItemsAsync_throws_when_list_not_found()
+    {
+        _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
+
+        await Assert.That(async () => await _sut.RemoveCompletedItemsAsync(Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task RemoveCompletedItemsAsync_removes_only_completed_items()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var done = list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var active = list.AddItem("Bread", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.CompleteItem(done.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.RemoveCompletedItemsAsync(list.Id);
+
+        await Assert.That(list.Items.Count).IsEqualTo(1);
+        await Assert.That(list.Items.Single().Id).IsEqualTo(active.Id);
+        await _repo.Received(1).DeleteItemAsync(done.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RemoveCompletedItemsAsync_noop_when_nothing_completed()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        list.AddItem("Bread", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.RemoveCompletedItemsAsync(list.Id);
+
+        await Assert.That(list.Items.Count).IsEqualTo(1);
+        await _repo.DidNotReceive().DeleteItemAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 }

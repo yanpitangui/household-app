@@ -48,6 +48,50 @@ public sealed class HouseholdListTests
     }
 
     [Test]
+    public async Task AddItem_duplicate_name_and_category_returns_existing_item_without_raising_event()
+    {
+        var categoryId = Guid.NewGuid();
+        var list = CreateList();
+        var first = list.AddItem("Milk", null, null, null, categoryId, CreatorId, Now);
+        list.ClearEvents();
+
+        var second = list.AddItem("milk", "2", "L", null, categoryId, CreatorId, Now);
+
+        await Assert.That(second.Id).IsEqualTo(first.Id);
+        await Assert.That(list.Items.Count).IsEqualTo(1);
+        await Assert.That(list.DomainEvents).IsEmpty();
+    }
+
+    [Test]
+    public async Task AddItem_same_name_different_category_adds_new_item()
+    {
+        var list = CreateList();
+        list.AddItem("Milk", null, null, null, Guid.NewGuid(), CreatorId, Now);
+        list.ClearEvents();
+
+        var second = list.AddItem("Milk", null, null, null, Guid.NewGuid(), CreatorId, Now);
+
+        await Assert.That(list.Items.Count).IsEqualTo(2);
+        await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AddItem_same_name_and_category_but_existing_is_completed_adds_new_item()
+    {
+        var categoryId = Guid.NewGuid();
+        var list = CreateList();
+        var first = list.AddItem("Milk", null, null, null, categoryId, CreatorId, Now);
+        list.CompleteItem(first.Id, CreatorId, Now);
+        list.ClearEvents();
+
+        var second = list.AddItem("Milk", null, null, null, categoryId, CreatorId, Now);
+
+        await Assert.That(second.Id).IsNotEqualTo(first.Id);
+        await Assert.That(list.Items.Count).IsEqualTo(2);
+        await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task CompleteItem_marks_item_completed_and_raises_event()
     {
         var list = CreateList();

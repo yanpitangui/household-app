@@ -489,6 +489,19 @@ html, body {
     opacity: 0.7;
 }
 
+.list-total-badge {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 2px;
+}
+
+.list-options-menu {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
 /* ── Page header (module pages) ───────────────── */
 .page-heading {
     font-family: var(--font-display);

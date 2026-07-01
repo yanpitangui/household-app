@@ -135,6 +135,81 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
     }
 
     [Test]
+    public async Task AddItemAsync_duplicate_name_and_category_does_not_create_second_row()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Leite", null, null);
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "leite", null, null);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var count = await conn.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM lists.items WHERE list_id = @listId", new { listId });
+
+        await Assert.That(count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task BulkAddItemsAsync_dedupes_against_existing_active_item()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Água", null, null);
+
+        var items = new List<BulkAddItem> { new("água", null, null, null, null), new("Sal", null, null, null, null) };
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().BulkAddItemsAsync(listId, items);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var count = await conn.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM lists.items WHERE list_id = @listId", new { listId });
+
+        await Assert.That(count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task RemoveCompletedItemsAsync_deletes_only_completed_rows()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        Guid doneItemId, activeItemId;
+        await using (var s = Scope(userId))
+            doneItemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Leite", null, null);
+        await using (var s = Scope(userId))
+            activeItemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Pão", null, null);
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().CompleteItemAsync(listId, doneItemId);
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().RemoveCompletedItemsAsync(listId);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var remainingIds = (await conn.QueryAsync<Guid>(
+            "SELECT id FROM lists.items WHERE list_id = @listId", new { listId })).ToList();
+
+        await Assert.That(remainingIds).IsEquivalentTo([activeItemId]);
+    }
+
+    [Test]
     public async Task ChangeItemCategoryAsync_updates_catalog_so_suggestion_includes_category()
     {
         var userId = Guid.NewGuid();

@@ -91,6 +91,8 @@
   <data name="Confirm.DeleteGroup"><value>Excluir o grupo &apos;{0}&apos;? Não é possível excluir grupos com despesas ativas.</value></data>
   <data name="Confirm.DeactivateExpense"><value>Desativar esta despesa recorrente?</value></data>
   <data name="Confirm.DeactivateTask"><value>Desativar esta tarefa recorrente?</value></data>
+  <data name="Confirm.RemoveItem"><value>Remover item?</value></data>
+  <data name="Confirm.DeleteDoneItems"><value>Excluir todos os itens concluídos?</value></data>
 
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Despesa registrada.</value></data>
@@ -129,6 +131,9 @@
   <data name="Lists.ItemDetail.Category"><value>Categoria</value></data>
   <data name="Lists.ItemDetail.List"><value>Lista</value></data>
   <data name="Lists.ItemDetail.AddedBy"><value>Adicionado por</value></data>
+  <data name="Lists.NoCategory"><value>Sem categoria</value></data>
+  <data name="Lists.DeleteDoneItems"><value>Excluir itens concluídos</value></data>
+  <data name="Lists.MoreOptions"><value>Mais opções</value></data>
   <data name="Catalog.NewCategory"><value>Nova categoria</value></data>
   <data name="Catalog.NewCategoryName"><value>Nome da categoria...</value></data>
 

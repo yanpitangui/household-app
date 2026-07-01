@@ -118,6 +118,100 @@ function showItemDetail(el) {
     document.getElementById('item-detail-dialog').showModal();
 }
 
+function optimisticRemoveCompletedItems(btn, successful) {
+    if (!successful) return;
+    document.querySelectorAll('#items-list .check-item.done').forEach(el => el.remove());
+    document.getElementById('done-section-title')?.remove();
+    const doneCard = document.getElementById('done-items-card');
+    if (doneCard && doneCard.children.length === 0) doneCard.remove();
+}
+
+function getDoneLabel() {
+    return document.getElementById('items-list-sse')?.dataset.doneLabel || 'Done';
+}
+
+function getOrCreateDoneCard() {
+    const itemsList = document.getElementById('items-list');
+    if (!itemsList) return null;
+
+    let card = document.getElementById('done-items-card');
+    if (card) return card;
+
+    const title = document.createElement('p');
+    title.className = 'section-title';
+    title.id = 'done-section-title';
+    title.textContent = getDoneLabel();
+
+    card = document.createElement('div');
+    card.className = 'app-card';
+    card.id = 'done-items-card';
+
+    itemsList.appendChild(title);
+    itemsList.appendChild(card);
+    return card;
+}
+
+function getOrCreateOptimisticActiveCard() {
+    const itemsList = document.getElementById('items-list');
+    if (!itemsList) return null;
+
+    let card = document.getElementById('optimistic-active-card');
+    if (card) return card;
+
+    card = document.createElement('div');
+    card.className = 'app-card';
+    card.id = 'optimistic-active-card';
+
+    const menu = itemsList.querySelector('.list-options-menu');
+    if (menu) {
+        menu.insertAdjacentElement('afterend', card);
+    } else {
+        itemsList.insertBefore(card, itemsList.firstChild);
+    }
+    return card;
+}
+
+function optimisticToggleStart(checkboxBtn) {
+    const row = checkboxBtn.closest('.check-item');
+    if (!row) return;
+
+    const wasDone = checkboxBtn.classList.contains('checked');
+    const originalParent = row.parentElement;
+    const originalNextSibling = row.nextSibling;
+
+    row._optimisticRevert = () => {
+        checkboxBtn.classList.toggle('checked', wasDone);
+        row.classList.toggle('done', wasDone);
+        if (originalParent) originalParent.insertBefore(row, originalNextSibling);
+    };
+
+    if (wasDone) {
+        checkboxBtn.classList.remove('checked');
+        row.classList.remove('done');
+        const target = getOrCreateOptimisticActiveCard();
+        if (target) target.insertBefore(row, target.firstChild);
+
+        const doneCard = document.getElementById('done-items-card');
+        if (doneCard && doneCard.children.length === 0) {
+            document.getElementById('done-section-title')?.remove();
+            doneCard.remove();
+        }
+    } else {
+        checkboxBtn.classList.add('checked');
+        row.classList.add('done');
+        const target = getOrCreateDoneCard();
+        if (target) target.insertBefore(row, target.firstChild);
+    }
+}
+
+function optimisticToggleRevert(checkboxBtn) {
+    const row = checkboxBtn.closest('.check-item');
+    if (row && row._optimisticRevert) {
+        row._optimisticRevert();
+        delete row._optimisticRevert;
+    }
+}
+
 window.householdApp ??= {};
 
 if (!window.householdApp.listsEventsBound) {
