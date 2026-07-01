@@ -12,4 +12,10 @@ internal sealed class CatalogCommandService(ICatalogRepository repo) : ICatalogC
 
     public Task<Guid> AddHouseholdCategoryAsync(Guid householdId, string name, string emoji, CancellationToken ct = default)
         => repo.AddHouseholdCategoryAsync(householdId, name, emoji, ct);
+
+    public Task UpdateHouseholdCategoryAsync(Guid householdId, Guid categoryId, string name, string emoji, CancellationToken ct = default)
+        => repo.UpdateHouseholdCategoryAsync(householdId, categoryId, name, emoji, ct);
+
+    public Task DeleteHouseholdCategoryAsync(Guid householdId, Guid categoryId, CancellationToken ct = default)
+        => repo.DeleteHouseholdCategoryAsync(householdId, categoryId, ct);
 }

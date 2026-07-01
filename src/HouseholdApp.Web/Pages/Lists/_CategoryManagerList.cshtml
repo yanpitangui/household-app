@@ -1,0 +1,7 @@
+@using HouseholdApp.Application.Modules.Catalog.Application.Ports
+@model IReadOnlyList<CategoryDto>
+
+@await Html.PartialAsync("_CategoryManagerRows", Model)
+<select id="category-select" aria-hidden="true" style="display:none" tabindex="-1" hx-swap-oob="true">
+    @await Html.PartialAsync("_CategoryOptions", Model)
+</select>

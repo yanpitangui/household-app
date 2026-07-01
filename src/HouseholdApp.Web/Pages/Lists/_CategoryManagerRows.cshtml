@@ -1,0 +1,23 @@
+@using HouseholdApp.Application.Modules.Catalog.Application.Ports
+@model IReadOnlyList<CategoryDto>
+
+<div id="category-manager-list-wrap">
+    @foreach (var cat in Model)
+    {
+        <div class="category-manage-row" data-id="@cat.Id" data-name="@cat.Name" data-emoji="@cat.Emoji">
+            <span class="cat-emoji">@cat.Emoji</span>
+            <span class="cat-name">@cat.Name</span>
+            @if (!cat.IsGlobal)
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="editCategoryRow(this)" title="@L["Action.Edit"]">✎</button>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        hx-post="?handler=DeleteCategory"
+                        hx-vals='{"categoryId": "@cat.Id"}'
+                        hx-target="#category-manager-list-wrap"
+                        hx-swap="outerHTML"
+                        hx-confirm="@L["Confirm.DeleteCategory"]"
+                        hx-on::after-request="if(event.detail.successful) rebuildCategoryChips();">✕</button>
+            }
+        </div>
+    }
+</div>

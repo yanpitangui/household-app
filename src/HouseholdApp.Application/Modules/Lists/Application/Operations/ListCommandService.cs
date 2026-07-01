@@ -153,6 +153,50 @@ public sealed class ListCommandService(
         await uow.CommitAsync(ct);
     }
 
+    public async Task CompleteAllItemsAsync(Guid listId, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+
+        var activeIds = list.Items.Where(i => !i.IsCompleted).Select(i => i.Id).ToList();
+        if (activeIds.Count == 0)
+        {
+            await uow.CommitAsync(ct);
+            return;
+        }
+
+        var now = time.GetUtcNow();
+        foreach (var itemId in activeIds)
+            list.CompleteItem(itemId, currentUser.Id, now);
+
+        await repo.SaveListAsync(list, ct);
+        eventBus.EnqueueAll(list);
+        await uow.CommitAsync(ct);
+    }
+
+    public async Task UncompleteAllItemsAsync(Guid listId, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+
+        var doneIds = list.Items.Where(i => i.IsCompleted).Select(i => i.Id).ToList();
+        if (doneIds.Count == 0)
+        {
+            await uow.CommitAsync(ct);
+            return;
+        }
+
+        var now = time.GetUtcNow();
+        foreach (var itemId in doneIds)
+            list.UncompleteItem(itemId, now);
+
+        await repo.SaveListAsync(list, ct);
+        eventBus.EnqueueAll(list);
+        await uow.CommitAsync(ct);
+    }
+
     public async Task DeleteListAsync(Guid listId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);

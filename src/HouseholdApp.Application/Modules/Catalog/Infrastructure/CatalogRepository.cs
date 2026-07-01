@@ -134,4 +134,24 @@ internal sealed class CatalogRepository(NpgsqlDataSource db) : ICatalogRepositor
             new { householdId, name, emoji });
         return id;
     }
+
+    public async Task UpdateHouseholdCategoryAsync(Guid householdId, Guid categoryId, string name, string emoji, CancellationToken ct = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            """
+            UPDATE catalog.categories
+            SET name = @name, emoji = @emoji
+            WHERE id = @categoryId AND household_id = @householdId
+            """,
+            new { householdId, categoryId, name, emoji });
+    }
+
+    public async Task DeleteHouseholdCategoryAsync(Guid householdId, Guid categoryId, CancellationToken ct = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "DELETE FROM catalog.categories WHERE id = @categoryId AND household_id = @householdId",
+            new { householdId, categoryId });
+    }
 }

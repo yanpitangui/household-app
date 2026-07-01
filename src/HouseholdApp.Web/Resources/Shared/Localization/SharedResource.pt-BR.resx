@@ -93,6 +93,7 @@
   <data name="Confirm.DeactivateTask"><value>Desativar esta tarefa recorrente?</value></data>
   <data name="Confirm.RemoveItem"><value>Remover item?</value></data>
   <data name="Confirm.DeleteDoneItems"><value>Excluir todos os itens concluídos?</value></data>
+  <data name="Confirm.DeleteCategory"><value>Excluir esta categoria?</value></data>
 
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Despesa registrada.</value></data>
@@ -134,8 +135,14 @@
   <data name="Lists.NoCategory"><value>Sem categoria</value></data>
   <data name="Lists.DeleteDoneItems"><value>Excluir itens concluídos</value></data>
   <data name="Lists.MoreOptions"><value>Mais opções</value></data>
+  <data name="Lists.MarkAllDone"><value>Marcar todos como concluídos</value></data>
+  <data name="Lists.UnmarkAll"><value>Desmarcar todos</value></data>
+  <data name="Lists.HideDoneItems"><value>Ocultar concluídos</value></data>
+  <data name="Lists.ShowDoneItems"><value>Mostrar concluídos</value></data>
+  <data name="Lists.ManageCategories"><value>Gerenciar categorias</value></data>
   <data name="Catalog.NewCategory"><value>Nova categoria</value></data>
   <data name="Catalog.NewCategoryName"><value>Nome da categoria...</value></data>
+  <data name="Catalog.NameRequired"><value>Nome é obrigatório</value></data>
 
   <!-- Tasks -->
   <data name="Tasks.Recurring"><value>Recorrentes</value></data>

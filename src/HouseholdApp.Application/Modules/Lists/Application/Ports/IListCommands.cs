@@ -12,5 +12,7 @@ public interface IListCommands
     Task RemoveItemAsync(Guid listId, Guid itemId, CancellationToken ct = default);
     Task ChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId, CancellationToken ct = default);
     Task RemoveCompletedItemsAsync(Guid listId, CancellationToken ct = default);
+    Task CompleteAllItemsAsync(Guid listId, CancellationToken ct = default);
+    Task UncompleteAllItemsAsync(Guid listId, CancellationToken ct = default);
     Task DeleteListAsync(Guid listId, CancellationToken ct = default);
 }

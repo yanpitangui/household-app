@@ -212,9 +212,69 @@ function optimisticToggleRevert(checkboxBtn) {
     }
 }
 
+function resetCategoryForm() {
+    document.getElementById('cat-form-id').value = '';
+    document.getElementById('cat-form-name').value = '';
+    document.getElementById('cat-form-emoji').value = '';
+    document.getElementById('cat-form-emoji-display').textContent = '🏷️';
+    document.querySelectorAll('#category-manage-dialog .cat-emoji-btn').forEach(b => b.style.borderColor = 'transparent');
+    const saveBtn = document.getElementById('cat-form-save');
+    saveBtn.setAttribute('hx-post', '?handler=AddCategory');
+    htmx.process(saveBtn);
+    document.getElementById('cat-form-cancel').hidden = true;
+    document.getElementById('cat-form-error').hidden = true;
+}
+
+function editCategoryRow(btn) {
+    const row = btn.closest('.category-manage-row');
+    if (!row) return;
+    document.getElementById('cat-form-id').value = row.dataset.id;
+    document.getElementById('cat-form-name').value = row.dataset.name;
+    document.getElementById('cat-form-emoji').value = row.dataset.emoji;
+    document.getElementById('cat-form-emoji-display').textContent = row.dataset.emoji;
+    const saveBtn = document.getElementById('cat-form-save');
+    saveBtn.setAttribute('hx-post', '?handler=UpdateCategory');
+    htmx.process(saveBtn);
+    document.getElementById('cat-form-cancel').hidden = false;
+    document.getElementById('cat-form-name').focus();
+}
+
+function getHideDoneKey(listId) {
+    return `list:${listId}:hideDone`;
+}
+
+function isDoneHidden(listId) {
+    return localStorage.getItem(getHideDoneKey(listId)) === '1';
+}
+
+function applyDoneVisibility() {
+    const container = document.getElementById('items-list');
+    if (!container) return;
+    const listId = container.dataset.listId;
+    if (!listId) return;
+    const hidden = isDoneHidden(listId);
+    container.classList.toggle('done-hidden', hidden);
+    const toggleBtn = document.getElementById('toggle-done-visibility-btn');
+    if (toggleBtn) toggleBtn.textContent = hidden ? toggleBtn.dataset.showLabel : toggleBtn.dataset.hideLabel;
+}
+
+function toggleDoneVisibility() {
+    const container = document.getElementById('items-list');
+    if (!container) return;
+    const listId = container.dataset.listId;
+    if (!listId) return;
+    localStorage.setItem(getHideDoneKey(listId), isDoneHidden(listId) ? '0' : '1');
+    applyDoneVisibility();
+}
+
 window.householdApp ??= {};
 
 if (!window.householdApp.listsEventsBound) {
+    document.body.addEventListener('htmx:afterSettle', (e) => {
+        const sseContainer = document.getElementById('items-list-sse');
+        if (sseContainer && sseContainer.contains(e.target)) applyDoneVisibility();
+    });
+
     document.addEventListener('click', (e) => {
         const catItem = e.target.closest('.desktop-cat-item');
         if (catItem) {
@@ -239,3 +299,5 @@ if (!window.householdApp.listsEventsBound) {
 
     window.householdApp.listsEventsBound = true;
 }
+
+applyDoneVisibility();

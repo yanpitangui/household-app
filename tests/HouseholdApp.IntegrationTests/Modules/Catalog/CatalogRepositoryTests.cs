@@ -410,4 +410,156 @@ public sealed class CatalogRepositoryTests(PostgresFixture db) : IAsyncDisposabl
         await Assert.That(row.Name).IsEqualTo("Garden");
         await Assert.That(row.Emoji).IsEqualTo("🌿");
     }
+
+    // ------------------------------------------------------------------
+    // UpdateHouseholdCategoryAsync
+    // ------------------------------------------------------------------
+
+    [Test]
+    public async Task UpdateHouseholdCategoryAsync_updates_name_and_emoji()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @householdId, NULL, 'OldName', '🌿')",
+            new { id = catId, householdId });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .UpdateHouseholdCategoryAsync(householdId, catId, "NewName", "🌻");
+
+        var row = await conn.QuerySingleAsync<(string Name, string Emoji)>(
+            "SELECT name, emoji FROM catalog.categories WHERE id = @catId", new { catId });
+        await Assert.That(row.Name).IsEqualTo("NewName");
+        await Assert.That(row.Emoji).IsEqualTo("🌻");
+    }
+
+    [Test]
+    public async Task UpdateHouseholdCategoryAsync_does_not_update_other_households_category()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var ownerHousehold = Guid.NewGuid();
+        var otherHousehold = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @ownerHousehold, NULL, 'Protected', '🔒')",
+            new { id = catId, ownerHousehold });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .UpdateHouseholdCategoryAsync(otherHousehold, catId, "Hijacked", "😈");
+
+        var name = await conn.ExecuteScalarAsync<string>(
+            "SELECT name FROM catalog.categories WHERE id = @catId", new { catId });
+        await Assert.That(name).IsEqualTo("Protected");
+    }
+
+    [Test]
+    public async Task UpdateHouseholdCategoryAsync_does_not_update_global_category()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, NULL, 'en', 'GlobalProtected', '🌍')",
+            new { id = catId });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .UpdateHouseholdCategoryAsync(householdId, catId, "Hijacked", "😈");
+
+        var name = await conn.ExecuteScalarAsync<string>(
+            "SELECT name FROM catalog.categories WHERE id = @catId", new { catId });
+        await Assert.That(name).IsEqualTo("GlobalProtected");
+    }
+
+    // ------------------------------------------------------------------
+    // DeleteHouseholdCategoryAsync
+    // ------------------------------------------------------------------
+
+    [Test]
+    public async Task DeleteHouseholdCategoryAsync_removes_household_category()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @householdId, NULL, 'ToDelete', '🗑️')",
+            new { id = catId, householdId });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .DeleteHouseholdCategoryAsync(householdId, catId);
+
+        var exists = await conn.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS(SELECT 1 FROM catalog.categories WHERE id = @catId)", new { catId });
+        await Assert.That(exists).IsFalse();
+    }
+
+    [Test]
+    public async Task DeleteHouseholdCategoryAsync_does_not_delete_other_households_category()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var ownerHousehold = Guid.NewGuid();
+        var otherHousehold = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @ownerHousehold, NULL, 'StillHere', '✅')",
+            new { id = catId, ownerHousehold });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .DeleteHouseholdCategoryAsync(otherHousehold, catId);
+
+        var exists = await conn.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS(SELECT 1 FROM catalog.categories WHERE id = @catId)", new { catId });
+        await Assert.That(exists).IsTrue();
+    }
+
+    [Test]
+    public async Task DeleteHouseholdCategoryAsync_does_not_delete_global_category()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, NULL, 'en', 'GlobalStillHere', '🌍')",
+            new { id = catId });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .DeleteHouseholdCategoryAsync(householdId, catId);
+
+        var exists = await conn.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS(SELECT 1 FROM catalog.categories WHERE id = @catId)", new { catId });
+        await Assert.That(exists).IsTrue();
+    }
+
+    [Test]
+    public async Task DeleteHouseholdCategoryAsync_sets_referencing_list_item_category_to_null()
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var householdId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO catalog.categories (id, household_id, language, name, emoji) VALUES (@id, @householdId, NULL, 'RefCat', '📎')",
+            new { id = catId, householdId });
+        var listId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO lists.lists (id, household_id, name, created_by) VALUES (@listId, @householdId, 'L', @householdId)",
+            new { listId, householdId });
+        var itemId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            "INSERT INTO lists.items (id, list_id, name, category_id) VALUES (@itemId, @listId, 'Item', @catId)",
+            new { itemId, listId, catId });
+
+        await using var scope = WriteScope();
+        await scope.ServiceProvider.GetRequiredService<ICatalogCommands>()
+            .DeleteHouseholdCategoryAsync(householdId, catId);
+
+        var remainingCatId = await conn.ExecuteScalarAsync<Guid?>(
+            "SELECT category_id FROM lists.items WHERE id = @itemId", new { itemId });
+        await Assert.That(remainingCatId).IsNull();
+    }
 }

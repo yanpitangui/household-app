@@ -240,4 +240,87 @@ public sealed class ListCommandServiceTests
         await Assert.That(list.Items.Count).IsEqualTo(1);
         await _repo.DidNotReceive().DeleteItemAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
+
+    [Test]
+    public async Task CompleteAllItemsAsync_throws_when_list_not_found()
+    {
+        _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
+
+        await Assert.That(async () => await _sut.CompleteAllItemsAsync(Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task CompleteAllItemsAsync_marks_only_active_items_completed()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var alreadyDone = list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var active1 = list.AddItem("Bread", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var active2 = list.AddItem("Eggs", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.CompleteItem(alreadyDone.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.CompleteAllItemsAsync(list.Id);
+
+        await Assert.That(list.Items.All(i => i.IsCompleted)).IsTrue();
+        await Assert.That(active1.IsCompleted).IsTrue();
+        await Assert.That(active2.IsCompleted).IsTrue();
+    }
+
+    [Test]
+    public async Task CompleteAllItemsAsync_noop_when_nothing_active()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var item = list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.CompleteItem(item.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.CompleteAllItemsAsync(list.Id);
+
+        await _repo.DidNotReceive().SaveListAsync(Arg.Any<HouseholdList>(), Arg.Any<CancellationToken>());
+        _eventBus.DidNotReceive().Enqueue(Arg.Any<HouseholdApp.Application.Shared.Domain.IDomainEvent>());
+    }
+
+    [Test]
+    public async Task UncompleteAllItemsAsync_throws_when_list_not_found()
+    {
+        _repo.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdList?)null);
+
+        await Assert.That(async () => await _sut.UncompleteAllItemsAsync(Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UncompleteAllItemsAsync_marks_only_done_items_active()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        var done1 = list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var done2 = list.AddItem("Bread", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        var stillActive = list.AddItem("Eggs", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.CompleteItem(done1.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.CompleteItem(done2.Id, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.UncompleteAllItemsAsync(list.Id);
+
+        await Assert.That(list.Items.All(i => !i.IsCompleted)).IsTrue();
+        await Assert.That(stillActive.IsCompleted).IsFalse();
+    }
+
+    [Test]
+    public async Task UncompleteAllItemsAsync_noop_when_nothing_done()
+    {
+        var list = HouseholdList.Create(Guid.NewGuid(), "Groceries", _currentUser.Id, DateTimeOffset.UtcNow);
+        list.AddItem("Milk", null, null, null, null, _currentUser.Id, DateTimeOffset.UtcNow);
+        list.ClearEvents();
+        _repo.GetAsync(list.Id, Arg.Any<CancellationToken>()).Returns(list);
+
+        await _sut.UncompleteAllItemsAsync(list.Id);
+
+        await _repo.DidNotReceive().SaveListAsync(Arg.Any<HouseholdList>(), Arg.Any<CancellationToken>());
+        _eventBus.DidNotReceive().Enqueue(Arg.Any<HouseholdApp.Application.Shared.Domain.IDomainEvent>());
+    }
 }

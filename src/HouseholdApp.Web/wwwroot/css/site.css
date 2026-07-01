@@ -489,6 +489,36 @@ html, body {
     opacity: 0.7;
 }
 
+/* ── Category manager rows ────────────────────── */
+.category-manage-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.category-manage-row:last-child { border-bottom: none; }
+
+.category-manage-row .cat-emoji {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.category-manage-row .cat-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+/* ── Done items visibility toggle ─────────────── */
+.done-hidden #done-items-card,
+.done-hidden #done-section-title {
+    display: none;
+}
+
 .list-total-badge {
     font-size: 13px;
     font-weight: 500;

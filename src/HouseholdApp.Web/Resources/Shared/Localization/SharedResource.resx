@@ -93,6 +93,7 @@
   <data name="Confirm.DeactivateTask"><value>Deactivate this recurring task?</value></data>
   <data name="Confirm.RemoveItem"><value>Remove item?</value></data>
   <data name="Confirm.DeleteDoneItems"><value>Delete all done items?</value></data>
+  <data name="Confirm.DeleteCategory"><value>Delete this category?</value></data>
 
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Expense recorded.</value></data>
@@ -134,8 +135,14 @@
   <data name="Lists.NoCategory"><value>No Category</value></data>
   <data name="Lists.DeleteDoneItems"><value>Delete done items</value></data>
   <data name="Lists.MoreOptions"><value>More options</value></data>
+  <data name="Lists.MarkAllDone"><value>Mark all as done</value></data>
+  <data name="Lists.UnmarkAll"><value>Unmark all</value></data>
+  <data name="Lists.HideDoneItems"><value>Hide done items</value></data>
+  <data name="Lists.ShowDoneItems"><value>Show done items</value></data>
+  <data name="Lists.ManageCategories"><value>Manage categories</value></data>
   <data name="Catalog.NewCategory"><value>New category</value></data>
   <data name="Catalog.NewCategoryName"><value>Category name...</value></data>
+  <data name="Catalog.NameRequired"><value>Name is required</value></data>
 
   <!-- Tasks -->
   <data name="Tasks.Recurring"><value>Recurring</value></data>

@@ -14,10 +14,42 @@
         .ToList();
 }
 
-<div id="items-list">
+<div id="items-list" data-list-id="@Model.Id">
     <div class="list-options-menu dropdown">
         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" title="@L["Lists.MoreOptions"]">⋯</button>
         <ul class="dropdown-menu dropdown-menu-end">
+            @if (activeGroups.Any())
+            {
+                <li>
+                    <button type="button" class="dropdown-item"
+                            hx-post="?handler=MarkAllDone"
+                            hx-vals='{"ListId": "@Model.Id"}'
+                            hx-swap="none">@L["Lists.MarkAllDone"]</button>
+                </li>
+            }
+            else
+            {
+                <li><button type="button" class="dropdown-item" disabled>@L["Lists.MarkAllDone"]</button></li>
+            }
+            @if (doneItems.Any())
+            {
+                <li>
+                    <button type="button" class="dropdown-item"
+                            hx-post="?handler=UnmarkAll"
+                            hx-vals='{"ListId": "@Model.Id"}'
+                            hx-swap="none">@L["Lists.UnmarkAll"]</button>
+                </li>
+            }
+            else
+            {
+                <li><button type="button" class="dropdown-item" disabled>@L["Lists.UnmarkAll"]</button></li>
+            }
+            <li>
+                <button type="button" id="toggle-done-visibility-btn" class="dropdown-item"
+                        data-hide-label="@L["Lists.HideDoneItems"]"
+                        data-show-label="@L["Lists.ShowDoneItems"]"
+                        onclick="toggleDoneVisibility()">@L["Lists.HideDoneItems"]</button>
+            </li>
             @if (doneItems.Any())
             {
                 <li>
@@ -33,6 +65,10 @@
             {
                 <li><button type="button" class="dropdown-item" disabled>@L["Lists.DeleteDoneItems"]</button></li>
             }
+            <li><hr class="dropdown-divider" /></li>
+            <li>
+                <button type="button" class="dropdown-item" onclick="document.getElementById('category-manage-dialog')?.showModal(); resetCategoryForm();">@L["Lists.ManageCategories"]</button>
+            </li>
         </ul>
     </div>
 

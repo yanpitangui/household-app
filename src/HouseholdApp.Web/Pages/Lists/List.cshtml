@@ -74,42 +74,6 @@
 
         </form>
 
-        <div id="new-category-form" hidden style="margin-top:8px">
-            <input id="new-cat-emoji" name="categoryEmoji" type="hidden" value="" />
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
-                <div class="dropdown" style="flex:none">
-                    <button id="new-cat-emoji-display" type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                            style="font-size:20px; min-width:44px; padding:4px 10px; line-height:1.3">🏷️</button>
-                    <div class="dropdown-menu" style="padding:8px; min-width:0">
-                        <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:2px">
-                            @foreach (var emoji in ListModel.CategoryEmojis)
-                            {
-                                <button type="button" class="cat-emoji-btn" style="font-size:18px; background:none; border:2px solid transparent; border-radius:6px; padding:4px; cursor:pointer; min-height:36px; text-align:center"
-                                        onclick="(function(el,e){document.getElementById('new-cat-emoji').value=e; document.getElementById('new-cat-emoji-display').textContent=e; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); el.style.borderColor='var(--accent-home)'; bootstrap.Dropdown.getOrCreateInstance(document.getElementById('new-cat-emoji-display')).hide();})(this,'@emoji')">@emoji</button>
-                            }
-                        </div>
-                    </div>
-                </div>
-                <input id="new-cat-name" name="categoryName" placeholder="@L["Catalog.NewCategoryName"]" class="form-control" style="flex:1; min-width:0" />
-                <button type="button" class="btn btn-sm btn-secondary" style="flex:none; white-space:nowrap"
-                        hx-post="?handler=AddCategory"
-                        hx-include="#new-cat-name,#new-cat-emoji"
-                        hx-target="#category-select"
-                        hx-swap="innerHTML"
-                        hx-on::before-request="if(!document.getElementById('new-cat-name').value.trim()){document.getElementById('new-cat-error').hidden=false; event.preventDefault();}"
-                        hx-on::after-request="if(event.detail.successful){document.getElementById('new-category-form').hidden=true; document.getElementById('new-cat-error').hidden=true; document.getElementById('new-cat-name').value=''; document.getElementById('new-cat-emoji').value=''; document.getElementById('new-cat-emoji-display').textContent='🏷️'; document.querySelectorAll('.cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); rebuildCategoryChips();} else {document.getElementById('new-cat-error').hidden=false;}">
-                    @L["Action.Save"]
-                </button>
-            </div>
-            <span id="new-cat-error" hidden style="font-size:12px; color:var(--bs-danger); display:block; margin-top:4px">@L["Catalog.NameRequired"]</span>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" style="margin-top:6px"
-                onclick="document.getElementById('new-category-form').hidden=false">
-            + @L["Catalog.NewCategory"]
-        </button>
     </div>
 </div>
 
@@ -185,4 +149,46 @@
     <p style="margin:4px 0; font-size:13px; color:var(--text-muted)">
         <strong>@L["Lists.ItemDetail.AddedBy"]:</strong> <span id="detail-added-by"></span>
     </p>
+</dialog>
+
+<dialog id="category-manage-dialog" style="border:none; border-radius:16px; padding:24px; min-width:300px; max-width:420px; width:90vw; background:var(--card-bg); color:var(--text-primary); box-shadow:0 12px 40px rgba(0,0,0,0.45); overflow:visible">
+    <button onclick="this.closest('dialog').close()" style="float:right; border:none; background:none; font-size:18px; cursor:pointer; color:var(--text-muted)">✕</button>
+    <h3 style="margin:0 0 20px; font-size:16px; padding-right:28px">@L["Lists.ManageCategories"]</h3>
+
+    <div style="max-height:280px; overflow-y:auto; margin-bottom:14px">
+        @await Html.PartialAsync("_CategoryManagerRows", Model.Categories)
+    </div>
+
+    <input type="hidden" id="cat-form-id" name="categoryId" value="" />
+    <input type="hidden" id="cat-form-emoji" name="categoryEmoji" value="" />
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+        <div class="dropdown" style="flex:none">
+            <button id="cat-form-emoji-display" type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    style="font-size:20px; min-width:44px; padding:4px 10px; line-height:1.3">🏷️</button>
+            <div class="dropdown-menu" style="padding:8px; min-width:0">
+                <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:2px">
+                    @foreach (var emoji in ListModel.CategoryEmojis)
+                    {
+                        <button type="button" class="cat-emoji-btn" style="font-size:18px; background:none; border:2px solid transparent; border-radius:6px; padding:4px; cursor:pointer; min-height:36px; text-align:center"
+                                onclick="(function(el,e){document.getElementById('cat-form-emoji').value=e; document.getElementById('cat-form-emoji-display').textContent=e; document.querySelectorAll('#category-manage-dialog .cat-emoji-btn').forEach(b=>b.style.borderColor='transparent'); el.style.borderColor='var(--accent-home)'; bootstrap.Dropdown.getOrCreateInstance(document.getElementById('cat-form-emoji-display')).hide();})(this,'@emoji')">@emoji</button>
+                    }
+                </div>
+            </div>
+        </div>
+        <input id="cat-form-name" name="categoryName" placeholder="@L["Catalog.NewCategoryName"]" class="form-control" style="flex:1; min-width:0" />
+        <button type="button" id="cat-form-save" class="btn btn-sm btn-secondary" style="flex:none; white-space:nowrap"
+                hx-post="?handler=AddCategory"
+                hx-include="#cat-form-id,#cat-form-name,#cat-form-emoji"
+                hx-target="#category-manager-list-wrap"
+                hx-swap="outerHTML"
+                hx-on::before-request="if(!document.getElementById('cat-form-name').value.trim()){document.getElementById('cat-form-error').hidden=false; event.preventDefault();}"
+                hx-on::after-request="if(event.detail.successful){resetCategoryForm(); document.getElementById('cat-form-error').hidden=true; rebuildCategoryChips();} else {document.getElementById('cat-form-error').hidden=false;}">
+            @L["Action.Save"]
+        </button>
+        <button type="button" id="cat-form-cancel" class="btn btn-sm btn-outline-secondary" hidden onclick="resetCategoryForm()">@L["Action.Cancel"]</button>
+    </div>
+    <span id="cat-form-error" hidden style="font-size:12px; color:var(--bs-danger); display:block; margin-top:4px">@L["Catalog.NameRequired"]</span>
 </dialog>

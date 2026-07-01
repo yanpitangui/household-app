@@ -185,24 +185,119 @@ public class ListsTests(PlaywrightFixture pw)
     }
 
     [Test]
-    public async Task New_category_inline_form_adds_category_to_select()
+    public async Task Manage_categories_dialog_adds_category_to_select()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
         await NavigateToListAsync(page, householdId);
 
-        await page.ClickAsync("button:has-text('New category')");
-        // set emoji directly on the hidden input — Bootstrap dropdown unreliable in headless mode
-        await page.EvaluateAsync("document.getElementById('new-cat-emoji').value = '🍅'");
-        await page.FillAsync("#new-cat-name", "Lab Supplies");
-        await page.ClickAsync("#new-category-form button:has-text('Save')");
+        // Bootstrap dropdown click+animation is flaky in headless Playwright (see the
+        // pre-existing desktop-category-picker comments in this file) — invoke the JS API
+        // directly instead of clicking the ⋯ toggle button.
+        await OpenListOptionsMenuAndClickAsync(page, "button:has-text('Manage categories')");
+        await page.WaitForFunctionAsync("document.getElementById('category-manage-dialog').open === true",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
 
-        await page.WaitForTimeoutAsync(1_000);
+        // set emoji directly on the hidden input — Bootstrap dropdown unreliable in headless mode
+        await page.EvaluateAsync("document.getElementById('cat-form-emoji').value = '🍅'");
+        await page.FillAsync("#cat-form-name", "Lab Supplies");
+        await page.ClickAsync("#cat-form-save");
+
+        await page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Lab Supplies" })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 5_000 });
+
         var options = await page.EvalOnSelectorAsync<string[]>(
             "#category-select", "el => Array.from(el.options).map(o => o.text)");
-
         await Assert.That(options.Any(o => o.Contains("Lab Supplies"))).IsTrue();
+    }
+
+    [Test]
+    public async Task Manage_categories_dialog_edits_and_deletes_category()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+
+        await OpenListOptionsMenuAndClickAsync(page, "button:has-text('Manage categories')");
+        await page.WaitForFunctionAsync("document.getElementById('category-manage-dialog').open === true",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+
+        await page.EvaluateAsync("document.getElementById('cat-form-emoji').value = '🥕'");
+        await page.FillAsync("#cat-form-name", "Editable Category");
+        await page.ClickAsync("#cat-form-save");
+        var row = page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Editable Category" });
+        await row.WaitForAsync(new LocatorWaitForOptions { Timeout = 5_000 });
+
+        await row.Locator("button", new LocatorLocatorOptions { HasText = "✎" }).ClickAsync();
+        await page.FillAsync("#cat-form-name", "Renamed Category");
+        await page.ClickAsync("#cat-form-save");
+        await page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Renamed Category" })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 5_000 });
+
+        await page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Renamed Category" })
+            .Locator("button", new LocatorLocatorOptions { HasText = "✕" }).ClickAsync();
+        await page.ClickAsync("#confirm-ok");
+        await page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Renamed Category" })
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden, Timeout = 5_000 });
+
+        await Assert.That(
+            await page.Locator(".category-manage-row").Filter(new LocatorFilterOptions { HasText = "Renamed Category" }).IsVisibleAsync()
+        ).IsFalse();
+    }
+
+    [Test]
+    public async Task Mark_all_as_done_completes_every_active_item()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+
+        var itemA = $"MarkAllA{Guid.NewGuid().ToString("N")[..6]}";
+        var itemB = $"MarkAllB{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page, itemA);
+        await SubmitAddItemFormAsync(page);
+        await page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemA })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        await TypeIntoItemInput(page, itemB);
+        await SubmitAddItemFormAsync(page);
+        await page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemB })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await OpenListOptionsMenuAndClickAsync(page, "button:has-text('Mark all as done')");
+
+        await page.Locator(".check-item.done").Filter(new LocatorFilterOptions { HasText = itemA })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        await Assert.That(
+            await page.Locator(".check-item.done").Filter(new LocatorFilterOptions { HasText = itemB }).IsVisibleAsync()
+        ).IsTrue();
+    }
+
+    [Test]
+    public async Task Hide_done_items_persists_across_reload()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+        var listUrl = page.Url;
+
+        var itemName = $"HideDone{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page, itemName);
+        await SubmitAddItemFormAsync(page);
+        var itemSpan = page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName });
+        await itemSpan.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        await page.Locator($".check-item:has(.check-item-text:has-text('{itemName}')) .check-box").ClickAsync();
+        await page.Locator(".check-item.done").Filter(new LocatorFilterOptions { HasText = itemName })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await OpenListOptionsMenuAndClickAsync(page, "#toggle-done-visibility-btn");
+        await page.Locator("#done-items-card").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden, Timeout = 5_000 });
+
+        await page.GotoAsync(listUrl);
+        await page.Locator("#done-items-card").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden, Timeout = 5_000 });
     }
 
     [Test]
@@ -239,6 +334,31 @@ public class ListsTests(PlaywrightFixture pw)
                 .Filter(new LocatorFilterOptions { HasText = itemName })
                 .IsVisibleAsync()
         ).IsTrue();
+    }
+
+    // The list detail page's SSE stream (`ListStreamEndpoints`) fully re-renders `#items-list-sse`
+    // — including the `.list-options-menu` "⋯" dropdown — on every push, and the very first push
+    // (sent right after the SSE connection opens) can land at any point after page load, especially
+    // under load. If that swap lands between opening the Bootstrap dropdown via JS and clicking an
+    // item inside it, the freshly-rendered menu node is replaced/closed and the click never lands
+    // (confirmed by observing the dropdown's `show` class getting wiped ~250-300ms after opening in
+    // isolation, and by seeing it happen much later mid-test under load). Retrying the whole
+    // open+click cycle handles the race regardless of when it lands, without a blind sleep.
+    private static async Task OpenListOptionsMenuAndClickAsync(IPage page, string itemSelector)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            await page.EvaluateAsync("bootstrap.Dropdown.getOrCreateInstance(document.querySelector('.list-options-menu > button')).show()");
+            try
+            {
+                await page.ClickAsync(itemSelector, new PageClickOptions { Timeout = 1_500 });
+                return;
+            }
+            catch (TimeoutException) when (attempt < 20)
+            {
+                // dropdown got swapped out from under us by an SSE re-render — retry
+            }
+        }
     }
 
     private static async Task TypeIntoItemInput(IPage page, string text)

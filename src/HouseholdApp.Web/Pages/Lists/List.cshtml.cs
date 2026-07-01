@@ -66,7 +66,22 @@ public class ListModel(
         var emoji = string.IsNullOrWhiteSpace(categoryEmoji) ? "🏷️" : categoryEmoji;
         await catalogCommands.AddHouseholdCategoryAsync(HouseholdId, categoryName, emoji);
         var categories = await catalogQueries.GetCategoriesAsync(HouseholdId, CurrentLanguage);
-        return Partial("_CategoryOptions", categories);
+        return Partial("_CategoryManagerList", categories);
+    }
+
+    public async Task<IActionResult> OnPostUpdateCategoryAsync(Guid categoryId, string categoryName, string categoryEmoji)
+    {
+        var emoji = string.IsNullOrWhiteSpace(categoryEmoji) ? "🏷️" : categoryEmoji;
+        await catalogCommands.UpdateHouseholdCategoryAsync(HouseholdId, categoryId, categoryName, emoji);
+        var categories = await catalogQueries.GetCategoriesAsync(HouseholdId, CurrentLanguage);
+        return Partial("_CategoryManagerList", categories);
+    }
+
+    public async Task<IActionResult> OnPostDeleteCategoryAsync(Guid categoryId)
+    {
+        await catalogCommands.DeleteHouseholdCategoryAsync(HouseholdId, categoryId);
+        var categories = await catalogQueries.GetCategoriesAsync(HouseholdId, CurrentLanguage);
+        return Partial("_CategoryManagerList", categories);
     }
 
     public async Task<IActionResult> OnPostCompleteItemAsync(Guid listId, Guid itemId)
@@ -90,6 +105,18 @@ public class ListModel(
     public async Task<IActionResult> OnPostRemoveCompletedItemsAsync(Guid listId)
     {
         await listCommands.RemoveCompletedItemsAsync(listId);
+        return StatusCode(204);
+    }
+
+    public async Task<IActionResult> OnPostMarkAllDoneAsync(Guid listId)
+    {
+        await listCommands.CompleteAllItemsAsync(listId);
+        return StatusCode(204);
+    }
+
+    public async Task<IActionResult> OnPostUnmarkAllAsync(Guid listId)
+    {
+        await listCommands.UncompleteAllItemsAsync(listId);
         return StatusCode(204);
     }
 }

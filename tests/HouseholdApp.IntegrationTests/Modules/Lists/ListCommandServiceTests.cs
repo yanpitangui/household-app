@@ -240,4 +240,56 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
         await Assert.That(match).IsNotNull();
         await Assert.That(match!.CategoryName).IsEqualTo("Padaria");
     }
+
+    [Test]
+    public async Task CompleteAllItemsAsync_marks_all_active_items_done()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        Guid item1Id, item2Id;
+        await using (var s = Scope(userId))
+            item1Id = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Leite", null, null);
+        await using (var s = Scope(userId))
+            item2Id = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Pão", null, null);
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().CompleteAllItemsAsync(listId);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var doneCount = await conn.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM lists.items WHERE list_id = @listId AND is_completed = true", new { listId });
+
+        await Assert.That(doneCount).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task UncompleteAllItemsAsync_marks_all_done_items_active()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Mercado");
+
+        Guid itemId;
+        await using (var s = Scope(userId))
+            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>().AddItemAsync(listId, "Leite", null, null);
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().CompleteItemAsync(listId, itemId);
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().UncompleteAllItemsAsync(listId);
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var isCompleted = await conn.QuerySingleAsync<bool>(
+            "SELECT is_completed FROM lists.items WHERE id = @itemId", new { itemId });
+
+        await Assert.That(isCompleted).IsFalse();
+    }
 }
