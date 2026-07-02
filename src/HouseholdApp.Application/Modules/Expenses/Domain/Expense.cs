@@ -48,8 +48,21 @@ public sealed class Expense : AggregateRoot
     {
         if (IsVoided) throw new InvalidOperationException("Expense is already voided.");
         IsVoided = true;
-        Raise(new ExpenseVoided(Guid.CreateVersion7(), now, Id, HouseholdId, reason));
+        Raise(new ExpenseVoided(Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations));
     }
+
+    public static Expense Create(ExpenseRecorded e) => new()
+    {
+        Id = e.ExpenseId,
+        HouseholdId = e.HouseholdId,
+        ExpenseGroupId = e.ExpenseGroupId,
+        Description = e.Description,
+        Date = e.Date,
+        FundingSources = e.FundingSources,
+        Allocations = e.Allocations
+    };
+
+    public void Apply(ExpenseVoided e) => IsVoided = true;
 
     private static void Validate(IReadOnlyList<FundingSource> funding, IReadOnlyList<Allocation> allocations)
     {

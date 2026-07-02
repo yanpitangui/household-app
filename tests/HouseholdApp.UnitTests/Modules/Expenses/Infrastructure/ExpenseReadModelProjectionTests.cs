@@ -38,7 +38,7 @@ public sealed class ExpenseReadModelProjectionTests
         var model = new ExpenseReadModel { Id = Guid.NewGuid() };
 
         _projection.Apply(
-            new ExpenseVoided(Guid.NewGuid(), Now, model.Id, HouseholdId, "duplicate"), model);
+            new ExpenseVoided(Guid.NewGuid(), Now, model.Id, HouseholdId, "duplicate", [], []), model);
 
         await Assert.That(model.IsVoided).IsTrue();
         await Assert.That(model.VoidReason).IsEqualTo("duplicate");

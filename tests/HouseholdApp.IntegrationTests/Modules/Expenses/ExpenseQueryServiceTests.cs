@@ -1,14 +1,10 @@
-using System.Collections.Concurrent;
 using Dapper;
 using TUnit.Core.Interfaces;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
-using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
 using HouseholdApp.IntegrationTests.Infrastructure;
-using JasperFx;
-using JasperFx.Events.Projections;
 using Marten;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
@@ -16,21 +12,7 @@ namespace HouseholdApp.IntegrationTests.Modules.Expenses;
 [ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
 public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 {
-    private static readonly ConcurrentDictionary<string, Lazy<IDocumentStore>> _stores = new();
-
-    private IDocumentStore Store => _stores
-        .GetOrAdd(db.ConnectionString, cs => new Lazy<IDocumentStore>(() => DocumentStore.For(opts =>
-        {
-            opts.Connection(cs);
-            opts.DatabaseSchemaName = "expenses";
-            opts.Events.AddEventType<ExpenseRecorded>();
-            opts.Events.AddEventType<ExpenseVoided>();
-            opts.Events.AddEventType<SettlementRecorded>();
-            opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
-            opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
-            opts.AutoCreateSchemaObjects = AutoCreate.All;
-        })))
-        .Value;
+    private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
         new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System));

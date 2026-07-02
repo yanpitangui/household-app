@@ -21,7 +21,9 @@ public sealed record ExpenseVoided(
     DateTimeOffset OccurredAt,
     Guid ExpenseId,
     Guid HouseholdId,
-    string? Reason) : IDomainEvent;
+    string? Reason,
+    IReadOnlyList<FundingSource> FundingSources,
+    IReadOnlyList<Allocation> Allocations) : IDomainEvent;
 
 public sealed record SettlementRecorded(
     Guid EventId,

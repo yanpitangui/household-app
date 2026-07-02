@@ -25,11 +25,21 @@ public partial class HouseholdLedgerProjection : MultiStreamProjection<Household
         Identity<SettlementRecorded>(e => e.HouseholdId);
     }
 
-    public void Apply(ExpenseRecorded e, HouseholdLedger ledger)
+    public void Apply(ExpenseRecorded e, HouseholdLedger ledger) =>
+        Distribute(ledger, e.FundingSources, e.Allocations, multiplier: 1);
+
+    public void Apply(ExpenseVoided e, HouseholdLedger ledger) =>
+        Distribute(ledger, e.FundingSources, e.Allocations, multiplier: -1);
+
+    private static void Distribute(
+        HouseholdLedger ledger,
+        IReadOnlyList<FundingSource> fundingSources,
+        IReadOnlyList<Allocation> allocations,
+        int multiplier)
     {
         var net = new Dictionary<Guid, long>();
-        foreach (var f in e.FundingSources) net[f.UserId] = net.GetValueOrDefault(f.UserId) + f.Cents;
-        foreach (var a in e.Allocations) net[a.UserId] = net.GetValueOrDefault(a.UserId) - a.Cents;
+        foreach (var f in fundingSources) net[f.UserId] = net.GetValueOrDefault(f.UserId) + f.Cents;
+        foreach (var a in allocations) net[a.UserId] = net.GetValueOrDefault(a.UserId) - a.Cents;
 
         var creditors = net.Where(kv => kv.Value > 0).ToList();
         var debtors = net.Where(kv => kv.Value < 0).ToList();
@@ -42,11 +52,9 @@ public partial class HouseholdLedgerProjection : MultiStreamProjection<Household
             if (share == 0) continue;
 
             var (u1, u2, sign) = Order(creditor.Key, debtor.Key);
-            GetOrAdd(ledger, u1, u2).Cents += sign * share;
+            GetOrAdd(ledger, u1, u2).Cents += multiplier * sign * share;
         }
     }
-
-    public void Apply(ExpenseVoided e, HouseholdLedger ledger) { }
 
     public void Apply(SettlementRecorded e, HouseholdLedger ledger)
     {

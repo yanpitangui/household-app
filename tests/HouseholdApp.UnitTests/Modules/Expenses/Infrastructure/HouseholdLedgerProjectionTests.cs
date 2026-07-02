@@ -110,15 +110,31 @@ public sealed class HouseholdLedgerProjectionTests
     }
 
     [Test]
-    public async Task Voided_expense_is_noop()
+    public async Task Voided_expense_reverses_the_balance()
     {
         var ledger = EmptyLedger();
+        var funding = new FundingSource[] { new(Alice, 1000) };
+        var allocations = new Allocation[] { new(Alice, 500), new(Bob, 500) };
+        _projection.Apply(Expense(funding, allocations), ledger);
+
+        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations), ledger);
+
+        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(0L);
+    }
+
+    [Test]
+    public async Task Voided_expense_only_reverses_its_own_amount()
+    {
+        var ledger = EmptyLedger();
+        var funding = new FundingSource[] { new(Alice, 1000) };
+        var allocations = new Allocation[] { new(Alice, 500), new(Bob, 500) };
+        _projection.Apply(Expense(funding, allocations), ledger);
         _projection.Apply(Expense(
-            [new FundingSource(Alice, 1000)],
-            [new Allocation(Alice, 500), new Allocation(Bob, 500)]), ledger);
+            [new FundingSource(Alice, 600)],
+            [new Allocation(Alice, 300), new Allocation(Bob, 300)]), ledger);
 
-        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null), ledger);
+        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations), ledger);
 
-        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(500L);
+        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(300L);
     }
 }
