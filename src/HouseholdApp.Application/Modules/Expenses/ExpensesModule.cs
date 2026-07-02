@@ -32,7 +32,7 @@ public static class ExpensesModule
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
 
             opts.AutoCreateSchemaObjects = AutoCreate.All;
-        }).UseLightweightSessions();
+        }).BuildSessionsWith<ExpenseSessionFactory>(ServiceLifetime.Scoped);
 
         services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();

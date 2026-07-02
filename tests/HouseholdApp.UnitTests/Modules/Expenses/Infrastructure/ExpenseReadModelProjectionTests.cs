@@ -43,4 +43,18 @@ public sealed class ExpenseReadModelProjectionTests
         await Assert.That(model.IsVoided).IsTrue();
         await Assert.That(model.VoidReason).IsEqualTo("duplicate");
     }
+
+    [Test]
+    public async Task Apply_ExpenseRecorded_sets_CorrectedFromExpenseId_when_present()
+    {
+        var originalId = Guid.NewGuid();
+        var evt = new ExpenseRecorded(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, Guid.NewGuid(),
+            "Groceries (edited)", Now, [new FundingSource(UserId, 1000)], [new Allocation(UserId, 1000)],
+            CorrectedFromExpenseId: originalId);
+        var model = new ExpenseReadModel();
+
+        _projection.Apply(evt, model);
+
+        await Assert.That(model.CorrectedFromExpenseId).IsEqualTo(originalId);
+    }
 }

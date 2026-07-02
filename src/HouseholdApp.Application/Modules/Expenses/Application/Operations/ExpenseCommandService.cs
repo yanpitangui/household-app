@@ -2,7 +2,6 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
-using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
@@ -11,7 +10,6 @@ namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 public sealed class ExpenseCommandService(
     IDocumentSession session,
-    IEventBus eventBus,
     IRecurringExpenseRepository recurringRepo,
     IRecurringJobScheduler scheduler,
     IUnitOfWork uow,
@@ -24,13 +22,11 @@ public sealed class ExpenseCommandService(
     {
         var expense = Expense.Record(
             householdId, expenseGroupId, description, date,
-            fundingSources.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
-            allocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList(),
+            ToDomain(fundingSources), ToDomain(allocations),
             time.GetUtcNow());
 
-        session.Events.Append(expense.Id, expense.DomainEvents.Cast<object>().ToArray());
+        session.Events.Append(expense.Id, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
-        await eventBus.PublishAllAsync(expense, ct);
         return expense.Id;
     }
 
@@ -39,9 +35,29 @@ public sealed class ExpenseCommandService(
         var expense = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
             ?? throw new InvalidOperationException("Expense not found.");
         expense.Void(reason, time.GetUtcNow());
-        session.Events.Append(expenseId, expense.DomainEvents.Cast<object>().ToArray());
+        session.Events.Append(expenseId, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
-        await eventBus.PublishAllAsync(expense, ct);
+    }
+
+    public async Task<Guid> EditExpenseAsync(
+        Guid expenseId, string description, DateTimeOffset date,
+        IReadOnlyList<FundingSourceDto> fundingSources, IReadOnlyList<AllocationDto> allocations,
+        CancellationToken ct = default)
+    {
+        var old = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
+            ?? throw new InvalidOperationException("Expense not found.");
+
+        old.Void("Edited", time.GetUtcNow());
+        var replacement = Expense.Record(
+            old.HouseholdId, old.ExpenseGroupId, description, date,
+            ToDomain(fundingSources), ToDomain(allocations),
+            time.GetUtcNow(), correctedFromExpenseId: expenseId);
+
+        session.Events.Append(expenseId, old.DomainEvents.ToArray());
+        session.Events.Append(replacement.Id, replacement.DomainEvents.ToArray());
+        await session.SaveChangesAsync(ct);
+
+        return replacement.Id;
     }
 
     public async Task<Guid> RecordSettlementAsync(
@@ -55,7 +71,6 @@ public sealed class ExpenseCommandService(
 
         session.Events.Append(settlementId, @event);
         await session.SaveChangesAsync(ct);
-        await eventBus.PublishAsync(@event, ct);
         return settlementId;
     }
 
@@ -93,8 +108,7 @@ public sealed class ExpenseCommandService(
     {
         var recurring = RecurringExpense.Create(
             householdId, expenseGroupId, description,
-            defaultFundingSources.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
-            defaultAllocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList(),
+            ToDomain(defaultFundingSources), ToDomain(defaultAllocations),
             frequency, startAt);
 
         var schedulerJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
@@ -130,8 +144,7 @@ public sealed class ExpenseCommandService(
 
         recurring.Update(
             frequency, startAt, description,
-            defaultFundingSources.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
-            defaultAllocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList());
+            ToDomain(defaultFundingSources), ToDomain(defaultAllocations));
 
         var newJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
         recurring.SetSchedulerJobId(newJobId);
@@ -149,6 +162,12 @@ public sealed class ExpenseCommandService(
         }
     }
 
+    private static List<FundingSource> ToDomain(IReadOnlyList<FundingSourceDto> dtos) =>
+        dtos.Select(f => new FundingSource(f.UserId, f.Cents)).ToList();
+
+    private static List<Allocation> ToDomain(IReadOnlyList<AllocationDto> dtos) =>
+        dtos.Select(a => new Allocation(a.UserId, a.Cents)).ToList();
+
     private Task<Guid> ScheduleAsync(string cronExpression, Guid entityId, CancellationToken ct) =>
         scheduler.ScheduleCronAsync(RecurringExpenseJobs.FunctionName, cronExpression, entityId, ct);
 
@@ -158,9 +177,8 @@ public sealed class ExpenseCommandService(
         if (recurring is null || !recurring.IsActive) return;
 
         var expense = recurring.Spawn(time.GetUtcNow());
-        session.Events.Append(expense.Id, expense.DomainEvents.Cast<object>().ToArray());
+        session.Events.Append(expense.Id, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
-        await eventBus.PublishAllAsync(expense, ct);
     }
 
     public async Task DeactivateRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default)

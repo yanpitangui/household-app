@@ -72,7 +72,7 @@ public sealed class ExpenseQueryService(
         var e = await querySession.LoadAsync<ExpenseReadModel>(expenseId, ct);
         if (e is null) return null;
         return new ExpenseDetail(
-            e.Id, e.ExpenseGroupId, e.Description, e.Date,
+            e.Id, e.HouseholdId, e.ExpenseGroupId, e.Description, e.Date,
             e.TotalCents, e.IsVoided, e.VoidReason,
             e.FundingSources.Select(f => new FundingSourceDto(f.UserId, f.Cents)).ToList(),
             e.Allocations.Select(a => new AllocationDto(a.UserId, a.Cents)).ToList(),

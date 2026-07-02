@@ -18,6 +18,9 @@ public class RecordExpenseModel(
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public Guid? ExpenseId { get; set; }
+
     [BindProperty, Required]
     public string Description { get; set; } = "";
 
@@ -44,11 +47,31 @@ public class RecordExpenseModel(
 
     public IReadOnlyList<ExpenseGroupSummary> Groups { get; private set; } = [];
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
+    public ExpenseDetail? Editing { get; private set; }
 
-    public async Task OnGetAsync()
+    public async Task<IActionResult> OnGetAsync()
     {
         PayerId = CurrentUserId;
+
+        if (ExpenseId.HasValue)
+        {
+            var existing = await expenseQueries.GetExpenseAsync(ExpenseId.Value);
+            if (existing is null || existing.IsVoided || existing.HouseholdId != HouseholdId)
+            {
+                TempData["Error"] = Loc["Expenses.CannotEditVoided"].Value;
+                return RedirectToPage("Index", new { householdId = HouseholdId });
+            }
+
+            Editing = existing;
+            Description = existing.Description;
+            Date = DateOnly.FromDateTime(existing.Date.Date);
+            Amount = existing.TotalCents / 100m;
+            GroupId = existing.ExpenseGroupId;
+            PayerId = existing.FundingSources.Count > 0 ? existing.FundingSources[0].UserId : CurrentUserId;
+        }
+
         await LoadLookups();
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -92,12 +115,26 @@ public class RecordExpenseModel(
                 .ToList();
         }
 
-        await expenseCommands.RecordExpenseAsync(
-            HouseholdId, GroupId, Description,
-            new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero),
-            funding, allocations);
+        var date = new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero);
 
-        TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
+        if (ExpenseId.HasValue)
+        {
+            var existing = await expenseQueries.GetExpenseAsync(ExpenseId.Value);
+            if (existing is null || existing.IsVoided || existing.HouseholdId != HouseholdId)
+            {
+                TempData["Error"] = Loc["Expenses.CannotEditVoided"].Value;
+                return RedirectToPage("Index", new { householdId = HouseholdId });
+            }
+
+            await expenseCommands.EditExpenseAsync(ExpenseId.Value, Description, date, funding, allocations);
+            TempData["Success"] = Loc["Flash.ExpenseUpdated"].Value;
+        }
+        else
+        {
+            await expenseCommands.RecordExpenseAsync(HouseholdId, GroupId, Description, date, funding, allocations);
+            TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
+        }
+
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }
 

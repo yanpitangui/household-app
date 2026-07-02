@@ -98,6 +98,7 @@
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Expense recorded.</value></data>
   <data name="Flash.ExpenseVoided"><value>Expense voided.</value></data>
+  <data name="Flash.ExpenseUpdated"><value>Expense updated.</value></data>
   <data name="Flash.SettlementRecorded"><value>Settlement recorded.</value></data>
   <data name="Flash.GroupCreated"><value>Group created.</value></data>
   <data name="Flash.GroupDeleted"><value>Group deleted.</value></data>
@@ -197,7 +198,10 @@
   <data name="Expenses.Owes"><value>owes</value></data>
   <data name="Expenses.Settled"><value>settled</value></data>
   <data name="Expenses.VoidEntry"><value>Void</value></data>
+  <data name="Expenses.EditEntry"><value>Edit</value></data>
+  <data name="Expenses.CannotEditVoided"><value>This expense was already voided and can't be edited.</value></data>
   <data name="Expenses.RecordExpenseHeading"><value>Record Expense</value></data>
+  <data name="Expenses.EditExpenseHeading"><value>Edit Expense</value></data>
   <data name="Expenses.Description"><value>Description</value></data>
   <data name="Expenses.Date"><value>Date</value></data>
   <data name="Expenses.Amount"><value>Amount (R$)</value></data>
@@ -206,6 +210,7 @@
   <data name="Expenses.Participants"><value>Split between</value></data>
   <data name="Expenses.EqualSplitHint"><value>Equal split among checked members.</value></data>
   <data name="Expenses.Record"><value>Record</value></data>
+  <data name="Expenses.SaveChanges"><value>Save Changes</value></data>
   <data name="Expenses.SettleUpHeading"><value>Settle Up</value></data>
   <data name="Expenses.PaidTo"><value>Paid to</value></data>
   <data name="Expenses.RecordSettlement"><value>Record Settlement</value></data>

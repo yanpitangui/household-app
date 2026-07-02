@@ -98,6 +98,7 @@
   <!-- Flash messages -->
   <data name="Flash.ExpenseRecorded"><value>Despesa registrada.</value></data>
   <data name="Flash.ExpenseVoided"><value>Despesa anulada.</value></data>
+  <data name="Flash.ExpenseUpdated"><value>Despesa atualizada.</value></data>
   <data name="Flash.SettlementRecorded"><value>Acerto registrado.</value></data>
   <data name="Flash.GroupCreated"><value>Grupo criado.</value></data>
   <data name="Flash.GroupDeleted"><value>Grupo excluído.</value></data>
@@ -197,7 +198,10 @@
   <data name="Expenses.Owes"><value>deve</value></data>
   <data name="Expenses.Settled"><value>acertado</value></data>
   <data name="Expenses.VoidEntry"><value>Anular</value></data>
+  <data name="Expenses.EditEntry"><value>Editar</value></data>
+  <data name="Expenses.CannotEditVoided"><value>Esta despesa já foi anulada e não pode ser editada.</value></data>
   <data name="Expenses.RecordExpenseHeading"><value>Registrar despesa</value></data>
+  <data name="Expenses.EditExpenseHeading"><value>Editar Despesa</value></data>
   <data name="Expenses.Description"><value>Descrição</value></data>
   <data name="Expenses.Date"><value>Data</value></data>
   <data name="Expenses.Amount"><value>Valor (R$)</value></data>
@@ -206,6 +210,7 @@
   <data name="Expenses.Participants"><value>Dividir entre</value></data>
   <data name="Expenses.EqualSplitHint"><value>Divisão igualitária entre os membros selecionados.</value></data>
   <data name="Expenses.Record"><value>Registrar</value></data>
+  <data name="Expenses.SaveChanges"><value>Salvar Alterações</value></data>
   <data name="Expenses.SettleUpHeading"><value>Acertar contas</value></data>
   <data name="Expenses.PaidTo"><value>Pago a</value></data>
   <data name="Expenses.RecordSettlement"><value>Registrar acerto</value></data>

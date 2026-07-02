@@ -14,7 +14,8 @@ public sealed record ExpenseRecorded(
     string Description,
     DateTimeOffset Date,
     IReadOnlyList<FundingSource> FundingSources,
-    IReadOnlyList<Allocation> Allocations) : IDomainEvent;
+    IReadOnlyList<Allocation> Allocations,
+    Guid? CorrectedFromExpenseId = null) : IDomainEvent;
 
 public sealed record ExpenseVoided(
     Guid EventId,

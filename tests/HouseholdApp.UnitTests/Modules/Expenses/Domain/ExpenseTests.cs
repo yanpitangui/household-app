@@ -40,6 +40,28 @@ public sealed class ExpenseTests
     }
 
     [Test]
+    public async Task Record_sets_CorrectedFromExpenseId_when_supplied()
+    {
+        var originalId = Guid.NewGuid();
+        var expense = Expense.Record(
+            HouseholdId, GroupId, "Groceries", Now,
+            [new FundingSource(UserId1, 1000)], [new Allocation(UserId1, 500), new Allocation(UserId2, 500)],
+            Now, correctedFromExpenseId: originalId);
+
+        var raised = (ExpenseRecorded)expense.DomainEvents[0];
+        await Assert.That(raised.CorrectedFromExpenseId).IsEqualTo(originalId);
+    }
+
+    [Test]
+    public async Task Record_defaults_CorrectedFromExpenseId_to_null()
+    {
+        var expense = ValidExpense();
+        var raised = (ExpenseRecorded)expense.DomainEvents[0];
+
+        await Assert.That(raised.CorrectedFromExpenseId).IsNull();
+    }
+
+    [Test]
     public async Task Record_throws_when_funding_exceeds_allocations()
     {
         var funding = new[] { new FundingSource(UserId1, 1000) };

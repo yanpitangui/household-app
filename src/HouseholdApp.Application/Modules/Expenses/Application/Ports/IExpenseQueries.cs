@@ -17,7 +17,7 @@ public sealed record ExpensesSummary(
     IReadOnlyList<MemberBalance> Balances);
 
 public sealed record ExpenseDetail(
-    Guid Id, Guid ExpenseGroupId, string Description, DateTimeOffset Date,
+    Guid Id, Guid HouseholdId, Guid ExpenseGroupId, string Description, DateTimeOffset Date,
     long TotalCents, bool IsVoided, string? VoidReason,
     IReadOnlyList<FundingSourceDto> FundingSources,
     IReadOnlyList<AllocationDto> Allocations,

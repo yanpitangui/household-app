@@ -2,7 +2,8 @@
 @model HouseholdApp.Web.Pages.Expenses.RecordExpenseModel
 @using System.Globalization
 @{
-    ViewData["Title"] = L["Expenses.RecordExpenseHeading"];
+    var isEditing = Model.ExpenseId.HasValue;
+    ViewData["Title"] = isEditing ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"];
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     var currentUserName = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.DisplayName ?? "";
     var currentUserPic = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.PictureUrl;
@@ -10,7 +11,7 @@
 }
 
 <div class="page-heading">
-    <span>@L["Expenses.RecordExpenseHeading"]</span>
+    <span>@(isEditing ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"])</span>
     <a asp-page="Index" asp-route-householdId="@Model.HouseholdId"
        style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
         ← @L["Action.Cancel"]
@@ -21,6 +22,10 @@
     @Html.AntiForgeryToken()
     <div id="allocation-inputs"></div>
     <input type="hidden" id="payer-id-input" name="PayerId" value="@Model.CurrentUserId" />
+    @if (Model.ExpenseId.HasValue)
+    {
+        <input type="hidden" asp-for="ExpenseId" />
+    }
 
     @* ═══════════ PANEL A: Main form ═══════════ *@
     <div id="panel-a" class="app-card">
@@ -65,7 +70,7 @@
             </div>
         </div>
 
-        <button type="submit" class="record-save-btn">@L["Expenses.Record"]</button>
+        <button type="submit" class="record-save-btn">@(isEditing ? L["Expenses.SaveChanges"] : L["Expenses.Record"])</button>
         <span asp-validation-summary="ModelOnly" class="field-error" style="margin-top:8px"></span>
     </div>
 
@@ -439,8 +444,23 @@
         });
     });
 
-    switchMode('equal');
-    updateSummaryBar();
+    const editSeedEl = document.getElementById('edit-seed');
+    if (editSeedEl) {
+        const seed = JSON.parse(editSeedEl.textContent);
+        const payerBtn = document.querySelector(`.split-payer-opt[data-user-id="${seed.payerId}"]`);
+        if (payerBtn) window.selectPayer(payerBtn);
+
+        switchMode('exact');
+        seed.allocations.forEach(a => {
+            const row = document.querySelector(`.split-member-row[data-user-id="${a.userId}"]`);
+            const input = row?.querySelector('.exact-inp');
+            if (input) input.value = centsToDisplay(a.cents);
+        });
+        updateSummaryBar();
+    } else {
+        switchMode('equal');
+        updateSummaryBar();
+    }
 })();
 </script>
 }
@@ -456,3 +476,19 @@
   }
 }
 </script>
+
+@if (Model.Editing is not null)
+{
+    <script id="edit-seed" type="application/json">
+    {
+      "payerId": "@(Model.Editing.FundingSources.Count > 0 ? Model.Editing.FundingSources[0].UserId : Model.CurrentUserId)",
+      "allocations": [
+        @for (var i = 0; i < Model.Editing.Allocations.Count; i++)
+        {
+            var a = Model.Editing.Allocations[i];
+            @:{ "userId": "@a.UserId", "cents": @a.Cents }@(i < Model.Editing.Allocations.Count - 1 ? "," : "")
+        }
+      ]
+    }
+    </script>
+}

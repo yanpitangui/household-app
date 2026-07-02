@@ -2,8 +2,6 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
-using HouseholdApp.Application.Shared.Domain;
-using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
@@ -20,7 +18,6 @@ public sealed class ExpenseCommandServiceRecurringTests
     private static readonly DateTimeOffset BaseTime = new(2026, 6, 16, 9, 30, 0, TimeSpan.Zero); // Tuesday
 
     private readonly IDocumentSession _session = Substitute.For<IDocumentSession>();
-    private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
     private readonly IRecurringExpenseRepository _recurringRepo = Substitute.For<IRecurringExpenseRepository>();
     private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
@@ -35,7 +32,7 @@ public sealed class ExpenseCommandServiceRecurringTests
         _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Guid.NewGuid());
 
-        _sut = new ExpenseCommandService(_session, _eventBus, _recurringRepo, _scheduler, _uow, _time);
+        _sut = new ExpenseCommandService(_session, _recurringRepo, _scheduler, _uow, _time);
     }
 
     [Test]
@@ -250,7 +247,7 @@ public sealed class ExpenseCommandServiceRecurringTests
     }
 
     [Test]
-    public async Task SpawnRecurringExpenseAsync_appends_events_and_publishes_for_active_recurring()
+    public async Task SpawnRecurringExpenseAsync_appends_events_for_active_recurring()
     {
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
@@ -263,6 +260,5 @@ public sealed class ExpenseCommandServiceRecurringTests
 
         _session.Events.Received(1).Append(Arg.Any<Guid>(), Arg.Any<object[]>());
         await _session.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        _eventBus.Received(1).Enqueue(Arg.Any<IDomainEvent>());
     }
 }

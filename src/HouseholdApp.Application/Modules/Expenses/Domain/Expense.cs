@@ -22,7 +22,8 @@ public sealed class Expense : AggregateRoot
         DateTimeOffset date,
         IReadOnlyList<FundingSource> fundingSources,
         IReadOnlyList<Allocation> allocations,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        Guid? correctedFromExpenseId = null)
     {
         Validate(fundingSources, allocations);
 
@@ -39,7 +40,7 @@ public sealed class Expense : AggregateRoot
 
         expense.Raise(new ExpenseRecorded(
             Guid.CreateVersion7(), now, expense.Id, householdId, expenseGroupId,
-            description, date, fundingSources, allocations));
+            description, date, fundingSources, allocations, correctedFromExpenseId));
 
         return expense;
     }

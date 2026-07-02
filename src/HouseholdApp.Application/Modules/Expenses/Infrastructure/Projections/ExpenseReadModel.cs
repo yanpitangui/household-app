@@ -16,6 +16,7 @@ public sealed class ExpenseReadModel
     public IReadOnlyList<FundingSource> FundingSources { get; set; } = [];
     public IReadOnlyList<Allocation> Allocations { get; set; } = [];
     public DateTimeOffset RecordedAt { get; set; }
+    public Guid? CorrectedFromExpenseId { get; set; }
 }
 
 public partial class ExpenseReadModelProjection : SingleStreamProjection<ExpenseReadModel, Guid>
@@ -31,6 +32,7 @@ public partial class ExpenseReadModelProjection : SingleStreamProjection<Expense
         model.FundingSources = e.FundingSources;
         model.Allocations = e.Allocations;
         model.RecordedAt = e.OccurredAt;
+        model.CorrectedFromExpenseId = e.CorrectedFromExpenseId;
     }
 
     public void Apply(ExpenseVoided e, ExpenseReadModel model)

@@ -14,6 +14,11 @@ public interface IExpenseCommands
 
     Task VoidExpenseAsync(Guid expenseId, string? reason, CancellationToken ct = default);
 
+    Task<Guid> EditExpenseAsync(
+        Guid expenseId, string description, DateTimeOffset date,
+        IReadOnlyList<FundingSourceDto> fundingSources, IReadOnlyList<AllocationDto> allocations,
+        CancellationToken ct = default);
+
     Task<Guid> RecordSettlementAsync(
         Guid householdId, Guid payerId, Guid recipientId, long cents, DateTimeOffset date,
         CancellationToken ct = default);
