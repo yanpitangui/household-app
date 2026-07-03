@@ -193,6 +193,16 @@
   <data name="Expenses.SettleUp"><value>Acertar contas</value></data>
   <data name="Expenses.Groups"><value>Grupos</value></data>
   <data name="Expenses.Recurring"><value>Recorrentes</value></data>
+  <data name="Expenses.Activity"><value>Atividade</value></data>
+  <data name="Expenses.Activity.Title"><value>Atividade recente</value></data>
+  <data name="Expenses.Activity.LoadMore"><value>Carregar mais</value></data>
+  <data name="Expenses.Activity.Added"><value>{0} adicionou '{1}' em '{2}'.</value></data>
+  <data name="Expenses.Activity.Edited"><value>{0} atualizou '{1}' em '{2}'.</value></data>
+  <data name="Expenses.Activity.Removed"><value>{0} removeu '{1}'.</value></data>
+  <data name="Expenses.Activity.RecurringAdded"><value>Nova despesa recorrente: {0} adicionou '{1}' em '{2}'.</value></data>
+  <data name="Expenses.Activity.Settlement"><value>{0} registrou pagamento de {1} para {2}.</value></data>
+  <data name="Expenses.Activity.YouAreOwed"><value>Você recebeu de volta {0}</value></data>
+  <data name="Expenses.Activity.YouOwe"><value>Você deve {0}</value></data>
   <data name="Expenses.Balances"><value>SALDOS</value></data>
   <data name="Expenses.IsOwed"><value>a receber</value></data>
   <data name="Expenses.Owes"><value>deve</value></data>

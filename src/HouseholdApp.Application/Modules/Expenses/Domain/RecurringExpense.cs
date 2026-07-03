@@ -52,7 +52,9 @@ public sealed class RecurringExpense
     }
 
     public Expense Spawn(DateTimeOffset now) =>
-        Expense.Record(HouseholdId, ExpenseGroupId, Description, now, DefaultFundingSources, DefaultAllocations, now);
+        Expense.Record(
+            HouseholdId, ExpenseGroupId, Description, now, DefaultFundingSources, DefaultAllocations, now,
+            performedByUserId: DefaultFundingSources[0].UserId, recurringExpenseId: Id);
 
     public static RecurringExpense Rehydrate(
         Guid id, Guid householdId, Guid expenseGroupId, string description,

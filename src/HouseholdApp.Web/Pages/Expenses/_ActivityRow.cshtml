@@ -1,0 +1,28 @@
+@model HouseholdApp.Application.Modules.Expenses.Application.Ports.ActivityFeedItem
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    var text = Model.Kind switch
+    {
+        ActivityKind.Added => string.Format(L["Expenses.Activity.Added"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
+        ActivityKind.Edited => string.Format(L["Expenses.Activity.Edited"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
+        ActivityKind.Removed => string.Format(L["Expenses.Activity.Removed"].Value, Model.ActorDisplayName, Model.Description),
+        ActivityKind.RecurringAdded => string.Format(L["Expenses.Activity.RecurringAdded"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
+        ActivityKind.Settlement => string.Format(L["Expenses.Activity.Settlement"].Value, Model.ActorDisplayName, Model.PayerDisplayName, Model.RecipientDisplayName),
+        _ => Model.Description
+    };
+}
+<div class="activity-row" data-row>
+    <div class="activity-text"><strong>@text</strong></div>
+    @if (Model.ViewerDeltaCents is { } cents)
+    {
+        var color = cents >= 0 ? "var(--accent-tasks)" : "#f87171";
+        var amount = $"{currencySymbol} {(Math.Abs(cents) / 100m).ToString("F2")}";
+        var label = cents >= 0
+            ? string.Format(L["Expenses.Activity.YouAreOwed"].Value, amount)
+            : string.Format(L["Expenses.Activity.YouOwe"].Value, amount);
+        <div class="activity-delta" style="color:@color">@label</div>
+    }
+    <div class="activity-date">@Model.OccurredAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</div>
+</div>

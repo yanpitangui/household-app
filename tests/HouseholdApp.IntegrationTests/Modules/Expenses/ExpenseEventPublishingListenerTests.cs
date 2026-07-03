@@ -54,9 +54,9 @@ public sealed class ExpenseEventPublishingListenerTests(PostgresFixture db)
         var userId = Guid.NewGuid();
 
         var first = Expense.Record(householdId, groupId, "First", DateTimeOffset.UtcNow,
-            [new FundingSource(userId, 500)], [new Allocation(userId, 500)], DateTimeOffset.UtcNow);
+            [new FundingSource(userId, 500)], [new Allocation(userId, 500)], DateTimeOffset.UtcNow, userId);
         var second = Expense.Record(householdId, groupId, "Second", DateTimeOffset.UtcNow,
-            [new FundingSource(userId, 300)], [new Allocation(userId, 300)], DateTimeOffset.UtcNow);
+            [new FundingSource(userId, 300)], [new Allocation(userId, 300)], DateTimeOffset.UtcNow, userId);
 
         session.Events.Append(first.Id, first.DomainEvents.ToArray());
         session.Events.Append(second.Id, second.DomainEvents.ToArray());

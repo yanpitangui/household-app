@@ -1,6 +1,7 @@
 using System.Data;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 
@@ -31,4 +32,9 @@ public sealed class ThrowingUnitOfWork : IUnitOfWork
     public Task<IDbConnection> GetConnectionAsync(CancellationToken ct = default) => throw new NotSupportedException();
     public Task BeginTransactionAsync(CancellationToken ct = default) => throw new NotSupportedException();
     public Task CommitAsync(CancellationToken ct = default) => throw new NotSupportedException();
+}
+
+public sealed class FakeCurrentUser(Guid id) : ICurrentUser
+{
+    public Guid Id { get; } = id;
 }

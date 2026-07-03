@@ -2,6 +2,7 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
@@ -10,6 +11,7 @@ namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 public sealed class ExpenseCommandService(
     IDocumentSession session,
+    ICurrentUser currentUser,
     IRecurringExpenseRepository recurringRepo,
     IRecurringJobScheduler scheduler,
     IUnitOfWork uow,
@@ -23,7 +25,7 @@ public sealed class ExpenseCommandService(
         var expense = Expense.Record(
             householdId, expenseGroupId, description, date,
             ToDomain(fundingSources), ToDomain(allocations),
-            time.GetUtcNow());
+            time.GetUtcNow(), currentUser.Id);
 
         session.Events.Append(expense.Id, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
@@ -34,7 +36,7 @@ public sealed class ExpenseCommandService(
     {
         var expense = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
             ?? throw new InvalidOperationException("Expense not found.");
-        expense.Void(reason, time.GetUtcNow());
+        expense.Void(reason, time.GetUtcNow(), currentUser.Id);
         session.Events.Append(expenseId, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
     }
@@ -47,11 +49,12 @@ public sealed class ExpenseCommandService(
         var old = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
             ?? throw new InvalidOperationException("Expense not found.");
 
-        old.Void("Edited", time.GetUtcNow());
+        var replacementId = Guid.CreateVersion7();
+        old.Void("Edited", time.GetUtcNow(), currentUser.Id, correctedByExpenseId: replacementId);
         var replacement = Expense.Record(
             old.HouseholdId, old.ExpenseGroupId, description, date,
             ToDomain(fundingSources), ToDomain(allocations),
-            time.GetUtcNow(), correctedFromExpenseId: expenseId);
+            time.GetUtcNow(), currentUser.Id, id: replacementId, correctedFromExpenseId: expenseId);
 
         session.Events.Append(expenseId, old.DomainEvents.ToArray());
         session.Events.Append(replacement.Id, replacement.DomainEvents.ToArray());
@@ -67,7 +70,7 @@ public sealed class ExpenseCommandService(
         var settlementId = Guid.CreateVersion7();
         var @event = new SettlementRecorded(
             Guid.CreateVersion7(), time.GetUtcNow(), settlementId,
-            householdId, payerId, recipientId, cents, date);
+            householdId, payerId, recipientId, cents, date, currentUser.Id);
 
         session.Events.Append(settlementId, @event);
         await session.SaveChangesAsync(ct);

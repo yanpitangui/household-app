@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
@@ -21,6 +22,7 @@ public sealed class ExpenseCommandServiceRecurringTests
     private readonly IRecurringExpenseRepository _recurringRepo = Substitute.For<IRecurringExpenseRepository>();
     private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly FakeTimeProvider _time = new(BaseTime);
     private readonly ExpenseCommandService _sut;
 
@@ -32,7 +34,8 @@ public sealed class ExpenseCommandServiceRecurringTests
         _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Guid.NewGuid());
 
-        _sut = new ExpenseCommandService(_session, _recurringRepo, _scheduler, _uow, _time);
+        _currentUser.Id.Returns(UserId);
+        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, _time);
     }
 
     [Test]

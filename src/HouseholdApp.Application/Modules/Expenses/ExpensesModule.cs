@@ -30,6 +30,7 @@ public static class ExpensesModule
 
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);
 
             opts.AutoCreateSchemaObjects = AutoCreate.All;
         }).BuildSessionsWith<ExpenseSessionFactory>(ServiceLifetime.Scoped);
@@ -37,6 +38,7 @@ public static class ExpensesModule
         services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();
         services.AddScoped<IExpenseQueries, ExpenseQueryService>();
+        services.AddScoped<IActivityFeedQueries, ActivityFeedQueryService>();
         services.AddScoped<IRecurringJobScheduler, TickerQJobScheduler>();
         services.AddEventHandler<HouseholdCreated, DefaultExpenseGroupHandler>();
 

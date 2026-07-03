@@ -1,0 +1,36 @@
+@page "/h/{householdId:guid}/Expenses/Activity"
+@model HouseholdApp.Web.Pages.Expenses.ActivityModel
+@{
+    ViewData["Title"] = L["Expenses.Activity.Title"];
+}
+
+<div class="page-heading">
+    <span>@L["Expenses.Activity.Title"]</span>
+</div>
+
+<div class="expenses-secondary-links">
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
+        ← @L["Nav.Expenses"]
+    </a>
+</div>
+
+@if (!Model.Items.Any())
+{
+    <p class="section-title">@L["Common.NoItemsYet"]</p>
+}
+
+<div id="activity-list">
+    @foreach (var item in Model.Items)
+    {
+        <partial name="_ActivityRow" model="item" />
+    }
+</div>
+
+@if (Model.NextCursor is not null)
+{
+    <button type="button" class="activity-load-more"
+            hx-get="?handler=LoadMore&cursor=@Uri.EscapeDataString(Model.NextCursor)"
+            hx-target="this" hx-swap="outerHTML">
+        @L["Expenses.Activity.LoadMore"]
+    </button>
+}

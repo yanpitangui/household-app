@@ -50,7 +50,8 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
                 Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
                 "Dinner", DateTimeOffset.UtcNow,
                 [new FundingSource(payerId, 1000)],
-                [new Allocation(payerId, 500), new Allocation(splitUserId, 500)]));
+                [new Allocation(payerId, 500), new Allocation(splitUserId, 500)],
+                payerId));
             await s.SaveChangesAsync();
         }
 
@@ -90,7 +91,8 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
                 Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
                 "Groceries", DateTimeOffset.UtcNow,
                 [new FundingSource(payerId, 1000)],
-                [new Allocation(payerId, 500), new Allocation(debtorId, 500)]));
+                [new Allocation(payerId, 500), new Allocation(debtorId, 500)],
+                payerId));
             await s.SaveChangesAsync();
         }
 
@@ -192,12 +194,14 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
                 Guid.NewGuid(), DateTimeOffset.UtcNow, expenseA, householdId, groupA,
                 "GroupA Expense", DateTimeOffset.UtcNow,
                 [new FundingSource(userId, 500)],
-                [new Allocation(userId, 500)]));
+                [new Allocation(userId, 500)],
+                userId));
             s.Events.Append(expenseB, new ExpenseRecorded(
                 Guid.NewGuid(), DateTimeOffset.UtcNow, expenseB, householdId, groupB,
                 "GroupB Expense", DateTimeOffset.UtcNow,
                 [new FundingSource(userId, 300)],
-                [new Allocation(userId, 300)]));
+                [new Allocation(userId, 300)],
+                userId));
             await s.SaveChangesAsync();
         }
 

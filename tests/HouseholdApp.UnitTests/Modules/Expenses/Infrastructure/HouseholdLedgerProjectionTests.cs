@@ -117,7 +117,7 @@ public sealed class HouseholdLedgerProjectionTests
         var allocations = new Allocation[] { new(Alice, 500), new(Bob, 500) };
         _projection.Apply(Expense(funding, allocations), ledger);
 
-        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations), ledger);
+        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations, Guid.NewGuid(), "Groceries"), ledger);
 
         await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(0L);
     }
@@ -133,7 +133,7 @@ public sealed class HouseholdLedgerProjectionTests
             [new FundingSource(Alice, 600)],
             [new Allocation(Alice, 300), new Allocation(Bob, 300)]), ledger);
 
-        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations), ledger);
+        _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding, allocations, Guid.NewGuid(), "Groceries"), ledger);
 
         await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(300L);
     }

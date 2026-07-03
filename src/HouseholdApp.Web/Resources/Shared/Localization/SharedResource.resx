@@ -193,6 +193,16 @@
   <data name="Expenses.SettleUp"><value>Settle Up</value></data>
   <data name="Expenses.Groups"><value>Groups</value></data>
   <data name="Expenses.Recurring"><value>Recurring</value></data>
+  <data name="Expenses.Activity"><value>Activity</value></data>
+  <data name="Expenses.Activity.Title"><value>Recent activity</value></data>
+  <data name="Expenses.Activity.LoadMore"><value>Load more</value></data>
+  <data name="Expenses.Activity.Added"><value>{0} added '{1}' in '{2}'.</value></data>
+  <data name="Expenses.Activity.Edited"><value>{0} updated '{1}' in '{2}'.</value></data>
+  <data name="Expenses.Activity.Removed"><value>{0} removed '{1}'.</value></data>
+  <data name="Expenses.Activity.RecurringAdded"><value>New recurring expense: {0} added '{1}' in '{2}'.</value></data>
+  <data name="Expenses.Activity.Settlement"><value>{0} recorded a payment from {1} to {2}.</value></data>
+  <data name="Expenses.Activity.YouAreOwed"><value>You got back {0}</value></data>
+  <data name="Expenses.Activity.YouOwe"><value>You owe {0}</value></data>
   <data name="Expenses.Balances"><value>BALANCES</value></data>
   <data name="Expenses.IsOwed"><value>is owed</value></data>
   <data name="Expenses.Owes"><value>owes</value></data>

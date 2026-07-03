@@ -37,9 +37,7 @@ public partial class HouseholdLedgerProjection : MultiStreamProjection<Household
         IReadOnlyList<Allocation> allocations,
         int multiplier)
     {
-        var net = new Dictionary<Guid, long>();
-        foreach (var f in fundingSources) net[f.UserId] = net.GetValueOrDefault(f.UserId) + f.Cents;
-        foreach (var a in allocations) net[a.UserId] = net.GetValueOrDefault(a.UserId) - a.Cents;
+        var net = LedgerMath.NetPerUser(fundingSources, allocations);
 
         var creditors = net.Where(kv => kv.Value > 0).ToList();
         var debtors = net.Where(kv => kv.Value < 0).ToList();

@@ -23,13 +23,16 @@ public sealed class Expense : AggregateRoot
         IReadOnlyList<FundingSource> fundingSources,
         IReadOnlyList<Allocation> allocations,
         DateTimeOffset now,
+        Guid performedByUserId,
+        Guid? id = null,
+        Guid? recurringExpenseId = null,
         Guid? correctedFromExpenseId = null)
     {
         Validate(fundingSources, allocations);
 
         var expense = new Expense
         {
-            Id = Guid.CreateVersion7(),
+            Id = id ?? Guid.CreateVersion7(),
             HouseholdId = householdId,
             ExpenseGroupId = expenseGroupId,
             Description = description,
@@ -40,16 +43,19 @@ public sealed class Expense : AggregateRoot
 
         expense.Raise(new ExpenseRecorded(
             Guid.CreateVersion7(), now, expense.Id, householdId, expenseGroupId,
-            description, date, fundingSources, allocations, correctedFromExpenseId));
+            description, date, fundingSources, allocations, performedByUserId,
+            recurringExpenseId, correctedFromExpenseId));
 
         return expense;
     }
 
-    public void Void(string? reason, DateTimeOffset now)
+    public void Void(string? reason, DateTimeOffset now, Guid performedByUserId, Guid? correctedByExpenseId = null)
     {
         if (IsVoided) throw new InvalidOperationException("Expense is already voided.");
         IsVoided = true;
-        Raise(new ExpenseVoided(Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations));
+        Raise(new ExpenseVoided(
+            Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations,
+            performedByUserId, Description, correctedByExpenseId));
     }
 
     public static Expense Create(ExpenseRecorded e) => new()
