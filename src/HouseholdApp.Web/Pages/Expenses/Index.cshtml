@@ -65,6 +65,9 @@
     <a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
         🔁 @L["Expenses.Recurring"]
     </a>
+    <a asp-page="Activity" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
+        🕒 @L["Expenses.Activity"]
+    </a>
 </div>
 
 @if (!Model.Expenses.Any())

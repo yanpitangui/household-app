@@ -17,6 +17,7 @@ public sealed class ExpenseCommandServiceEditTests(PostgresFixture db)
 
     private static ExpenseCommandService BuildSut(IDocumentSession session) => new(
         session,
+        new FakeCurrentUser(Guid.NewGuid()),
         new ThrowingRecurringExpenseRepository(),
         new ThrowingRecurringJobScheduler(),
         new ThrowingUnitOfWork(),

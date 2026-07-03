@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
@@ -12,6 +13,7 @@ namespace HouseholdApp.UnitTests.Modules.Expenses.Application;
 public sealed class ExpenseCommandServiceDeleteTests
 {
     private readonly IDocumentSession _session = Substitute.For<IDocumentSession>();
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly IRecurringExpenseRepository _recurringRepo = Substitute.For<IRecurringExpenseRepository>();
     private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
@@ -19,7 +21,7 @@ public sealed class ExpenseCommandServiceDeleteTests
 
     public ExpenseCommandServiceDeleteTests()
     {
-        _sut = new ExpenseCommandService(_session, _recurringRepo, _scheduler, _uow, new FakeTimeProvider());
+        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, new FakeTimeProvider());
     }
 
     [Test]

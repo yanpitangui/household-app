@@ -1,0 +1,15 @@
+@model HouseholdApp.Application.Modules.Expenses.Application.Ports.ActivityFeedPage
+<div id="activity-list" hx-swap-oob="beforeend">
+    @foreach (var item in Model.Items)
+    {
+        <partial name="_ActivityRow" model="item" />
+    }
+</div>
+@if (Model.NextCursor is not null)
+{
+    <button type="button" class="activity-load-more"
+            hx-get="?handler=LoadMore&cursor=@Uri.EscapeDataString(Model.NextCursor)"
+            hx-target="this" hx-swap="outerHTML">
+        @L["Expenses.Activity.LoadMore"]
+    </button>
+}

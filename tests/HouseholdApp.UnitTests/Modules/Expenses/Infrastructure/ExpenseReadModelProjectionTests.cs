@@ -19,7 +19,7 @@ public sealed class ExpenseReadModelProjectionTests
         var funding = new[] { new FundingSource(UserId, 1000) };
         var allocations = new[] { new Allocation(UserId, 1000) };
         var evt = new ExpenseRecorded(Guid.NewGuid(), Now, expenseId, HouseholdId, groupId,
-            "Groceries", Now, funding, allocations);
+            "Groceries", Now, funding, allocations, UserId);
         var model = new ExpenseReadModel();
 
         _projection.Apply(evt, model);
@@ -38,7 +38,7 @@ public sealed class ExpenseReadModelProjectionTests
         var model = new ExpenseReadModel { Id = Guid.NewGuid() };
 
         _projection.Apply(
-            new ExpenseVoided(Guid.NewGuid(), Now, model.Id, HouseholdId, "duplicate", [], []), model);
+            new ExpenseVoided(Guid.NewGuid(), Now, model.Id, HouseholdId, "duplicate", [], [], UserId, "Groceries"), model);
 
         await Assert.That(model.IsVoided).IsTrue();
         await Assert.That(model.VoidReason).IsEqualTo("duplicate");
@@ -50,7 +50,7 @@ public sealed class ExpenseReadModelProjectionTests
         var originalId = Guid.NewGuid();
         var evt = new ExpenseRecorded(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, Guid.NewGuid(),
             "Groceries (edited)", Now, [new FundingSource(UserId, 1000)], [new Allocation(UserId, 1000)],
-            CorrectedFromExpenseId: originalId);
+            UserId, CorrectedFromExpenseId: originalId);
         var model = new ExpenseReadModel();
 
         _projection.Apply(evt, model);
