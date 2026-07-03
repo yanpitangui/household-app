@@ -16,6 +16,14 @@
     <div class="household-hero-name">@Model.Household.Name</div>
 </div>
 
+<div id="push-opt-in-banner" class="push-opt-in-banner" style="display:none" data-vapid-public-key="@Model.VapidPublicKey">
+    <span id="push-prompt-text">@L["Push.EnablePrompt"]</span>
+    <span id="push-enabled-text" style="display:none">@L["Push.Enabled"]</span>
+    <button id="push-enable-btn" type="button" class="btn btn-sm btn-primary">@L["Push.Enable"]</button>
+    <button id="push-disable-btn" type="button" class="btn btn-sm btn-outline-secondary" style="display:none">@L["Push.Disable"]</button>
+    <button id="push-dismiss-btn" type="button" class="btn btn-sm btn-outline-secondary">@L["Action.Dismiss"]</button>
+</div>
+
 <div class="feature-grid">
     <a href="/h/@Model.Household.Id/lists" class="feature-card">
         <div class="feature-card-pip" style="background:var(--accent-lists)"></div>
@@ -103,4 +111,8 @@
         </div>
         <div class="invite-card-hint">@L["Dashboard.InviteSingleUseHint"]</div>
     </div>
+}
+
+@section Scripts {
+    <script src="~/js/push.js" asp-append-version="true"></script>
 }

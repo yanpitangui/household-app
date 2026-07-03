@@ -11,12 +11,14 @@
     <PackageReference Include="Cronos" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Marten" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Scrutor" />
     <PackageReference Include="TickerQ" />
     <PackageReference Include="TickerQ.Caching.StackExchangeRedis" />
     <PackageReference Include="Valtuutus.Data.Caching" />
     <PackageReference Include="Valtuutus.Data.Postgres" />
     <PackageReference Include="Valtuutus.Lang.SourceGen" />
+    <PackageReference Include="WebPush" />
     <PackageReference Include="ZiggyCreatures.FusionCache" />
     <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" />
     <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" />

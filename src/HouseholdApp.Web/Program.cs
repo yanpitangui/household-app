@@ -2,6 +2,7 @@ using HouseholdApp.Application.Modules.Expenses;
 using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Modules.Identity;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
+using HouseholdApp.Application.Modules.Notifications;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Services;
@@ -16,6 +17,7 @@ using HouseholdApp.Application.Modules.Tasks;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Web.Lists;
+using HouseholdApp.Web.Notifications;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -54,6 +56,7 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddEventBus();
 builder.Services.AddIdentityModule();
 builder.Services.AddHouseholdsModule();
+builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddCatalogModule();
 builder.Services.AddListsModule();
 builder.Services.AddEventHandler<ListItemAdded, ListRealtimeNotifier>();
@@ -254,6 +257,7 @@ app.MapGet("/sw.js", () => Results.Text(swContent, "application/javascript"))
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
 app.MapListStream();
+app.MapPushSubscriptions();
 app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 {
     var props = new AuthenticationProperties { RedirectUri = returnUrl ?? "/" };

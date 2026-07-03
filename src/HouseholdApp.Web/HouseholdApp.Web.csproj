@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\HouseholdApp.Application\HouseholdApp.Application.csproj" />
@@ -22,6 +22,7 @@
     <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>26b5eee7-0fbc-4d02-9c7d-180124458391</UserSecretsId>
   </PropertyGroup>
 
 </Project>

@@ -68,6 +68,13 @@
   <data name="Action.Back"><value>Voltar</value></data>
   <data name="Action.Open"><value>Abrir</value></data>
   <data name="Action.Edit"><value>Editar</value></data>
+  <data name="Action.Dismiss"><value>Dispensar</value></data>
+
+  <!-- Push notifications -->
+  <data name="Push.EnablePrompt"><value>Receba um aviso quando alguém adicionar ou alterar uma despesa.</value></data>
+  <data name="Push.Enable"><value>Ativar notificações</value></data>
+  <data name="Push.Enabled"><value>Notificações ativadas</value></data>
+  <data name="Push.Disable"><value>Desativar</value></data>
 
   <!-- Common states -->
   <data name="Common.NoItemsYet"><value>Nada aqui ainda.</value></data>

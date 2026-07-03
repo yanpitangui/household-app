@@ -68,6 +68,13 @@
   <data name="Action.Back"><value>Back</value></data>
   <data name="Action.Open"><value>Open</value></data>
   <data name="Action.Edit"><value>Edit</value></data>
+  <data name="Action.Dismiss"><value>Dismiss</value></data>
+
+  <!-- Push notifications -->
+  <data name="Push.EnablePrompt"><value>Get notified when someone adds or changes an expense.</value></data>
+  <data name="Push.Enable"><value>Enable notifications</value></data>
+  <data name="Push.Enabled"><value>Notifications enabled</value></data>
+  <data name="Push.Disable"><value>Disable</value></data>
 
   <!-- Common states -->
   <data name="Common.NoItemsYet"><value>Nothing here yet.</value></data>

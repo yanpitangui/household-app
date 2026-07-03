@@ -41,6 +41,9 @@ public static class ExpensesModule
         services.AddScoped<IActivityFeedQueries, ActivityFeedQueryService>();
         services.AddScoped<IRecurringJobScheduler, TickerQJobScheduler>();
         services.AddEventHandler<HouseholdCreated, DefaultExpenseGroupHandler>();
+        services.AddEventHandler<ExpenseRecorded, ExpensePushNotificationHandler>();
+        services.AddEventHandler<ExpenseVoided, ExpensePushNotificationHandler>();
+        services.AddEventHandler<SettlementRecorded, ExpensePushNotificationHandler>();
 
         services.MapTicker<RecurringExpenseJobs, Guid>();
 

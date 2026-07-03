@@ -86,6 +86,13 @@ public class AppFixture : AspireFixture<Projects.HouseholdApp_AppHost>
             .WithEnvironment("Oidc__Authority", FakeOidc.Url)
             .WithEnvironment("Oidc__ClientId", "household-app")
             .WithEnvironment("Oidc__ClientSecret", "test-secret")
+            // Dummy VAPID config so the push opt-in banner renders (push.js hides it when the
+            // key is empty). Never used to send a real push in these tests — subscribe is
+            // mocked client-side, so the key's cryptographic validity doesn't matter, only
+            // that it's a non-empty base64url-safe string urlBase64ToUint8Array can decode.
+            .WithEnvironment("Push__VapidPublicKey", "test-vapid-public-key-1234567890")
+            .WithEnvironment("Push__VapidPrivateKey", "test-vapid-private-key-abcdefghij")
+            .WithEnvironment("Push__Subject", "mailto:test@example.com")
             .WithEnvironment("ConnectionStrings__householdapp",
                 ReferenceExpression.Create($"{appDb.ConnectionStringExpression};SslMode=Disable"))
             .WithEnvironment("ConnectionStrings__postgres",
