@@ -93,6 +93,12 @@ public class RecipesTests(PlaywrightFixture pw)
         // Navigate to detail page then delete
         await page.ClickAsync($"text={recipeTitle}");
         await page.Locator(".page-heading").WaitForAsync();
+
+        // Last-Modified has 1-second resolution; wait so the post-delete cache
+        // regeneration stamps a value distinct from the create-time stamp,
+        // otherwise the Index GET gets a false 304 and shows the stale list.
+        await page.WaitForTimeoutAsync(1000);
+
         await page.ClickAsync("button:has-text('Delete')");
         await page.ClickAsync("#confirm-ok");
         await page.Locator(".page-heading:has-text('Recipes')").WaitForAsync();
