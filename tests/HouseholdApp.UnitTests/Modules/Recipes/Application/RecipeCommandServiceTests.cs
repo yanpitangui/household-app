@@ -83,10 +83,23 @@ public sealed class RecipeCommandServiceTests
     [Test]
     public async Task DeleteRecipeAsync_calls_repo_delete()
     {
+        var householdId = Guid.NewGuid();
         var recipeId = Guid.NewGuid();
 
-        await _sut.DeleteRecipeAsync(recipeId);
+        await _sut.DeleteRecipeAsync(householdId, recipeId);
 
         await _repo.Received(1).DeleteAsync(recipeId, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteRecipeAsync_enqueues_RecipeDeleted_event()
+    {
+        var householdId = Guid.NewGuid();
+        var recipeId = Guid.NewGuid();
+
+        await _sut.DeleteRecipeAsync(householdId, recipeId);
+
+        _eventBus.Received(1).Enqueue(Arg.Is<RecipeDeleted>(e =>
+            e.RecipeId == recipeId && e.HouseholdId == householdId));
     }
 }

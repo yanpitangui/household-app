@@ -29,7 +29,7 @@ public class RecipeDetailModel(
 
     public async Task<IActionResult> OnPostDeleteAsync()
     {
-        await recipeCommands.DeleteRecipeAsync(RecipeId);
+        await recipeCommands.DeleteRecipeAsync(HouseholdId, RecipeId);
         TempData["Success"] = Loc["Flash.RecipeDeleted"].Value;
         return RedirectToPage("Index", new { householdId = HouseholdId });
     }

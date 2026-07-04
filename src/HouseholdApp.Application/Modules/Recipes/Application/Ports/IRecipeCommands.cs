@@ -12,5 +12,5 @@ public interface IRecipeCommands
         IReadOnlyList<InstructionStepDto> instructions,
         CancellationToken ct = default);
 
-    Task DeleteRecipeAsync(Guid recipeId, CancellationToken ct = default);
+    Task DeleteRecipeAsync(Guid householdId, Guid recipeId, CancellationToken ct = default);
 }
