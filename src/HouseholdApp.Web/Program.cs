@@ -246,16 +246,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseTickerQ();
 
-var swTemplate = await File.ReadAllTextAsync(
-    Path.Combine(app.Environment.WebRootPath, "_sw.js"));
-var swContent = swTemplate.Replace(
-    "__CACHE_VERSION__",
-    DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
-
-app.MapGet("/sw.js", () => Results.Text(swContent, "application/javascript"))
-   .AllowAnonymous()
-   .ExcludeFromDescription();
-
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
 app.MapListStream();

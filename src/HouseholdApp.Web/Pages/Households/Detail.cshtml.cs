@@ -12,6 +12,7 @@ public class HouseholdDetailModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
     IHouseholdQueries householdQueries,
+    IHouseholdQueriesWithETag householdQueriesWithETag,
     IHouseholdCommands householdCommands,
     IOptions<PushOptions> pushOptions) : HouseholdPageModel(currentUser, guard)
 {
@@ -28,14 +29,18 @@ public class HouseholdDetailModel(
     public string? InviteToken { get; private set; }
     public string VapidPublicKey => pushOptions.Value.VapidPublicKey;
 
-    public async Task OnGetAsync()
+    public async Task<IActionResult> OnGetAsync()
     {
-        Household = await householdQueries.GetAsync(Id);
+        var result = await householdQueriesWithETag.GetWithETagAsync(Id);
+        Household = result.Value;
+
         if (Household is not null)
             Response.Cookies.Append("last_household", Id.ToString(),
                 new CookieOptions { Expires = DateTimeOffset.UtcNow.AddDays(90), IsEssential = true });
         else if (Request.Cookies["last_household"] == Id.ToString())
             Response.Cookies.Delete("last_household");
+
+        return Household is null ? Page() : this.NotModifiedOr304(result.ETag) ?? Page();
     }
 
     [RequireManage]

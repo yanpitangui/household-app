@@ -14,6 +14,7 @@ public static class HouseholdsModule
         services.AddScoped<IHouseholdCommands, HouseholdCommandService>();
         services.AddScoped<IHouseholdQueries, HouseholdQueryService>();
         services.Decorate<IHouseholdQueries, CachingHouseholdQueryService>();
+        services.AddScoped<IHouseholdQueriesWithETag>(sp => (IHouseholdQueriesWithETag)sp.GetRequiredService<IHouseholdQueries>());
         services.AddTransactionalEventHandler<HouseholdCreated, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdCreated, HouseholdCacheInvalidationHandler>();
         services.AddTransactionalEventHandler<HouseholdMemberJoined, HouseholdAuthorizationSyncHandler>();

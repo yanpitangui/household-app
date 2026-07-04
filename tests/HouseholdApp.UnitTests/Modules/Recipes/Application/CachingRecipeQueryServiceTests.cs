@@ -59,4 +59,43 @@ public sealed class CachingRecipeQueryServiceTests
         await _inner.Received(1).GetAsync(householdA, recipeId, Arg.Any<CancellationToken>());
         await _inner.Received(1).GetAsync(householdB, recipeId, Arg.Any<CancellationToken>());
     }
+
+    [Test]
+    public async Task ListWithETagAsync_returns_same_etag_until_cache_invalidated()
+    {
+        var householdId = Guid.NewGuid();
+        IReadOnlyList<RecipeSummary> recipes = [new RecipeSummary(Guid.NewGuid(), "Bread", null, 4, null)];
+        _inner.ListAsync(householdId, Arg.Any<CancellationToken>()).Returns(recipes);
+
+        var first = await _sut.ListWithETagAsync(householdId);
+        var second = await _sut.ListWithETagAsync(householdId);
+
+        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.Value).IsEqualTo(first.Value);
+
+        await _cache.RemoveAsync(RecipeCacheKeys.List(householdId));
+        var third = await _sut.ListWithETagAsync(householdId);
+
+        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+    }
+
+    [Test]
+    public async Task GetWithETagAsync_returns_same_etag_until_cache_invalidated()
+    {
+        var householdId = Guid.NewGuid();
+        var recipeId = Guid.NewGuid();
+        var detail = new RecipeDetail(recipeId, "Bread", null, 4, null, null, [], [], DateTimeOffset.UtcNow);
+        _inner.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(detail);
+
+        var first = await _sut.GetWithETagAsync(householdId, recipeId);
+        var second = await _sut.GetWithETagAsync(householdId, recipeId);
+
+        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.Value).IsEqualTo(first.Value);
+
+        await _cache.RemoveAsync(RecipeCacheKeys.Detail(householdId, recipeId));
+        var third = await _sut.GetWithETagAsync(householdId, recipeId);
+
+        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+    }
 }

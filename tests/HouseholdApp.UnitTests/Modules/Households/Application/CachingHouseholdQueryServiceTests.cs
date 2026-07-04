@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Modules.Households.Application.Operations;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using NSubstitute;
@@ -55,5 +56,43 @@ public sealed class CachingHouseholdQueryServiceTests
         await _sut.ListNamesAsync(userId);
 
         await _inner.Received(1).ListNamesAsync(userId, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetWithETagAsync_returns_same_etag_until_cache_invalidated()
+    {
+        var householdId = Guid.NewGuid();
+        var detail = new HouseholdDetail(householdId, "Casa", DateTime.UtcNow, []);
+        _inner.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(detail);
+
+        var first = await _sut.GetWithETagAsync(householdId);
+        var second = await _sut.GetWithETagAsync(householdId);
+
+        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.Value).IsEqualTo(first.Value);
+
+        await _cache.RemoveAsync(HouseholdCacheKeys.Detail(householdId));
+        var third = await _sut.GetWithETagAsync(householdId);
+
+        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+    }
+
+    [Test]
+    public async Task ListForUserWithETagAsync_returns_same_etag_until_cache_invalidated()
+    {
+        var userId = Guid.NewGuid();
+        IReadOnlyList<HouseholdSummary> summaries = [new HouseholdSummary(Guid.NewGuid(), "Casa", 2, DateTime.UtcNow)];
+        _inner.ListForUserAsync(userId, Arg.Any<CancellationToken>()).Returns(summaries);
+
+        var first = await _sut.ListForUserWithETagAsync(userId);
+        var second = await _sut.ListForUserWithETagAsync(userId);
+
+        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.Value).IsEqualTo(first.Value);
+
+        await _cache.RemoveAsync(HouseholdCacheKeys.ListForUser(userId));
+        var third = await _sut.ListForUserWithETagAsync(userId);
+
+        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
     }
 }
