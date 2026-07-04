@@ -2,9 +2,11 @@ using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
+using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Dapper;
 using Marten;
+using NSubstitute;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
 
@@ -14,7 +16,7 @@ public sealed class ActivityFeedQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ActivityFeedQueryService BuildSut(IQuerySession qs) =>
-        new(qs, new UserRepository(db.DataSource, TimeProvider.System));
+        new(qs, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()));
 
     private async Task InsertUserAsync(Guid id, string name)
     {

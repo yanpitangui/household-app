@@ -12,6 +12,7 @@
     <PackageReference Include="Marten" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="Valtuutus.Data.InMemory" />

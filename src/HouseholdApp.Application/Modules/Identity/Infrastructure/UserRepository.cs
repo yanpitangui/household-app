@@ -1,11 +1,12 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using HouseholdApp.Application.Modules.Identity.Domain;
+using HouseholdApp.Application.Shared.Events;
 using Npgsql;
 
 namespace HouseholdApp.Application.Modules.Identity.Infrastructure;
 
-public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time) : IUserQuery, IUserProvisioning
+public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEventBus eventBus) : IUserQuery, IUserProvisioning
 {
     public async Task<UserProfile?> GetBySubjectAsync(string subject, CancellationToken ct = default)
     {
@@ -36,22 +37,28 @@ public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time) : IUs
     {
         var user = User.Provision(subject, email, displayName, time.GetUtcNow());
         await using var conn = await db.OpenConnectionAsync(ct);
-        await conn.ExecuteAsync(
+        var userId = await conn.ExecuteScalarAsync<Guid>(
             """
             WITH linked AS (
                 UPDATE identity.users
                 SET subject = @Subject, display_name = @DisplayName, picture_url = @PictureUrl, last_login_at = @LastLoginAt
                 WHERE email = @Email
                 RETURNING id
+            ),
+            inserted AS (
+                INSERT INTO identity.users (id, subject, email, display_name, picture_url, created_at, last_login_at)
+                SELECT @Id, @Subject, @Email, @DisplayName, @PictureUrl, @CreatedAt, @LastLoginAt
+                WHERE NOT EXISTS (SELECT 1 FROM linked)
+                ON CONFLICT (subject) DO UPDATE
+                    SET email = EXCLUDED.email,
+                        display_name = EXCLUDED.display_name,
+                        picture_url = EXCLUDED.picture_url,
+                        last_login_at = EXCLUDED.last_login_at
+                RETURNING id
             )
-            INSERT INTO identity.users (id, subject, email, display_name, picture_url, created_at, last_login_at)
-            SELECT @Id, @Subject, @Email, @DisplayName, @PictureUrl, @CreatedAt, @LastLoginAt
-            WHERE NOT EXISTS (SELECT 1 FROM linked)
-            ON CONFLICT (subject) DO UPDATE
-                SET email = EXCLUDED.email,
-                    display_name = EXCLUDED.display_name,
-                    picture_url = EXCLUDED.picture_url,
-                    last_login_at = EXCLUDED.last_login_at
+            SELECT id FROM linked
+            UNION ALL
+            SELECT id FROM inserted
             """,
             new
             {
@@ -63,5 +70,7 @@ public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time) : IUs
                 user.CreatedAt,
                 user.LastLoginAt
             });
+
+        await eventBus.PublishAsync(new UserProvisioned(Guid.CreateVersion7(), time.GetUtcNow(), userId, subject), ct);
     }
 }

@@ -3,9 +3,12 @@ using TUnit.Core.Interfaces;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
+using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
+using NSubstitute;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
 
@@ -15,7 +18,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
-        new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System));
+        new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()));
 
     [Test]
     public async Task GetExpensesSummaryAsync_returns_empty_for_unknown_household()
@@ -210,5 +213,68 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await Assert.That(summary.Expenses.Count).IsEqualTo(1);
         await Assert.That(summary.Expenses[0].Description).IsEqualTo("GroupA Expense");
+    }
+
+    [Test]
+    public async Task GetExpensesSummaryAsync_returns_expenses_ordered_newest_date_first()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var oldestId = Guid.NewGuid();
+        var middleId = Guid.NewGuid();
+        var newestId = Guid.NewGuid();
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        await conn.ExecuteAsync(
+            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
+            new { id = userId, sub = $"sub-{userId}", email = "orderuser@test.com", name = "OrderUser" });
+
+        await using (var s = Store.LightweightSession())
+        {
+            s.Events.Append(oldestId, new ExpenseRecorded(
+                Guid.NewGuid(), DateTimeOffset.UtcNow, oldestId, householdId, groupId,
+                "Oldest", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
+            s.Events.Append(newestId, new ExpenseRecorded(
+                Guid.NewGuid(), DateTimeOffset.UtcNow, newestId, householdId, groupId,
+                "Newest", new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero),
+                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
+            s.Events.Append(middleId, new ExpenseRecorded(
+                Guid.NewGuid(), DateTimeOffset.UtcNow, middleId, householdId, groupId,
+                "Middle", new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero),
+                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, groupId: groupId);
+
+        await Assert.That(summary.Expenses.Count).IsEqualTo(3);
+        await Assert.That(summary.Expenses[0].Description).IsEqualTo("Newest");
+        await Assert.That(summary.Expenses[1].Description).IsEqualTo("Middle");
+        await Assert.That(summary.Expenses[2].Description).IsEqualTo("Oldest");
+    }
+
+    [Test]
+    public async Task ListExpenseGroupsAsync_returns_groups_for_household_ordered_by_name()
+    {
+        var householdId = Guid.NewGuid();
+        var otherHouseholdId = Guid.NewGuid();
+
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = Guid.NewGuid(), HouseholdId = householdId, Name = "Zebra Trip" });
+            s.Store(new ExpenseGroupDocument { Id = Guid.NewGuid(), HouseholdId = householdId, Name = "Apple Groceries" });
+            s.Store(new ExpenseGroupDocument { Id = Guid.NewGuid(), HouseholdId = otherHouseholdId, Name = "Other Household Group" });
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var groups = await BuildSut(qs).ListExpenseGroupsAsync(householdId);
+
+        await Assert.That(groups.Count).IsEqualTo(2);
+        await Assert.That(groups[0].Name).IsEqualTo("Apple Groceries");
+        await Assert.That(groups[1].Name).IsEqualTo("Zebra Trip");
     }
 }

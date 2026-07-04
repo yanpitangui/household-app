@@ -1,5 +1,6 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
@@ -92,9 +93,7 @@ public sealed class ExpenseCommandService(
         _ = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct)
             ?? throw new InvalidOperationException("Expense group not found.");
 
-        var hasActiveExpenses = await session.Query<ExpenseReadModel>()
-            .Where(e => e.ExpenseGroupId == groupId && !e.IsVoided)
-            .AnyAsync(ct);
+        var hasActiveExpenses = await session.QueryAsync(new HasActiveExpensesInGroup { GroupId = groupId }, ct);
         if (hasActiveExpenses)
             throw new InvalidOperationException("Cannot delete an expense group with active expenses.");
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using Marten;
@@ -15,14 +16,10 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
     {
         var decoded = Decode(cursor);
 
-        var query = session.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId);
-        if (decoded is not null)
-            query = query.Where(a => a.OccurredAt < decoded.OccurredAt);
-
-        var page = await query
-            .OrderByDescending(a => a.OccurredAt)
-            .Take(pageSize + 1)
-            .ToListAsync(ct);
+        var page = (decoded is null
+            ? await session.QueryAsync(new ActivityFeedFirstPage { HouseholdId = householdId, PageSizePlusOne = pageSize + 1 }, ct)
+            : await session.QueryAsync(new ActivityFeedCursorPage { HouseholdId = householdId, Before = decoded.OccurredAt, PageSizePlusOne = pageSize + 1 }, ct))
+            .ToList();
 
         var hasMore = page.Count > pageSize;
         var entries = page.Take(pageSize).ToList();

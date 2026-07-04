@@ -1,6 +1,7 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using Marten;
@@ -16,11 +17,9 @@ public sealed class ExpenseQueryService(
     public async Task<ExpensesSummary> GetExpensesSummaryAsync(
         Guid householdId, Guid? groupId = null, CancellationToken ct = default)
     {
-        var query = querySession.Query<ExpenseReadModel>()
-            .Where(e => e.HouseholdId == householdId && !e.IsVoided);
-        if (groupId.HasValue)
-            query = query.Where(e => e.ExpenseGroupId == groupId.Value);
-        var expenseModels = await query.OrderByDescending(e => e.Date).ToListAsync(ct);
+        var expenseModels = groupId.HasValue
+            ? await querySession.QueryAsync(new ExpensesForGroup { HouseholdId = householdId, GroupId = groupId.Value }, ct)
+            : await querySession.QueryAsync(new ExpensesForHousehold { HouseholdId = householdId }, ct);
 
         var ledger = await querySession.LoadAsync<HouseholdLedger>(householdId, ct);
         var pairs = ledger?.Pairs ?? [];
@@ -82,10 +81,7 @@ public sealed class ExpenseQueryService(
     public async Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(
         Guid householdId, CancellationToken ct = default)
     {
-        var groups = await querySession.Query<ExpenseGroupDocument>()
-            .Where(g => g.HouseholdId == householdId)
-            .OrderBy(g => g.Name)
-            .ToListAsync(ct);
+        var groups = await querySession.QueryAsync(new ExpenseGroupsForHousehold { HouseholdId = householdId }, ct);
         return groups.Select(g => new ExpenseGroupSummary(g.Id, g.Name, g.Description)).ToList();
     }
 

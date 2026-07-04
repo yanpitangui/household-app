@@ -28,4 +28,8 @@
     <EmbeddedResource Include="Shared/Authorization/schema.vtt" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="HouseholdApp.UnitTests" />
+  </ItemGroup>
+
 </Project>

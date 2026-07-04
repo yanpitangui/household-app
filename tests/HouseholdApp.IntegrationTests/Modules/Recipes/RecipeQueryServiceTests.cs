@@ -9,6 +9,7 @@ using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace HouseholdApp.IntegrationTests.Modules.Recipes;
 
@@ -26,6 +27,7 @@ public sealed class RecipeQueryServiceTests(PostgresFixture db) : IAsyncDisposab
         services.AddScoped<MutableCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<MutableCurrentUser>());
         services.AddPersistence();
+        services.AddFusionCache();
         services.AddCatalogModule();
         services.AddRecipesModule();
         services.AddEventBus();

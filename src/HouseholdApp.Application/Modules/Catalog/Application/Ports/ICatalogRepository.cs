@@ -2,7 +2,7 @@ using HouseholdApp.Application.Modules.Catalog.Application.Ports;
 
 namespace HouseholdApp.Application.Modules.Catalog.Application.Ports;
 
-internal interface ICatalogRepository
+public interface ICatalogRepository
 {
     Task<IReadOnlyList<CatalogItemSuggestion>> SuggestAsync(Guid householdId, string query, string language, CancellationToken ct = default);
     Task<IReadOnlyDictionary<string, CatalogItemSuggestion>> MatchIngredientsAsync(Guid householdId, IReadOnlyList<string> ingredientNames, CancellationToken ct = default);

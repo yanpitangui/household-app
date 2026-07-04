@@ -5,6 +5,7 @@ using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace HouseholdApp.IntegrationTests.Modules.Catalog;
 
@@ -17,8 +18,10 @@ public sealed class CatalogRepositoryTests(PostgresFixture db) : IAsyncDisposabl
     {
         var services = new ServiceCollection();
         services.AddSingleton(db.DataSource);
+        services.AddSingleton(TimeProvider.System);
         services.AddPersistence();
         services.AddEventBus();
+        services.AddFusionCache();
         services.AddCatalogModule();
         return services.BuildServiceProvider();
     }
