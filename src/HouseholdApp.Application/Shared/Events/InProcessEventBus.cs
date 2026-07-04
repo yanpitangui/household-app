@@ -12,7 +12,11 @@ internal sealed class InProcessEventBus(
     IServiceProvider sp,
     IEnumerable<EventHandlerDescriptor> descriptors) : IEventBus
 {
-    private readonly List<IDomainEvent> _queue = [];
+    // Per-phase dequeue (not a shared list) so a reentrant Flush*Async call — e.g. Marten's
+    // ExpenseEventPublishingListener flushing from inside SaveChangesAsync — can't redeliver an
+    // event an outer Flush*Async is still processing.
+    private readonly Queue<IDomainEvent> _transactionalQueue = new();
+    private readonly Queue<IDomainEvent> _deferredQueue = new();
 
     private readonly Dictionary<Type, List<EventHandlerDescriptor>> _transactional =
         descriptors.Where(d => d.Transactional)
@@ -24,19 +28,22 @@ internal sealed class InProcessEventBus(
             .GroupBy(d => d.EventType)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-    public void Enqueue(IDomainEvent @event) => _queue.Add(@event);
+    public void Enqueue(IDomainEvent @event)
+    {
+        _transactionalQueue.Enqueue(@event);
+        _deferredQueue.Enqueue(@event);
+    }
 
     public async Task FlushTransactionalAsync(CancellationToken ct = default)
     {
-        foreach (var @event in _queue)
+        while (_transactionalQueue.TryDequeue(out var @event))
             await Dispatch(_transactional, @event, ct);
     }
 
     public async Task FlushDeferredAsync(CancellationToken ct = default)
     {
-        foreach (var @event in _queue)
+        while (_deferredQueue.TryDequeue(out var @event))
             await Dispatch(_deferred, @event, ct);
-        _queue.Clear();
     }
 
     private async Task Dispatch(
