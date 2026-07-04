@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Modules.Expenses;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Modules.Identity;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
@@ -89,7 +90,8 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(connStr, healthQuery: "SELECT 1 FROM households.households LIMIT 0")
-    .AddRedis(redisMultiplexer);
+    .AddRedis(redisMultiplexer)
+    .AddCheck<MartenHealthCheck>("marten");
 
 builder.Services.AddStackExchangeRedisCache(o => o.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redisMultiplexer));
 builder.Services.AddFusionCache()
