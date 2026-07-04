@@ -9,7 +9,7 @@ namespace HouseholdApp.Web.Pages.Recipes;
 public class RecipesIndexModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
-    IRecipeQueriesWithETag recipeQueriesWithETag,
+    IRecipeQueriesWithLastModified recipeQueriesWithLastModified,
     IRecipeCommands recipeCommands) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
@@ -19,9 +19,9 @@ public class RecipesIndexModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var result = await recipeQueriesWithETag.ListWithETagAsync(HouseholdId);
+        var result = await recipeQueriesWithLastModified.ListWithLastModifiedAsync(HouseholdId);
         Recipes = result.Value;
-        return this.NotModifiedOr304(result.ETag) ?? Page();
+        return this.NotModifiedOr304(result.LastModified) ?? Page();
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(Guid recipeId)

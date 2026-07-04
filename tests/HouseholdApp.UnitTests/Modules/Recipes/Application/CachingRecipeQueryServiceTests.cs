@@ -1,6 +1,7 @@
 using HouseholdApp.Application.Modules.Recipes;
 using HouseholdApp.Application.Modules.Recipes.Application.Operations;
 using HouseholdApp.Application.Modules.Recipes.Application.Ports;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -10,11 +11,12 @@ public sealed class CachingRecipeQueryServiceTests
 {
     private readonly IRecipeQueries _inner = Substitute.For<IRecipeQueries>();
     private readonly IFusionCache _cache = new FusionCache(new FusionCacheOptions());
+    private readonly FakeTimeProvider _time = new(DateTimeOffset.UtcNow);
     private readonly CachingRecipeQueryService _sut;
 
     public CachingRecipeQueryServiceTests()
     {
-        _sut = new CachingRecipeQueryService(_inner, _cache);
+        _sut = new CachingRecipeQueryService(_inner, _cache, _time);
     }
 
     [Test]
@@ -61,41 +63,43 @@ public sealed class CachingRecipeQueryServiceTests
     }
 
     [Test]
-    public async Task ListWithETagAsync_returns_same_etag_until_cache_invalidated()
+    public async Task ListWithLastModifiedAsync_returns_same_timestamp_until_cache_invalidated()
     {
         var householdId = Guid.NewGuid();
         IReadOnlyList<RecipeSummary> recipes = [new RecipeSummary(Guid.NewGuid(), "Bread", null, 4, null)];
         _inner.ListAsync(householdId, Arg.Any<CancellationToken>()).Returns(recipes);
 
-        var first = await _sut.ListWithETagAsync(householdId);
-        var second = await _sut.ListWithETagAsync(householdId);
+        var first = await _sut.ListWithLastModifiedAsync(householdId);
+        var second = await _sut.ListWithLastModifiedAsync(householdId);
 
-        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.LastModified).IsEqualTo(first.LastModified);
         await Assert.That(second.Value).IsEqualTo(first.Value);
 
+        _time.Advance(TimeSpan.FromSeconds(1));
         await _cache.RemoveAsync(RecipeCacheKeys.List(householdId));
-        var third = await _sut.ListWithETagAsync(householdId);
+        var third = await _sut.ListWithLastModifiedAsync(householdId);
 
-        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+        await Assert.That(third.LastModified).IsNotEqualTo(first.LastModified);
     }
 
     [Test]
-    public async Task GetWithETagAsync_returns_same_etag_until_cache_invalidated()
+    public async Task GetWithLastModifiedAsync_returns_same_timestamp_until_cache_invalidated()
     {
         var householdId = Guid.NewGuid();
         var recipeId = Guid.NewGuid();
         var detail = new RecipeDetail(recipeId, "Bread", null, 4, null, null, [], [], DateTimeOffset.UtcNow);
         _inner.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(detail);
 
-        var first = await _sut.GetWithETagAsync(householdId, recipeId);
-        var second = await _sut.GetWithETagAsync(householdId, recipeId);
+        var first = await _sut.GetWithLastModifiedAsync(householdId, recipeId);
+        var second = await _sut.GetWithLastModifiedAsync(householdId, recipeId);
 
-        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.LastModified).IsEqualTo(first.LastModified);
         await Assert.That(second.Value).IsEqualTo(first.Value);
 
+        _time.Advance(TimeSpan.FromSeconds(1));
         await _cache.RemoveAsync(RecipeCacheKeys.Detail(householdId, recipeId));
-        var third = await _sut.GetWithETagAsync(householdId, recipeId);
+        var third = await _sut.GetWithLastModifiedAsync(householdId, recipeId);
 
-        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+        await Assert.That(third.LastModified).IsNotEqualTo(first.LastModified);
     }
 }

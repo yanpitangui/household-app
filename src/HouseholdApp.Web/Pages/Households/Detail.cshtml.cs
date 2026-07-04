@@ -12,7 +12,7 @@ public class HouseholdDetailModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
     IHouseholdQueries householdQueries,
-    IHouseholdQueriesWithETag householdQueriesWithETag,
+    IHouseholdQueriesWithLastModified householdQueriesWithLastModified,
     IHouseholdCommands householdCommands,
     IOptions<PushOptions> pushOptions) : HouseholdPageModel(currentUser, guard)
 {
@@ -31,7 +31,7 @@ public class HouseholdDetailModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var result = await householdQueriesWithETag.GetWithETagAsync(Id);
+        var result = await householdQueriesWithLastModified.GetWithLastModifiedAsync(Id);
         Household = result.Value;
 
         if (Household is not null)
@@ -40,7 +40,7 @@ public class HouseholdDetailModel(
         else if (Request.Cookies["last_household"] == Id.ToString())
             Response.Cookies.Delete("last_household");
 
-        return Household is null ? Page() : this.NotModifiedOr304(result.ETag) ?? Page();
+        return Household is null ? Page() : this.NotModifiedOr304(result.LastModified) ?? Page();
     }
 
     [RequireManage]

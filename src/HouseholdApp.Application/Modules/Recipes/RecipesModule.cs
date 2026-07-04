@@ -14,7 +14,7 @@ public static class RecipesModule
         services.AddScoped<IRecipeCommands, RecipeCommandService>();
         services.AddScoped<IRecipeQueries, RecipeQueryService>();
         services.Decorate<IRecipeQueries, CachingRecipeQueryService>();
-        services.AddScoped<IRecipeQueriesWithETag>(sp => (IRecipeQueriesWithETag)sp.GetRequiredService<IRecipeQueries>());
+        services.AddScoped<IRecipeQueriesWithLastModified>(sp => (IRecipeQueriesWithLastModified)sp.GetRequiredService<IRecipeQueries>());
         services.AddScoped<IRecipeListImport, RecipeListImportService>();
         services.AddEventHandler<RecipeCreated, RecipeCacheInvalidationHandler>();
         services.AddEventHandler<RecipeDeleted, RecipeCacheInvalidationHandler>();

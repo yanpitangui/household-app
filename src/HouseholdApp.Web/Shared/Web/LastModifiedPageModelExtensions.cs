@@ -4,16 +4,16 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace HouseholdApp.Web.Shared.Web;
 
-public static class ETagPageModelExtensions
+public static class LastModifiedPageModelExtensions
 {
-    public static IActionResult? NotModifiedOr304(this PageModel page, string etag)
+    public static IActionResult? NotModifiedOr304(this PageModel page, DateTimeOffset lastModified)
     {
-        var quoted = $"\"{etag}\"";
+        var formatted = lastModified.UtcDateTime.ToString("R");
 
-        if (page.Request.Headers.IfNoneMatch == quoted)
+        if (page.Request.Headers.IfModifiedSince == formatted)
         {
             page.Response.Headers.CacheControl = "private, no-cache";
-            page.Response.Headers.ETag = quoted;
+            page.Response.Headers.LastModified = formatted;
             return page.StatusCode(StatusCodes.Status304NotModified);
         }
 
@@ -25,7 +25,7 @@ public static class ETagPageModelExtensions
         {
             page.Response.Headers.CacheControl = "private, no-cache";
             page.Response.Headers.Remove("Pragma");
-            page.Response.Headers.ETag = quoted;
+            page.Response.Headers.LastModified = formatted;
             return Task.CompletedTask;
         });
         return null;

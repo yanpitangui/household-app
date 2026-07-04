@@ -1,6 +1,7 @@
 using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Modules.Households.Application.Operations;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -10,11 +11,12 @@ public sealed class CachingHouseholdQueryServiceTests
 {
     private readonly IHouseholdQueries _inner = Substitute.For<IHouseholdQueries>();
     private readonly IFusionCache _cache = new FusionCache(new FusionCacheOptions());
+    private readonly FakeTimeProvider _time = new(DateTimeOffset.UtcNow);
     private readonly CachingHouseholdQueryService _sut;
 
     public CachingHouseholdQueryServiceTests()
     {
-        _sut = new CachingHouseholdQueryService(_inner, _cache);
+        _sut = new CachingHouseholdQueryService(_inner, _cache, _time);
     }
 
     [Test]
@@ -59,40 +61,42 @@ public sealed class CachingHouseholdQueryServiceTests
     }
 
     [Test]
-    public async Task GetWithETagAsync_returns_same_etag_until_cache_invalidated()
+    public async Task GetWithLastModifiedAsync_returns_same_timestamp_until_cache_invalidated()
     {
         var householdId = Guid.NewGuid();
         var detail = new HouseholdDetail(householdId, "Casa", DateTime.UtcNow, []);
         _inner.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(detail);
 
-        var first = await _sut.GetWithETagAsync(householdId);
-        var second = await _sut.GetWithETagAsync(householdId);
+        var first = await _sut.GetWithLastModifiedAsync(householdId);
+        var second = await _sut.GetWithLastModifiedAsync(householdId);
 
-        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.LastModified).IsEqualTo(first.LastModified);
         await Assert.That(second.Value).IsEqualTo(first.Value);
 
+        _time.Advance(TimeSpan.FromSeconds(1));
         await _cache.RemoveAsync(HouseholdCacheKeys.Detail(householdId));
-        var third = await _sut.GetWithETagAsync(householdId);
+        var third = await _sut.GetWithLastModifiedAsync(householdId);
 
-        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+        await Assert.That(third.LastModified).IsNotEqualTo(first.LastModified);
     }
 
     [Test]
-    public async Task ListForUserWithETagAsync_returns_same_etag_until_cache_invalidated()
+    public async Task ListForUserWithLastModifiedAsync_returns_same_timestamp_until_cache_invalidated()
     {
         var userId = Guid.NewGuid();
         IReadOnlyList<HouseholdSummary> summaries = [new HouseholdSummary(Guid.NewGuid(), "Casa", 2, DateTime.UtcNow)];
         _inner.ListForUserAsync(userId, Arg.Any<CancellationToken>()).Returns(summaries);
 
-        var first = await _sut.ListForUserWithETagAsync(userId);
-        var second = await _sut.ListForUserWithETagAsync(userId);
+        var first = await _sut.ListForUserWithLastModifiedAsync(userId);
+        var second = await _sut.ListForUserWithLastModifiedAsync(userId);
 
-        await Assert.That(second.ETag).IsEqualTo(first.ETag);
+        await Assert.That(second.LastModified).IsEqualTo(first.LastModified);
         await Assert.That(second.Value).IsEqualTo(first.Value);
 
+        _time.Advance(TimeSpan.FromSeconds(1));
         await _cache.RemoveAsync(HouseholdCacheKeys.ListForUser(userId));
-        var third = await _sut.ListForUserWithETagAsync(userId);
+        var third = await _sut.ListForUserWithLastModifiedAsync(userId);
 
-        await Assert.That(third.ETag).IsNotEqualTo(first.ETag);
+        await Assert.That(third.LastModified).IsNotEqualTo(first.LastModified);
     }
 }

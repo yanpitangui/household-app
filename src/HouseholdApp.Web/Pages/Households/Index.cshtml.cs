@@ -6,15 +6,15 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace HouseholdApp.Web.Pages.Households;
 
-public class HouseholdsIndexModel(ICurrentUser currentUser, IHouseholdQueriesWithETag householdQueriesWithETag)
+public class HouseholdsIndexModel(ICurrentUser currentUser, IHouseholdQueriesWithLastModified householdQueriesWithLastModified)
     : AuthenticatedPageModel(currentUser)
 {
     public IReadOnlyList<HouseholdSummary> Households { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var result = await householdQueriesWithETag.ListForUserWithETagAsync(CurrentUserId);
+        var result = await householdQueriesWithLastModified.ListForUserWithLastModifiedAsync(CurrentUserId);
         Households = result.Value;
-        return this.NotModifiedOr304(result.ETag) ?? Page();
+        return this.NotModifiedOr304(result.LastModified) ?? Page();
     }
 }
