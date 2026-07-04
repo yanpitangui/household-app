@@ -16,11 +16,10 @@ internal sealed class CachingHouseholdQueryService(IHouseholdQueries inner, IFus
         GetOrSetListForUserAsync(userId, ct);
 
     public async Task<IReadOnlyList<HouseholdName>> ListNamesAsync(Guid userId, CancellationToken ct = default) =>
-        await cache.GetOrSetAsync<IReadOnlyList<HouseholdName>>(
-            HouseholdCacheKeys.ListNames(userId),
-            token => inner.ListNamesAsync(userId, token),
-            EntryOptions,
-            token: ct);
+        (await GetOrSetListNamesAsync(userId, ct)).Value;
+
+    public Task<WithLastModified<IReadOnlyList<HouseholdName>>> ListNamesWithLastModifiedAsync(Guid userId, CancellationToken ct = default) =>
+        GetOrSetListNamesAsync(userId, ct);
 
     public async Task<HouseholdDetail?> GetAsync(Guid householdId, CancellationToken ct = default) =>
         (await GetOrSetDetailAsync(householdId, ct)).Value;
@@ -49,6 +48,15 @@ internal sealed class CachingHouseholdQueryService(IHouseholdQueries inner, IFus
             HouseholdCacheKeys.Detail(householdId),
             async token => new WithLastModified<HouseholdDetail?>(
                 await inner.GetAsync(householdId, token),
+                time.GetUtcNow()),
+            EntryOptions,
+            token: ct).AsTask();
+
+    private Task<WithLastModified<IReadOnlyList<HouseholdName>>> GetOrSetListNamesAsync(Guid userId, CancellationToken ct) =>
+        cache.GetOrSetAsync<WithLastModified<IReadOnlyList<HouseholdName>>>(
+            HouseholdCacheKeys.ListNames(userId),
+            async token => new WithLastModified<IReadOnlyList<HouseholdName>>(
+                await inner.ListNamesAsync(userId, token),
                 time.GetUtcNow()),
             EntryOptions,
             token: ct).AsTask();
