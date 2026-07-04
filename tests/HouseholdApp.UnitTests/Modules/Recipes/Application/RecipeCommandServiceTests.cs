@@ -88,7 +88,7 @@ public sealed class RecipeCommandServiceTests
 
         await _sut.DeleteRecipeAsync(householdId, recipeId);
 
-        await _repo.Received(1).DeleteAsync(recipeId, Arg.Any<CancellationToken>());
+        await _repo.Received(1).DeleteAsync(householdId, recipeId, Arg.Any<CancellationToken>());
     }
 
     [Test]

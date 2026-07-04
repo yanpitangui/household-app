@@ -14,10 +14,10 @@ internal sealed class CachingRecipeQueryService(IRecipeQueries inner, IFusionCac
             EntryOptions,
             token: ct);
 
-    public async Task<RecipeDetail?> GetAsync(Guid recipeId, CancellationToken ct = default) =>
+    public async Task<RecipeDetail?> GetAsync(Guid householdId, Guid recipeId, CancellationToken ct = default) =>
         await cache.GetOrSetAsync<RecipeDetail?>(
-            RecipeCacheKeys.Detail(recipeId),
-            token => inner.GetAsync(recipeId, token),
+            RecipeCacheKeys.Detail(householdId, recipeId),
+            token => inner.GetAsync(householdId, recipeId, token),
             EntryOptions,
             token: ct);
 }

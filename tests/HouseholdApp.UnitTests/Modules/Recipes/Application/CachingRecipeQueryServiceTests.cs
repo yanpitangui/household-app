@@ -33,13 +33,30 @@ public sealed class CachingRecipeQueryServiceTests
     [Test]
     public async Task GetAsync_caches_result_so_inner_is_called_once()
     {
+        var householdId = Guid.NewGuid();
         var recipeId = Guid.NewGuid();
         var detail = new RecipeDetail(recipeId, "Bread", null, 4, null, null, [], [], DateTimeOffset.UtcNow);
-        _inner.GetAsync(recipeId, Arg.Any<CancellationToken>()).Returns(detail);
+        _inner.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(detail);
 
-        await _sut.GetAsync(recipeId);
-        await _sut.GetAsync(recipeId);
+        await _sut.GetAsync(householdId, recipeId);
+        await _sut.GetAsync(householdId, recipeId);
 
-        await _inner.Received(1).GetAsync(recipeId, Arg.Any<CancellationToken>());
+        await _inner.Received(1).GetAsync(householdId, recipeId, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAsync_does_not_share_cache_entry_across_households_for_the_same_recipeId()
+    {
+        var recipeId = Guid.NewGuid();
+        var householdA = Guid.NewGuid();
+        var householdB = Guid.NewGuid();
+        var detail = new RecipeDetail(recipeId, "Bread", null, 4, null, null, [], [], DateTimeOffset.UtcNow);
+        _inner.GetAsync(Arg.Any<Guid>(), recipeId, Arg.Any<CancellationToken>()).Returns(detail);
+
+        await _sut.GetAsync(householdA, recipeId);
+        await _sut.GetAsync(householdB, recipeId);
+
+        await _inner.Received(1).GetAsync(householdA, recipeId, Arg.Any<CancellationToken>());
+        await _inner.Received(1).GetAsync(householdB, recipeId, Arg.Any<CancellationToken>());
     }
 }

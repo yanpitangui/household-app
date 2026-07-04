@@ -12,5 +12,5 @@ public sealed record RecipeDetail(
 public interface IRecipeQueries
 {
     Task<IReadOnlyList<RecipeSummary>> ListAsync(Guid householdId, CancellationToken ct = default);
-    Task<RecipeDetail?> GetAsync(Guid recipeId, CancellationToken ct = default);
+    Task<RecipeDetail?> GetAsync(Guid householdId, Guid recipeId, CancellationToken ct = default);
 }

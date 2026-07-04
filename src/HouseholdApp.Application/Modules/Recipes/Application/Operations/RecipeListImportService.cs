@@ -10,7 +10,7 @@ public sealed class RecipeListImportService(
     public async Task<IReadOnlyList<ProposedListItem>> ProposeListItemsAsync(
         Guid householdId, Guid recipeId, CancellationToken ct = default)
     {
-        var recipe = await recipeQueries.GetAsync(recipeId, ct);
+        var recipe = await recipeQueries.GetAsync(householdId, recipeId, ct);
         if (recipe is null) return [];
 
         // Parse qty/unit out of the name when not already structured

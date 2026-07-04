@@ -86,7 +86,7 @@ public sealed class RecipeQueryServiceTests(PostgresFixture db) : IAsyncDisposab
             "INSERT INTO recipes.instructions (id, recipe_id, step_order, text) VALUES (@id, @recipeId, 1, 'Mix everything')",
             new { id = Guid.NewGuid(), recipeId });
 
-        var detail = await _sut.GetAsync(recipeId);
+        var detail = await _sut.GetAsync(householdId, recipeId);
 
         await Assert.That(detail).IsNotNull();
         await Assert.That(detail!.Id).IsEqualTo(recipeId);
@@ -101,7 +101,24 @@ public sealed class RecipeQueryServiceTests(PostgresFixture db) : IAsyncDisposab
     [Test]
     public async Task GetAsync_returns_null_for_unknown_recipe()
     {
-        var result = await _sut.GetAsync(Guid.NewGuid());
+        var result = await _sut.GetAsync(Guid.NewGuid(), Guid.NewGuid());
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task GetAsync_returns_null_when_recipe_belongs_to_different_household()
+    {
+        var ownerHousehold = Guid.NewGuid();
+        var otherHousehold = Guid.NewGuid();
+        var recipeId = Guid.NewGuid();
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+
+        await conn.ExecuteAsync(
+            "INSERT INTO recipes.recipes (id, household_id, title, created_by) VALUES (@id, @ownerHousehold, 'NotYours', @by)",
+            new { id = recipeId, ownerHousehold, by = Guid.NewGuid() });
+
+        var result = await _sut.GetAsync(otherHousehold, recipeId);
+
         await Assert.That(result).IsNull();
     }
 

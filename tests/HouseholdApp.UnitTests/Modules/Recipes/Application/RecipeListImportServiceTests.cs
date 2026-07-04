@@ -19,7 +19,7 @@ public sealed class RecipeListImportServiceTests
     [Test]
     public async Task ProposeListItemsAsync_returns_empty_when_recipe_not_found()
     {
-        _recipeQueries.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _recipeQueries.GetAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((RecipeDetail?)null);
 
         var result = await _sut.ProposeListItemsAsync(Guid.NewGuid(), Guid.NewGuid());
@@ -37,7 +37,7 @@ public sealed class RecipeListImportServiceTests
 
         var recipe = new RecipeDetail(recipeId, "Caldo Verde", null, null, null, null,
             [new IngredientDto("batatas", "4", "médias")], [], DateTimeOffset.UtcNow);
-        _recipeQueries.GetAsync(recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
+        _recipeQueries.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
 
         var suggestion = new CatalogItemSuggestion(catalogItemId, "Batata", categoryId, "Legumes", "🥬", null);
         _catalogQueries.MatchIngredientsAsync(householdId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
@@ -65,7 +65,7 @@ public sealed class RecipeListImportServiceTests
 
         var recipe = new RecipeDetail(recipeId, "Salad", null, null, null, null,
             [new IngredientDto("exotic herb", null, null)], [], DateTimeOffset.UtcNow);
-        _recipeQueries.GetAsync(recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
+        _recipeQueries.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
 
         _catalogQueries.MatchIngredientsAsync(householdId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<string, CatalogItemSuggestion>());
@@ -90,7 +90,7 @@ public sealed class RecipeListImportServiceTests
         var recipe = new RecipeDetail(recipeId, "Mixed", null, null, null, null,
             [new IngredientDto("eggs", "3", null), new IngredientDto("saffron", null, null)],
             [], DateTimeOffset.UtcNow);
-        _recipeQueries.GetAsync(recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
+        _recipeQueries.GetAsync(householdId, recipeId, Arg.Any<CancellationToken>()).Returns(recipe);
 
         var suggestion = new CatalogItemSuggestion(catalogItemId, "Eggs", null, null, null, null);
         _catalogQueries.MatchIngredientsAsync(householdId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())

@@ -36,7 +36,7 @@ public sealed class RecipeCommandService(
     public async Task DeleteRecipeAsync(Guid householdId, Guid recipeId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);
-        await repo.DeleteAsync(recipeId, ct);
+        await repo.DeleteAsync(householdId, recipeId, ct);
         eventBus.Enqueue(new RecipeDeleted(Guid.CreateVersion7(), time.GetUtcNow(), recipeId, householdId, currentUser.Id));
         await uow.CommitAsync(ct);
     }

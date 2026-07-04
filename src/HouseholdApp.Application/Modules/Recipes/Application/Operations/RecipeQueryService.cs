@@ -23,18 +23,18 @@ public sealed class RecipeQueryService(NpgsqlDataSource db) : IRecipeQueries
         return rows.ToList();
     }
 
-    public async Task<RecipeDetail?> GetAsync(Guid recipeId, CancellationToken ct = default)
+    public async Task<RecipeDetail?> GetAsync(Guid householdId, Guid recipeId, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var multi = await conn.QueryMultipleAsync(
             """
             SELECT id, title, description, servings,
                    source_url AS SourceUrl, notes, created_at AS CreatedAt
-            FROM recipes.recipes WHERE id = @recipeId;
+            FROM recipes.recipes WHERE id = @recipeId AND household_id = @householdId;
             SELECT name, quantity, unit FROM recipes.ingredients WHERE recipe_id = @recipeId ORDER BY sort_order;
             SELECT step_order AS Order, text FROM recipes.instructions WHERE recipe_id = @recipeId ORDER BY step_order
             """,
-            new { recipeId });
+            new { recipeId, householdId });
 
         var row = await multi.ReadSingleOrDefaultAsync<RecipeRow>();
         if (row is null) return null;

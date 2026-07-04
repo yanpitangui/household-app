@@ -53,7 +53,7 @@ public class AddToListModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        Recipe = await recipeQueries.GetAsync(RecipeId);
+        Recipe = await recipeQueries.GetAsync(HouseholdId, RecipeId);
         if (Recipe is null) return NotFound();
 
         ProposedItems = await recipeListImport.ProposeListItemsAsync(HouseholdId, RecipeId);
@@ -104,7 +104,7 @@ public class AddToListModel(
 
     private async Task ReloadPageDataAsync()
     {
-        Recipe = await recipeQueries.GetAsync(RecipeId);
+        Recipe = await recipeQueries.GetAsync(HouseholdId, RecipeId);
         ProposedItems = await recipeListImport.ProposeListItemsAsync(HouseholdId, RecipeId);
         Lists = await listQueries.ListAsync(HouseholdId);
         Categories = await catalogQueries.GetCategoriesAsync(HouseholdId, CurrentLanguage);

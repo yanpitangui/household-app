@@ -47,12 +47,12 @@ internal sealed class RecipeRepository(IUnitOfWork uow) : IRecipeRepository
         }
     }
 
-    public async Task DeleteAsync(Guid recipeId, CancellationToken ct = default)
+    public async Task DeleteAsync(Guid householdId, Guid recipeId, CancellationToken ct = default)
     {
         var conn = await uow.GetConnectionAsync(ct);
         await conn.ExecuteAsync(
-            "DELETE FROM recipes.recipes WHERE id = @recipeId",
-            new { recipeId },
+            "DELETE FROM recipes.recipes WHERE id = @recipeId AND household_id = @householdId",
+            new { recipeId, householdId },
             uow.CurrentTransaction);
     }
 }

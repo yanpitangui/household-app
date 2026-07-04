@@ -32,11 +32,11 @@ public sealed class RecipeCacheInvalidationHandlerTests
         var householdId = Guid.NewGuid();
         var recipeId = Guid.NewGuid();
         await _cache.SetAsync(RecipeCacheKeys.List(householdId), "stale-list");
-        await _cache.SetAsync(RecipeCacheKeys.Detail(recipeId), "stale-detail");
+        await _cache.SetAsync(RecipeCacheKeys.Detail(householdId, recipeId), "stale-detail");
 
         await _sut.HandleAsync(new RecipeDeleted(Guid.NewGuid(), DateTimeOffset.UtcNow, recipeId, householdId, Guid.NewGuid()));
 
         await Assert.That((await _cache.TryGetAsync<string>(RecipeCacheKeys.List(householdId))).HasValue).IsFalse();
-        await Assert.That((await _cache.TryGetAsync<string>(RecipeCacheKeys.Detail(recipeId))).HasValue).IsFalse();
+        await Assert.That((await _cache.TryGetAsync<string>(RecipeCacheKeys.Detail(householdId, recipeId))).HasValue).IsFalse();
     }
 }

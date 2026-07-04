@@ -22,7 +22,7 @@ public class RecipeDetailModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        Recipe = await recipeQueries.GetAsync(RecipeId);
+        Recipe = await recipeQueries.GetAsync(HouseholdId, RecipeId);
         if (Recipe is null) return NotFound();
         return Page();
     }

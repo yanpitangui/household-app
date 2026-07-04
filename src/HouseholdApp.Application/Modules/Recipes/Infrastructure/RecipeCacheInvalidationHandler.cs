@@ -14,6 +14,6 @@ internal sealed class RecipeCacheInvalidationHandler(IFusionCache cache)
     public async Task HandleAsync(RecipeDeleted evt, CancellationToken ct = default)
     {
         await cache.RemoveAsync(RecipeCacheKeys.List(evt.HouseholdId), token: ct);
-        await cache.RemoveAsync(RecipeCacheKeys.Detail(evt.RecipeId), token: ct);
+        await cache.RemoveAsync(RecipeCacheKeys.Detail(evt.HouseholdId, evt.RecipeId), token: ct);
     }
 }
