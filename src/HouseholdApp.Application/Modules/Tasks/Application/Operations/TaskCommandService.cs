@@ -77,7 +77,10 @@ public sealed class TaskCommandService(
     public async Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);
+        var task = await repo.GetTaskAsync(taskId, ct)
+            ?? throw new InvalidOperationException("Task not found.");
         await repo.DeleteTaskAsync(taskId, ct);
+        eventBus.Enqueue(new TaskDeleted(Guid.CreateVersion7(), time.GetUtcNow(), taskId, task.HouseholdId, currentUser.Id));
         await uow.CommitAsync(ct);
     }
 

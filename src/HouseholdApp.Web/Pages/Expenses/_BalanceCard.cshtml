@@ -1,0 +1,48 @@
+@model IReadOnlyList<HouseholdApp.Application.Modules.Expenses.Application.Ports.MemberBalance>
+@using System.Globalization
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    var nonZeroBalances = Model.Where(b => b.Cents != 0).ToList();
+}
+
+<div id="expenses-balance-card" hx-swap-oob="true">
+@if (nonZeroBalances.Any())
+{
+    var netCents = Model.Sum(b => b.Cents);
+    var netColor = netCents >= 0 ? "var(--accent-tasks)" : "#f87171";
+    var netLabel = netCents >= 0 ? L["Expenses.NetOwed"].Value : L["Expenses.NetOwe"].Value;
+    <div class="expenses-balance-card">
+        <div class="expenses-balance-eyebrow">@L["Expenses.YourBalance"]</div>
+        <div class="expenses-balance-net" style="color:@netColor">
+            @(netCents >= 0 ? "+" : "−") @currencySymbol @((Math.Abs(netCents) / 100m).ToString("F2"))
+        </div>
+        <div class="expenses-balance-subtitle" style="color:@netColor">@netLabel</div>
+        <div class="expenses-balance-people">
+            @foreach (var b in nonZeroBalances)
+            {
+                var personColor = b.Cents > 0 ? "var(--accent-tasks)" : "#f87171";
+                var personLabel = b.Cents > 0 ? L["Expenses.TheyOwe"].Value : L["Expenses.YouOwe"].Value;
+                <div class="expenses-person-row">
+                    <span class="payer-init" style="width:22px;height:22px;font-size:9px;border-radius:6px;flex-shrink:0">
+                        @if (!string.IsNullOrEmpty(b.PictureUrl))
+                        {
+                            <img src="@b.PictureUrl" alt="@b.DisplayName" />
+                        }
+                        else
+                        {
+                            @(b.DisplayName.Length > 0 ? b.DisplayName[0] : '?')
+                        }
+                    </span>
+                    <span class="expenses-person-name">@b.DisplayName</span>
+                    <div style="text-align:right">
+                        <div class="expenses-person-amount" style="color:@personColor">
+                            @currencySymbol @((Math.Abs(b.Cents) / 100m).ToString("F2"))
+                        </div>
+                        <div class="expenses-person-label">@personLabel</div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+</div>

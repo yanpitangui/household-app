@@ -113,13 +113,37 @@ public sealed class TaskCommandServiceTests
     }
 
     [Test]
+    public async Task DeleteTaskAsync_throws_when_task_not_found()
+    {
+        _repo.GetTaskAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((HouseholdTask?)null);
+
+        await Assert.That(async () => await _sut.DeleteTaskAsync(Guid.NewGuid()))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
     public async Task DeleteTaskAsync_calls_repo_delete()
     {
-        var taskId = Guid.NewGuid();
+        var task = HouseholdTask.Create(Guid.NewGuid(), "Clean kitchen", null, null, null, DateTimeOffset.UtcNow);
+        _repo.GetTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
 
-        await _sut.DeleteTaskAsync(taskId);
+        await _sut.DeleteTaskAsync(task.Id);
 
-        await _repo.Received(1).DeleteTaskAsync(taskId, Arg.Any<CancellationToken>());
+        await _repo.Received(1).DeleteTaskAsync(task.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteTaskAsync_enqueues_TaskDeleted_event()
+    {
+        var task = HouseholdTask.Create(Guid.NewGuid(), "Clean kitchen", null, null, null, DateTimeOffset.UtcNow);
+        _repo.GetTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
+
+        await _sut.DeleteTaskAsync(task.Id);
+
+        _eventBus.Received(1).Enqueue(Arg.Is<IDomainEvent>(
+            e => e.GetType() == typeof(TaskDeleted)
+                 && ((TaskDeleted)e).TaskId == task.Id
+                 && ((TaskDeleted)e).HouseholdId == task.HouseholdId));
     }
 
     [Test]

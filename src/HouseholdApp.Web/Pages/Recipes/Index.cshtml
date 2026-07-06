@@ -9,29 +9,8 @@
     <a asp-page="Create" asp-route-householdId="@Model.HouseholdId" class="btn btn-primary btn-sm">@L["Recipes.AddRecipe"]</a>
 </div>
 
-@if (!Model.Recipes.Any())
-{
-    <p class="section-title">@L["Common.NoItemsYet"]</p>
-}
-else
-{
-    @foreach (var r in Model.Recipes)
-    {
-        <a asp-page="Detail" asp-route-householdId="@Model.HouseholdId" asp-route-recipeId="@r.Id"
-           class="list-row" style="align-items:flex-start;text-decoration:none;color:inherit">
-            <div class="list-row-icon" style="background:rgba(255,107,74,0.12)">🍳</div>
-            <div class="list-row-body">
-                <div class="list-row-name">@r.Title</div>
-                @if (r.Description is not null)
-                {
-                    <div class="list-row-meta">@r.Description</div>
-                }
-                @if (r.Servings.HasValue)
-                {
-                    <div class="list-row-meta">@r.Servings @L["Recipes.ServingsLabel"]</div>
-                }
-            </div>
-            <span style="color:var(--text-muted);font-size:18px;padding-left:8px">›</span>
-        </a>
-    }
-}
+<div hx-ext="sse"
+     sse-connect="/h/@Model.HouseholdId/Recipes/stream"
+     sse-swap="recipes-list">
+    @await Html.PartialAsync("_RecipesList", new RecipesListViewModel(Model.HouseholdId, Model.Recipes))
+</div>

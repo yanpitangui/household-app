@@ -79,40 +79,8 @@
        class="btn btn-sm @(Model.ShowCompleted ? "btn-primary" : "btn-outline-secondary")">@L["Tasks.All"]</a>
 </div>
 
-@if (!Model.Tasks.Any())
-{
-    <p class="section-title">@L["Common.NoItemsYet"]</p>
-}
-else
-{
-    @foreach (var t in Model.Tasks)
-    {
-        <div class="list-row" style="align-items:center">
-            <form method="post" asp-page-handler="@(t.Status == "Completed" ? "Uncomplete" : "Complete")" style="display:inline-flex; align-items:center; flex-shrink:0">
-                <input type="hidden" name="taskId" value="@t.Id" />
-                <button type="submit" class="check-box @(t.Status == "Completed" ? "checked" : "")" style="--check-accent:var(--accent-tasks)">✓</button>
-            </form>
-            <div class="list-row-body">
-                <div class="list-row-name @(t.Status == "Completed" ? "text-decoration-line-through" : "")" style="@(t.Status == "Completed" ? "color:var(--text-muted)" : "")">@t.Title</div>
-                <div class="list-row-meta">
-                    @if (t.AssignedTo.HasValue)
-                    {
-                        <span>@(Model.MemberNames.GetValueOrDefault(t.AssignedTo.Value, "?"))</span>
-                    }
-                    @if (t.DueDate.HasValue)
-                    {
-                        <span class="ms-2">@L["Tasks.DuePrefix"] @t.DueDate.Value.ToString("d")</span>
-                    }
-                </div>
-            </div>
-            <div class="d-flex gap-1 align-items-center">
-                <form method="post" asp-page-handler="Delete">
-                    <input type="hidden" asp-for="ShowCompleted" />
-                    <input type="hidden" name="taskId" value="@t.Id" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="@L["Confirm.DeleteTask"]">✕</button>
-                </form>
-            </div>
-        </div>
-    }
-}
+<div hx-ext="sse"
+     sse-connect="/h/@Model.HouseholdId/Tasks/stream?showCompleted=@Model.ShowCompleted.ToString().ToLowerInvariant()"
+     sse-swap="tasks-list">
+    @await Html.PartialAsync("_TasksList", new TasksListViewModel(Model.HouseholdId, Model.Tasks, Model.MemberNames, Model.ShowCompleted))
+</div>

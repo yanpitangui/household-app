@@ -15,9 +15,15 @@ using HouseholdApp.Application.Modules.Catalog;
 using HouseholdApp.Application.Modules.Lists;
 using HouseholdApp.Application.Modules.Lists.Domain;
 using HouseholdApp.Application.Modules.Tasks;
+using HouseholdApp.Application.Modules.Tasks.Domain;
+using HouseholdApp.Application.Modules.Recipes.Domain;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Web.Lists;
+using HouseholdApp.Web.Tasks;
+using HouseholdApp.Web.Recipes;
+using HouseholdApp.Web.Expenses;
 using HouseholdApp.Web.Notifications;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
@@ -66,7 +72,17 @@ builder.Services.AddEventHandler<ListItemUncompleted, ListRealtimeNotifier>();
 builder.Services.AddEventHandler<ListItemRemoved, ListRealtimeNotifier>();
 builder.Services.AddEventHandler<ListItemCategoryChanged, ListRealtimeNotifier>();
 builder.Services.AddTasksModule();
+builder.Services.AddEventHandler<TaskCreated, TaskRealtimeNotifier>();
+builder.Services.AddEventHandler<TaskAssigned, TaskRealtimeNotifier>();
+builder.Services.AddEventHandler<TaskCompleted, TaskRealtimeNotifier>();
+builder.Services.AddEventHandler<TaskUncompleted, TaskRealtimeNotifier>();
+builder.Services.AddEventHandler<TaskDeleted, TaskRealtimeNotifier>();
 builder.Services.AddRecipesModule();
+// Must be registered after AddRecipesModule so RecipeCacheInvalidationHandler (registered inside
+// AddRecipesModule) flushes and clears the stale cache entry before this notifier pings SSE
+// clients to re-query — deferred handlers for the same event dispatch in registration order.
+builder.Services.AddEventHandler<RecipeCreated, RecipeRealtimeNotifier>();
+builder.Services.AddEventHandler<RecipeDeleted, RecipeRealtimeNotifier>();
 builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(10);
@@ -76,6 +92,9 @@ builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client 
 var connStr = builder.Configuration.GetConnectionString("householdapp")
     ?? throw new InvalidOperationException("Missing connection string 'householdapp'");
 builder.Services.AddExpensesModule(connStr);
+builder.Services.AddEventHandler<ExpenseRecorded, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<ExpenseVoided, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<SettlementRecorded, ExpenseRealtimeNotifier>();
 
 var redisConnStr = builder.Configuration.GetConnectionString("redis")
     ?? throw new InvalidOperationException("Missing connection string 'redis'");
@@ -249,6 +268,9 @@ app.UseTickerQ();
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
 app.MapListStream();
+app.MapTaskStream();
+app.MapRecipeStream();
+app.MapExpenseStream();
 app.MapPushSubscriptions();
 app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 {

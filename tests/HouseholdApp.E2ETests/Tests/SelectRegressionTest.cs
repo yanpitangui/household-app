@@ -33,7 +33,7 @@ public class SelectRegressionTest(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("input[name='NewTitle']").First.WaitForAsync();
 
         // Check on initial load
         var visibleInitial = await IsNativeSelectVisible(page);
@@ -43,7 +43,7 @@ public class SelectRegressionTest(PlaywrightFixture pw)
         // Create a task (simulates the form submit + hx-boost swap)
         await page.FillAsync("input[name='NewTitle']", "Test task");
         await page.ClickAsync("button[type='submit']:has-text('Add Task')");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("text=Test task").WaitForAsync();
         await Task.Delay(300); // let JS settle
 
         var visibleAfterCreate = await IsNativeSelectVisible(page);
@@ -53,7 +53,7 @@ public class SelectRegressionTest(PlaywrightFixture pw)
         // Create another task to trigger another swap
         await page.FillAsync("input[name='NewTitle']", "Test task 2");
         await page.ClickAsync("button[type='submit']:has-text('Add Task')");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("text=Test task 2").WaitForAsync();
         await Task.Delay(300);
 
         var visibleAfterSecond = await IsNativeSelectVisible(page);
@@ -70,17 +70,19 @@ public class SelectRegressionTest(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/tasks");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("input[name='NewTitle']").First.WaitForAsync();
 
         // Create a task first
         await page.FillAsync("input[name='NewTitle']", "Task to complete");
         await page.ClickAsync("button[type='submit']:has-text('Add Task')");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("text=Task to complete").WaitForAsync();
         await Task.Delay(300);
 
-        // Click the check-box (complete button)
+        // Click the check-box (complete button). Default view filters out completed tasks,
+        // so the row disappears rather than gaining a "checked" class — mirrors
+        // TasksTests.Complete_task_marks_it_done.
         await page.ClickAsync("button.check-box");
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.Locator("text=Task to complete").WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Hidden });
         await Task.Delay(300);
 
         var visible = await IsNativeSelectVisible(page);

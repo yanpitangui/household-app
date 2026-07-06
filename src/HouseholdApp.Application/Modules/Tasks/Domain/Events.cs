@@ -19,3 +19,7 @@ public sealed record TaskCompleted(
 public sealed record TaskUncompleted(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid TaskId, Guid HouseholdId) : IDomainEvent;
+
+public sealed record TaskDeleted(
+    Guid EventId, DateTimeOffset OccurredAt,
+    Guid TaskId, Guid HouseholdId, Guid DeletedBy) : IDomainEvent;
