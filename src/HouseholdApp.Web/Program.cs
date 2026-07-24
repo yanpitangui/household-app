@@ -220,6 +220,7 @@ builder.Services.AddPersistence();
 var schemaStream = typeof(HouseholdsModule).Assembly
     .GetManifestResourceStream("HouseholdApp.Application.Shared.Authorization.schema.vtt")!;
 builder.Services.AddValtuutusCore(schemaStream);
+builder.Services.AddValtuutusCheckV2();
 builder.Services.AddPostgres(
     _ => () => new NpgsqlConnection(connStr),
     new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"))
