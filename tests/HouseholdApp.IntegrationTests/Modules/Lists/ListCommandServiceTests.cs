@@ -244,6 +244,32 @@ public sealed class ListCommandServiceTests(PostgresFixture db) : IAsyncDisposab
     }
 
     [Test]
+    public async Task ChangeItemQuantityAsync_persists_new_quantity_and_unit()
+    {
+        var userId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        Guid listId;
+        await using (var s = Scope(userId))
+            listId = await s.ServiceProvider.GetRequiredService<IListCommands>().CreateListAsync(householdId, "Lista");
+
+        Guid itemId;
+        await using (var s = Scope(userId))
+            itemId = await s.ServiceProvider.GetRequiredService<IListCommands>()
+                .AddItemAsync(listId, "Arroz", null, null, quantity: "1", unit: "kg");
+
+        await using (var s = Scope(userId))
+            await s.ServiceProvider.GetRequiredService<IListCommands>().ChangeItemQuantityAsync(listId, itemId, "2", "pacotes");
+
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var row = await conn.QuerySingleAsync<(string? Qty, string? Unit)>(
+            "SELECT quantity, unit FROM lists.items WHERE id = @itemId", new { itemId });
+
+        await Assert.That(row.Qty).IsEqualTo("2");
+        await Assert.That(row.Unit).IsEqualTo("pacotes");
+    }
+
+    [Test]
     public async Task CompleteAllItemsAsync_marks_all_active_items_done()
     {
         var userId = Guid.NewGuid();

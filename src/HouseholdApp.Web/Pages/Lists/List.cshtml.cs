@@ -49,15 +49,27 @@ public class ListModel(
         return Partial("_ItemSuggestions", suggestions);
     }
 
-    public async Task<IActionResult> OnPostAddItemAsync(Guid listId, string itemName, Guid? catalogItemId, Guid? categoryId)
+    public async Task<IActionResult> OnPostAddItemAsync(Guid listId, string itemName, Guid? catalogItemId, Guid? categoryId, string? quantity, string? unit)
     {
-        await listCommands.AddItemAsync(listId, itemName, catalogItemId, categoryId);
+        await listCommands.AddItemAsync(
+            listId, itemName, catalogItemId, categoryId,
+            string.IsNullOrWhiteSpace(quantity) ? null : quantity.Trim(),
+            string.IsNullOrWhiteSpace(unit) ? null : unit.Trim());
         return StatusCode(204);
     }
 
     public async Task<IActionResult> OnPostChangeItemCategoryAsync(Guid listId, Guid itemId, Guid? categoryId)
     {
         await listCommands.ChangeItemCategoryAsync(listId, itemId, categoryId);
+        return StatusCode(204);
+    }
+
+    public async Task<IActionResult> OnPostChangeItemQuantityAsync(Guid listId, Guid itemId, string? quantity, string? unit)
+    {
+        await listCommands.ChangeItemQuantityAsync(
+            listId, itemId,
+            string.IsNullOrWhiteSpace(quantity) ? null : quantity.Trim(),
+            string.IsNullOrWhiteSpace(unit) ? null : unit.Trim());
         return StatusCode(204);
     }
 

@@ -9,7 +9,8 @@ public sealed class ListRealtimeNotifier(IConnectionMultiplexer redis)
       IEventHandler<ListItemCompleted>,
       IEventHandler<ListItemUncompleted>,
       IEventHandler<ListItemRemoved>,
-      IEventHandler<ListItemCategoryChanged>
+      IEventHandler<ListItemCategoryChanged>,
+      IEventHandler<ListItemQuantityChanged>
 {
     private Task Notify(Guid listId) =>
         redis.GetSubscriber().PublishAsync(
@@ -22,4 +23,5 @@ public sealed class ListRealtimeNotifier(IConnectionMultiplexer redis)
     public Task HandleAsync(ListItemUncompleted evt, CancellationToken ct) => Notify(evt.ListId);
     public Task HandleAsync(ListItemRemoved evt, CancellationToken ct) => Notify(evt.ListId);
     public Task HandleAsync(ListItemCategoryChanged evt, CancellationToken ct) => Notify(evt.ListId);
+    public Task HandleAsync(ListItemQuantityChanged evt, CancellationToken ct) => Notify(evt.ListId);
 }

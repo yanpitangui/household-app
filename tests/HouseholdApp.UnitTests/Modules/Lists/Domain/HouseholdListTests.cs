@@ -200,4 +200,42 @@ public sealed class HouseholdListTests
             list.ChangeItemCategory(Guid.NewGuid(), Guid.NewGuid(), Now))
             .Throws<InvalidOperationException>();
     }
+
+    [Test]
+    public async Task ChangeItemQuantity_sets_quantity_and_unit_and_raises_event()
+    {
+        var list = CreateList();
+        var item = list.AddItem("Milk", null, null, null, null, CreatorId, Now);
+        list.ClearEvents();
+
+        list.ChangeItemQuantity(item.Id, "2", "L", Now);
+
+        await Assert.That(item.Quantity).IsEqualTo("2");
+        await Assert.That(item.Unit).IsEqualTo("L");
+        await Assert.That(list.DomainEvents.Count).IsEqualTo(1);
+        await Assert.That(list.DomainEvents[0] is ListItemQuantityChanged).IsTrue();
+    }
+
+    [Test]
+    public async Task ChangeItemQuantity_clears_quantity_and_unit_when_null()
+    {
+        var list = CreateList();
+        var item = list.AddItem("Milk", "2", "L", null, null, CreatorId, Now);
+        list.ClearEvents();
+
+        list.ChangeItemQuantity(item.Id, null, null, Now);
+
+        await Assert.That(item.Quantity).IsNull();
+        await Assert.That(item.Unit).IsNull();
+    }
+
+    [Test]
+    public async Task ChangeItemQuantity_unknown_id_throws()
+    {
+        var list = CreateList();
+
+        await Assert.That(() =>
+            list.ChangeItemQuantity(Guid.NewGuid(), "2", "L", Now))
+            .Throws<InvalidOperationException>();
+    }
 }

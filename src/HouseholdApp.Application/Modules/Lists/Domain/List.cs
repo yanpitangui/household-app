@@ -33,6 +33,11 @@ public sealed class ListItem
     internal void Complete() => IsCompleted = true;
     internal void Uncomplete() => IsCompleted = false;
     internal void SetCategory(Guid? categoryId) => CategoryId = categoryId;
+    internal void SetQuantity(string? quantity, string? unit)
+    {
+        Quantity = quantity;
+        Unit = unit;
+    }
 }
 
 public sealed class HouseholdList : AggregateRoot
@@ -114,5 +119,13 @@ public sealed class HouseholdList : AggregateRoot
             ?? throw new InvalidOperationException("Item not found.");
         item.SetCategory(categoryId);
         Raise(new ListItemCategoryChanged(Guid.CreateVersion7(), now, Id, itemId, categoryId));
+    }
+
+    public void ChangeItemQuantity(Guid itemId, string? quantity, string? unit, DateTimeOffset now)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId)
+            ?? throw new InvalidOperationException("Item not found.");
+        item.SetQuantity(quantity, unit);
+        Raise(new ListItemQuantityChanged(Guid.CreateVersion7(), now, Id, itemId, quantity, unit));
     }
 }

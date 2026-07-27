@@ -31,7 +31,9 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
                 ON CONFLICT (id) DO UPDATE
                     SET is_completed = EXCLUDED.is_completed,
                         sort_order   = EXCLUDED.sort_order,
-                        category_id  = EXCLUDED.category_id
+                        category_id  = EXCLUDED.category_id,
+                        quantity     = EXCLUDED.quantity,
+                        unit         = EXCLUDED.unit
                 """,
                 new { item.Id, item.ListId, item.Name, item.Quantity, item.Unit, item.CatalogItemId, item.CategoryId, item.AddedBy, item.SortOrder, item.IsCompleted }, tx);
         }

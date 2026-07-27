@@ -71,6 +71,7 @@ builder.Services.AddEventHandler<ListItemCompleted, ListRealtimeNotifier>();
 builder.Services.AddEventHandler<ListItemUncompleted, ListRealtimeNotifier>();
 builder.Services.AddEventHandler<ListItemRemoved, ListRealtimeNotifier>();
 builder.Services.AddEventHandler<ListItemCategoryChanged, ListRealtimeNotifier>();
+builder.Services.AddEventHandler<ListItemQuantityChanged, ListRealtimeNotifier>();
 builder.Services.AddTasksModule();
 builder.Services.AddEventHandler<TaskCreated, TaskRealtimeNotifier>();
 builder.Services.AddEventHandler<TaskAssigned, TaskRealtimeNotifier>();

@@ -25,3 +25,7 @@ public sealed record ListItemRemoved(
 public sealed record ListItemCategoryChanged(
     Guid EventId, DateTimeOffset OccurredAt,
     Guid ListId, Guid ItemId, Guid? CategoryId) : IDomainEvent;
+
+public sealed record ListItemQuantityChanged(
+    Guid EventId, DateTimeOffset OccurredAt,
+    Guid ListId, Guid ItemId, string? Quantity, string? Unit) : IDomainEvent;

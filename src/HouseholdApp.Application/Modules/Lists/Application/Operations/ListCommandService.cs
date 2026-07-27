@@ -129,6 +129,17 @@ public sealed class ListCommandService(
         await catalogCommands.UpsertHouseholdItemAsync(list.HouseholdId, item.Name, categoryId, ct);
     }
 
+    public async Task ChangeItemQuantityAsync(Guid listId, Guid itemId, string? quantity, string? unit, CancellationToken ct = default)
+    {
+        await uow.BeginTransactionAsync(ct);
+        var list = await repo.GetAsync(listId, ct)
+            ?? throw new InvalidOperationException("List not found.");
+        list.ChangeItemQuantity(itemId, quantity, unit, time.GetUtcNow());
+        await repo.SaveListAsync(list, ct);
+        eventBus.EnqueueAll(list);
+        await uow.CommitAsync(ct);
+    }
+
     public async Task RemoveCompletedItemsAsync(Guid listId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);

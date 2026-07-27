@@ -110,6 +110,8 @@ function showItemDetail(el) {
     document.getElementById('detail-list-id').value = el.dataset.listId ?? '';
     document.getElementById('detail-list-name').textContent = el.dataset.listName ?? '';
     document.getElementById('detail-added-by').textContent = el.dataset.addedBy ?? '';
+    document.getElementById('detail-quantity-input').value = el.dataset.quantity ?? '';
+    document.getElementById('detail-unit-input').value = el.dataset.unit ?? '';
 
     const catSelect = document.getElementById('detail-category-select');
     catSelect.value = el.dataset.categoryId ?? '';

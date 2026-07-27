@@ -139,6 +139,53 @@ public class ListsTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Adding_item_with_quantity_and_unit_shows_them_next_to_name()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+
+        var itemName = $"QtyItem{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page, itemName);
+        await page.FillAsync("#item-quantity-input", "2");
+        await page.FillAsync("#item-unit-input", "kg");
+        await page.WaitForTimeoutAsync(500);
+
+        await SubmitAddItemFormAsync(page);
+        var itemSpan = page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName });
+        await itemSpan.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        var text = await itemSpan.InnerTextAsync();
+        await Assert.That(text).Contains("2");
+        await Assert.That(text).Contains("kg");
+
+        // form reset after add — quantity/unit inputs must be cleared so they don't leak into the next item
+        await Assert.That(await page.InputValueAsync("#item-quantity-input")).IsEmpty();
+        await Assert.That(await page.InputValueAsync("#item-unit-input")).IsEmpty();
+    }
+
+    [Test]
+    public async Task Adding_item_without_quantity_does_not_render_stray_separator()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+
+        var itemName = $"NoQtyItem{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page, itemName);
+        await page.WaitForTimeoutAsync(500);
+
+        await SubmitAddItemFormAsync(page);
+        var itemSpan = page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName });
+        await itemSpan.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        var text = (await itemSpan.InnerTextAsync()).Trim();
+        await Assert.That(text).IsEqualTo(itemName);
+    }
+
+    [Test]
     public async Task Free_typed_item_appears_in_autocomplete_on_second_visit()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
@@ -182,6 +229,48 @@ public class ListsTests(PlaywrightFixture pw)
         await page.WaitForFunctionAsync("document.getElementById('item-detail-dialog').open === true",
             null, new PageWaitForFunctionOptions { Timeout = 5_000 });
         await Assert.That(await page.Locator("#detail-name").InnerTextAsync()).IsEqualTo(itemName);
+    }
+
+    [Test]
+    public async Task Item_detail_dialog_edits_quantity_and_unit()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+        await NavigateToListAsync(page, householdId);
+
+        var itemName = $"EditQtyItem{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page, itemName);
+        await page.WaitForTimeoutAsync(400);
+        await SubmitAddItemFormAsync(page);
+        var itemSpan = page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName });
+        await itemSpan.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await itemSpan.ClickAsync();
+        await page.WaitForFunctionAsync("document.getElementById('item-detail-dialog').open === true",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+
+        await page.FillAsync("#detail-quantity-input", "3");
+        await page.FillAsync("#detail-unit-input", "kg");
+        await page.Locator("#item-detail-dialog button:has-text('Save')").ClickAsync();
+
+        await page.WaitForFunctionAsync("document.getElementById('item-detail-dialog').open === false",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+
+        // SSE re-render is a separate async round-trip (event -> Redis -> stream push) from the
+        // dialog closing, so poll for the updated text instead of asserting immediately.
+        await page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = "kg" })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        var updatedSpan = page.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName });
+        await Assert.That(await updatedSpan.InnerTextAsync()).Contains("3");
+        await Assert.That(await updatedSpan.InnerTextAsync()).Contains("kg");
+
+        // reopen the dialog — the saved values must be reflected back into the inputs
+        await updatedSpan.ClickAsync();
+        await page.WaitForFunctionAsync("document.getElementById('item-detail-dialog').open === true",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+        await Assert.That(await page.InputValueAsync("#detail-quantity-input")).IsEqualTo("3");
+        await Assert.That(await page.InputValueAsync("#detail-unit-input")).IsEqualTo("kg");
     }
 
     [Test]
