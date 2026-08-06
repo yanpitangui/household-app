@@ -222,8 +222,18 @@ var schemaStream = typeof(HouseholdsModule).Assembly
     .GetManifestResourceStream("HouseholdApp.Application.Shared.Authorization.schema.vtt")!;
 builder.Services.AddValtuutusCore(schemaStream);
 builder.Services.AddValtuutusCheckV2();
+// Valtuutus's Postgres provider caches its own NpgsqlDataSource internally, separate from the
+// pool AddNpgsqlDataSource above sets up. Without an explicit Minimum Pool Size that pool starts
+// at 0 and prunes idle connections, so a request after any quiet period pays a fresh TCP+auth
+// handshake mid-check instead of reusing a warm connection. Sized against the max_connections=300
+// headroom already reserved for this in AppHost, alongside the primary pool's 150.
+var authzConnStr = new NpgsqlConnectionStringBuilder(connStr)
+{
+    MinPoolSize = 10,
+    MaxPoolSize = 50
+}.ConnectionString;
 builder.Services.AddPostgres(
-    _ => () => new NpgsqlConnection(connStr),
+    _ => () => new NpgsqlConnection(authzConnStr),
     new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"))
     .AddCaching();
 builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
