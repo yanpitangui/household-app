@@ -221,7 +221,8 @@ builder.Services.AddPersistence();
 var schemaStream = typeof(HouseholdsModule).Assembly
     .GetManifestResourceStream("HouseholdApp.Application.Shared.Authorization.schema.vtt")!;
 builder.Services.AddValtuutusCore(schemaStream);
-builder.Services.AddValtuutusCheckV2();
+builder.Services.AddValtuutusLookupSubjectV2();
+builder.Services.AddValtuutusLookupEntityV2();
 // Valtuutus's Postgres provider caches its own NpgsqlDataSource internally, separate from the
 // pool AddNpgsqlDataSource above sets up. Without an explicit Minimum Pool Size that pool starts
 // at 0 and prunes idle connections, so a request after any quiet period pays a fresh TCP+auth
