@@ -14,29 +14,41 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
         var conn = await uow.GetConnectionAsync(ct);
         var tx = uow.CurrentTransaction;
 
+        var items = list.Items;
+
+        // One round trip regardless of list size: items go in as parallel arrays and unnest
+        // back into rows (an empty list unnests to zero rows, so the item upsert is a no-op).
         await conn.ExecuteAsync(
             """
             INSERT INTO lists.lists (id, household_id, name, created_by, created_at)
             VALUES (@Id, @HouseholdId, @Name, @CreatedBy, @CreatedAt)
-            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-            """,
-            new { list.Id, list.HouseholdId, list.Name, list.CreatedBy, list.CreatedAt }, tx);
+            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 
-        foreach (var item in list.Items)
-        {
-            await conn.ExecuteAsync(
-                """
-                INSERT INTO lists.items (id, list_id, name, quantity, unit, catalog_item_id, category_id, added_by, sort_order, is_completed)
-                VALUES (@Id, @ListId, @Name, @Quantity, @Unit, @CatalogItemId, @CategoryId, @AddedBy, @SortOrder, @IsCompleted)
-                ON CONFLICT (id) DO UPDATE
-                    SET is_completed = EXCLUDED.is_completed,
-                        sort_order   = EXCLUDED.sort_order,
-                        category_id  = EXCLUDED.category_id,
-                        quantity     = EXCLUDED.quantity,
-                        unit         = EXCLUDED.unit
-                """,
-                new { item.Id, item.ListId, item.Name, item.Quantity, item.Unit, item.CatalogItemId, item.CategoryId, item.AddedBy, item.SortOrder, item.IsCompleted }, tx);
-        }
+            INSERT INTO lists.items (id, list_id, name, quantity, unit, catalog_item_id, category_id, added_by, sort_order, is_completed)
+            SELECT * FROM unnest(
+                @ItemIds::uuid[], @ItemListIds::uuid[], @ItemNames::text[], @ItemQuantities::text[], @ItemUnits::text[],
+                @ItemCatalogItemIds::uuid[], @ItemCategoryIds::uuid[], @ItemAddedBy::uuid[], @ItemSortOrders::int[], @ItemIsCompleted::bool[])
+            ON CONFLICT (id) DO UPDATE
+                SET is_completed = EXCLUDED.is_completed,
+                    sort_order   = EXCLUDED.sort_order,
+                    category_id  = EXCLUDED.category_id,
+                    quantity     = EXCLUDED.quantity,
+                    unit         = EXCLUDED.unit;
+            """,
+            new
+            {
+                list.Id, list.HouseholdId, list.Name, list.CreatedBy, list.CreatedAt,
+                ItemIds = items.Select(i => i.Id).ToArray(),
+                ItemListIds = items.Select(i => i.ListId).ToArray(),
+                ItemNames = items.Select(i => i.Name).ToArray(),
+                ItemQuantities = items.Select(i => i.Quantity).ToArray(),
+                ItemUnits = items.Select(i => i.Unit).ToArray(),
+                ItemCatalogItemIds = items.Select(i => i.CatalogItemId).ToArray(),
+                ItemCategoryIds = items.Select(i => i.CategoryId).ToArray(),
+                ItemAddedBy = items.Select(i => i.AddedBy).ToArray(),
+                ItemSortOrders = items.Select(i => i.SortOrder).ToArray(),
+                ItemIsCompleted = items.Select(i => i.IsCompleted).ToArray(),
+            }, tx);
     }
 
     public async Task<HouseholdList?> GetAsync(Guid listId, CancellationToken ct = default)

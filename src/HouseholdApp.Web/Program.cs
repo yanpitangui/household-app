@@ -109,7 +109,9 @@ builder.Services.AddDataProtection()
     .SetApplicationName("household-app");
 
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connStr, healthQuery: "SELECT 1 FROM households.households LIMIT 0")
+    // Runs on the app's own pool (Aspire's duplicate check is disabled below), so the health probe
+    // also keeps a main-pool connection warm instead of holding a separate pool open.
+    .AddNpgSql(sp => sp.GetRequiredService<NpgsqlDataSource>(), healthQuery: "SELECT 1 FROM households.households LIMIT 0")
     .AddRedis(redisMultiplexer)
     .AddCheck<MartenHealthCheck>("marten");
 
@@ -209,12 +211,16 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
-builder.AddNpgsqlDataSource("householdapp", configureDataSourceBuilder: dsBuilder =>
+builder.AddNpgsqlDataSource("householdapp", settings => settings.DisableHealthChecks = true, dsBuilder =>
 {
     // Default is 100; Postgres is configured for max_connections=300 (see AppHost),
     // leaving headroom for Marten's own pool. Raised as a buffer against connection-pool
     // queuing under concurrent request load.
     dsBuilder.ConnectionStringBuilder.MaxPoolSize = 150;
+    // Idle connections are pruned after 5 min; a command that commits and then runs an event
+    // handler on a second connection would otherwise pay a fresh TCP+auth handshake mid-request
+    // on the first write after any quiet period.
+    dsBuilder.ConnectionStringBuilder.MinPoolSize = 2;
 });
 builder.Services.AddPersistence();
 
