@@ -33,6 +33,8 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using StackExchange.Redis;
 using TickerQ.Caching.StackExchangeRedis.DependencyInjection;
 using TickerQ.Dashboard.DependencyInjection;
@@ -119,6 +121,19 @@ builder.Services.AddFusionCache()
     .WithSerializer(new FusionCacheSystemTextJsonSerializer())
     .WithRegisteredDistributedCache()
     .WithBackplane(new RedisBackplane(new RedisBackplaneOptions { ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redisMultiplexer) }));
+
+// Without these, a FusionCache L1 miss that falls through to Redis (L2/backplane) shows up in
+// traces only as an unexplained gap between spans.
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddRedisInstrumentation(redisMultiplexer)
+        .AddFusionCacheInstrumentation(o =>
+        {
+            o.IncludeMemoryLevel = true;
+            o.IncludeDistributedLevel = true;
+            o.IncludeBackplane = true;
+        }))
+    .WithMetrics(metrics => metrics.AddFusionCacheInstrumentation());
 
 builder.Services.AddTickerQ(options => options
     .AddStackExchangeRedis(redis => redis.ConnectionMultiplexer = redisMultiplexer)
