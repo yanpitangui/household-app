@@ -224,7 +224,9 @@ public sealed class ListCommandServiceTests
 
         await Assert.That(list.Items.Count).IsEqualTo(1);
         await Assert.That(list.Items.Single().Id).IsEqualTo(active.Id);
-        await _repo.Received(1).DeleteItemAsync(done.Id, Arg.Any<CancellationToken>());
+        await _repo.Received(1).DeleteItemsAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { done.Id })),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -238,7 +240,7 @@ public sealed class ListCommandServiceTests
         await _sut.RemoveCompletedItemsAsync(list.Id);
 
         await Assert.That(list.Items.Count).IsEqualTo(1);
-        await _repo.DidNotReceive().DeleteItemAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _repo.DidNotReceive().DeleteItemsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
