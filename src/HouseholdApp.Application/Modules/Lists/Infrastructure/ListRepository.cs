@@ -81,6 +81,15 @@ internal sealed class ListRepository(IUnitOfWork uow) : IListRepository
             uow.CurrentTransaction);
     }
 
+    public async Task DeleteItemsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default)
+    {
+        var conn = await uow.GetConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "DELETE FROM lists.items WHERE id = ANY(@itemIds)",
+            new { itemIds = itemIds.ToArray() },
+            uow.CurrentTransaction);
+    }
+
     public async Task DeleteListAsync(Guid listId, CancellationToken ct = default)
     {
         var conn = await uow.GetConnectionAsync(ct);

@@ -158,8 +158,7 @@ public sealed class ListCommandService(
             list.RemoveItem(itemId, now);
 
         await repo.SaveListAsync(list, ct);
-        foreach (var itemId in completedIds)
-            await repo.DeleteItemAsync(itemId, ct);
+        await repo.DeleteItemsAsync(completedIds, ct);
         eventBus.EnqueueAll(list);
         await uow.CommitAsync(ct);
     }
