@@ -1,5 +1,11 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery _antiforgery
 @inject HouseholdApp.Application.Modules.Households.Application.Ports.IHouseholdQueries _householdQueries
+@{
+    // Resolves an asset to its fingerprinted (immutable) URL, the same lookup the ~/ tag helpers use.
+    // Used for the font preloads and the url() values in the @font-face block below.
+    var staticAssets = Context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Components.ResourceAssetCollection>();
+    string Asset(string path) => "/" + (staticAssets?[path] ?? path);
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,13 +20,32 @@
     <meta name="apple-mobile-web-app-title" content="Household" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="@Asset("fonts/plus-jakarta-sans-latin.woff2")" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="@Asset("fonts/fraunces-latin.woff2")" as="font" type="font/woff2" crossorigin />
+    <style>
+        /* Self-hosted latin subsets of Google Fonts (Fraunces, Plus Jakarta Sans), same faces as before. */
+        /* Fraunces upright declared at 300/600/700, matching the faces Google Fonts served. */
+        @@font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 300; font-display: swap;
+            src: url('@Asset("fonts/fraunces-latin.woff2")') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+        @@font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 600; font-display: swap;
+            src: url('@Asset("fonts/fraunces-latin.woff2")') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+        @@font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 700; font-display: swap;
+            src: url('@Asset("fonts/fraunces-latin.woff2")') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+        @@font-face { font-family: 'Fraunces'; font-style: italic; font-weight: 400; font-display: swap;
+            src: url('@Asset("fonts/fraunces-latin-italic.woff2")') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+        @@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 300 700; font-display: swap;
+            src: url('@Asset("fonts/plus-jakarta-sans-latin.woff2")') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    </style>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
-    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+    @* Self-hosted htmx 2.0.4 and htmx-ext-sse 2.2.2, loaded synchronously so the inline scripts at the end of <body> can call htmx.on() while the page parses. *@
+    <script src="~/lib/htmx/htmx.min.js"></script>
+    <script src="~/lib/htmx-ext-sse/sse.js"></script>
 </head>
 @{
     var householdId = Context.GetRouteValue("householdId")?.ToString()
