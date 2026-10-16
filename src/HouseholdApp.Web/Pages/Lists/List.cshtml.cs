@@ -43,6 +43,9 @@ public class ListModel(
 
     public async Task<IActionResult> OnGetSuggestAsync(string itemName)
     {
+        // Catalog suggestions change rarely, so the browser reuses a response for a minute:
+        // retyping a prefix (or the same item) renders instantly from its cache.
+        Response.Headers.CacheControl = "private, max-age=60";
         if (string.IsNullOrWhiteSpace(itemName) || itemName.Length < 2)
             return Partial("_ItemSuggestions", Array.Empty<CatalogItemSuggestion>());
         var suggestions = await catalogQueries.SuggestAsync(HouseholdId, itemName, CurrentLanguage);
