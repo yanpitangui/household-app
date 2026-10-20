@@ -17,12 +17,16 @@ public static class HouseholdsModule
         services.AddScoped<IHouseholdQueriesWithLastModified>(sp => (IHouseholdQueriesWithLastModified)sp.GetRequiredService<IHouseholdQueries>());
         services.AddTransactionalEventHandler<HouseholdCreated, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdCreated, HouseholdCacheInvalidationHandler>();
+        services.AddEventHandler<HouseholdCreated, HouseholdAuthorizationCommitNotifier>();
         services.AddTransactionalEventHandler<HouseholdMemberJoined, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdMemberJoined, HouseholdCacheInvalidationHandler>();
+        services.AddEventHandler<HouseholdMemberJoined, HouseholdAuthorizationCommitNotifier>();
         services.AddTransactionalEventHandler<HouseholdMemberRemoved, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdMemberRemoved, HouseholdCacheInvalidationHandler>();
+        services.AddEventHandler<HouseholdMemberRemoved, HouseholdAuthorizationCommitNotifier>();
         services.AddTransactionalEventHandler<HouseholdRoleChanged, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdRoleChanged, HouseholdCacheInvalidationHandler>();
+        services.AddEventHandler<HouseholdRoleChanged, HouseholdAuthorizationCommitNotifier>();
         return services;
     }
 }

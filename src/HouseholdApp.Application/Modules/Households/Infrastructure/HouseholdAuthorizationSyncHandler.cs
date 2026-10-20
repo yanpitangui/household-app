@@ -8,7 +8,8 @@ using Valtuutus.Lang;
 
 namespace HouseholdApp.Application.Modules.Households.Infrastructure;
 
-public sealed class HouseholdAuthorizationSyncHandler(IDbDataWriterProvider writer, IUnitOfWork uow)
+public sealed class HouseholdAuthorizationSyncHandler(
+    IDbDataWriterProvider writer, IUnitOfWork uow, HouseholdAuthorizationCommitNotifier notifier)
     : ITransactionalEventHandler<HouseholdCreated>,
       ITransactionalEventHandler<HouseholdMemberJoined>,
       ITransactionalEventHandler<HouseholdMemberRemoved>,
@@ -17,23 +18,23 @@ public sealed class HouseholdAuthorizationSyncHandler(IDbDataWriterProvider writ
     public async Task HandleAsync(HouseholdCreated evt, CancellationToken ct)
     {
         var conn = await uow.GetConnectionAsync(ct);
-        await writer.Write(conn, uow.CurrentTransaction!,
+        notifier.Written(await writer.Write(conn, uow.CurrentTransaction!,
             [new RelationTuple(
                 SchemaConstsGen.Household.Name, evt.HouseholdId.ToString(),
                 SchemaConstsGen.Household.Relations.Owner,
                 SchemaConstsGen.User.Name, evt.OwnerId.ToString())],
-            [], ct);
+            [], ct));
     }
 
     public async Task HandleAsync(HouseholdMemberJoined evt, CancellationToken ct)
     {
         var conn = await uow.GetConnectionAsync(ct);
-        await writer.Write(conn, uow.CurrentTransaction!,
+        notifier.Written(await writer.Write(conn, uow.CurrentTransaction!,
             [new RelationTuple(
                 SchemaConstsGen.Household.Name, evt.HouseholdId.ToString(),
                 ToRelation(evt.Role),
                 SchemaConstsGen.User.Name, evt.UserId.ToString())],
-            [], ct);
+            [], ct));
     }
 
     public async Task HandleAsync(HouseholdMemberRemoved evt, CancellationToken ct) =>
@@ -43,18 +44,18 @@ public sealed class HouseholdAuthorizationSyncHandler(IDbDataWriterProvider writ
     {
         await DeleteAllRelations(evt.HouseholdId, evt.UserId, ct);
         var conn = await uow.GetConnectionAsync(ct);
-        await writer.Write(conn, uow.CurrentTransaction!,
+        notifier.Written(await writer.Write(conn, uow.CurrentTransaction!,
             [new RelationTuple(
                 SchemaConstsGen.Household.Name, evt.HouseholdId.ToString(),
                 ToRelation(evt.NewRole),
                 SchemaConstsGen.User.Name, evt.UserId.ToString())],
-            [], ct);
+            [], ct));
     }
 
     private async Task DeleteAllRelations(Guid householdId, Guid userId, CancellationToken ct)
     {
         var conn = await uow.GetConnectionAsync(ct);
-        await writer.Delete(conn, uow.CurrentTransaction!, new DeleteFilter
+        notifier.Written(await writer.Delete(conn, uow.CurrentTransaction!, new DeleteFilter
         {
             Relations =
             [
@@ -66,7 +67,7 @@ public sealed class HouseholdAuthorizationSyncHandler(IDbDataWriterProvider writ
                     SubjectId = userId.ToString()
                 }
             ]
-        }, ct);
+        }, ct));
     }
 
     private static string ToRelation(HouseholdRole role) => role switch
