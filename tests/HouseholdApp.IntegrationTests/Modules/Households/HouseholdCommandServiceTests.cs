@@ -32,6 +32,7 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
         services.AddHouseholdsModule();
         services.AddEventBus();
         services.AddInMemory();
+        services.AddSingleton<WriterLog>();
         services.AddScoped<IDbDataWriterProvider, InMemoryDbWriterAdapter>();
         return services.BuildServiceProvider();
     }
@@ -99,6 +100,22 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
     }
 
     [Test]
+    public async Task Authorization_writes_made_in_the_transaction_are_announced_after_it_commits()
+    {
+        var log = _provider.GetRequiredService<WriterLog>();
+        var ownerId = Guid.NewGuid();
+
+        await using (var s = Scope(ownerId))
+            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Announced House");
+
+        SnapToken[] written, announced;
+        lock (log) (written, announced) = (log.InTransaction.ToArray(), log.Announced.ToArray());
+        await Assert.That(written).IsNotEmpty();
+        foreach (var token in written)
+            await Assert.That(announced).Contains(token);
+    }
+
+    [Test]
     public async Task AcceptInvitation_returns_false_for_unknown_token()
     {
         bool accepted;
@@ -108,7 +125,13 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
     }
 }
 
-file sealed class InMemoryDbWriterAdapter(IDataWriterProvider inner) : IDbDataWriterProvider
+file sealed class WriterLog
+{
+    public List<SnapToken> InTransaction { get; } = [];
+    public List<SnapToken> Announced { get; } = [];
+}
+
+file sealed class InMemoryDbWriterAdapter(IDataWriterProvider inner, WriterLog log) : IDbDataWriterProvider
 {
     public Task<SnapToken> Write(IEnumerable<RelationTuple> relations, IEnumerable<AttributeTuple> attributes, CancellationToken ct)
         => inner.Write(relations, attributes, ct);
@@ -119,12 +142,24 @@ file sealed class InMemoryDbWriterAdapter(IDataWriterProvider inner) : IDbDataWr
     public Task<SnapToken> Write(IDbConnection connection, IEnumerable<RelationTuple> relations, IEnumerable<AttributeTuple> attributes, CancellationToken ct)
         => inner.Write(relations, attributes, ct);
 
-    public Task<SnapToken> Write(IDbConnection connection, IDbTransaction transaction, IEnumerable<RelationTuple> relations, IEnumerable<AttributeTuple> attributes, CancellationToken ct)
-        => inner.Write(relations, attributes, ct);
+    public async Task<SnapToken> Write(IDbConnection connection, IDbTransaction transaction, IEnumerable<RelationTuple> relations, IEnumerable<AttributeTuple> attributes, CancellationToken ct)
+        => Logged(await inner.Write(relations, attributes, ct));
 
     public Task<SnapToken> Delete(IDbConnection connection, DeleteFilter filter, CancellationToken ct)
         => inner.Delete(filter, ct);
 
-    public Task<SnapToken> Delete(IDbConnection connection, IDbTransaction transaction, DeleteFilter filter, CancellationToken ct)
-        => inner.Delete(filter, ct);
+    public async Task<SnapToken> Delete(IDbConnection connection, IDbTransaction transaction, DeleteFilter filter, CancellationToken ct)
+        => Logged(await inner.Delete(filter, ct));
+
+    public Task NotifyCommitted(SnapToken snapToken)
+    {
+        lock (log) log.Announced.Add(snapToken);
+        return Task.CompletedTask;
+    }
+
+    private SnapToken Logged(SnapToken snapToken)
+    {
+        lock (log) log.InTransaction.Add(snapToken);
+        return snapToken;
+    }
 }
