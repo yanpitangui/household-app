@@ -31,14 +31,11 @@ public sealed class ActivityEntry
 // ExpenseGroupRestored event here produces its own permanent ActivityEntry row (a household settlement
 // produces one, from its lead leg).
 //
-// Marten 9.12.0's EventProjection (JasperFx.Events 2.18.1) does NOT expose constructor-registered
-// Project<T>/ProjectAsync<T> delegate methods. Its conventional Project/Create/Transform method
-// discovery requires a source-generated dispatcher (partial class + JasperFx.Events.SourceGenerator
-// package), which isn't referenced anywhere in this repo. The supported, documented extension point
-// without that package is overriding ApplyAsync directly (see JasperFxEventProjectionBase<,>.ApplyAsync
-// XML doc: "Override this for explicit projection logic"), so that's what this class does — dispatch
-// by event payload type, delegating to the (unit-testable, public, static) Map* methods below.
-public sealed class ActivityEntryProjection : EventProjection
+// ApplyAsync is overridden directly (JasperFxEventProjectionBase<,>.ApplyAsync: "Override this for
+// explicit projection logic") and dispatches by event payload type to the unit-testable static Map*
+// methods below. The class is partial so the JasperFx source generator registers ActivityEntry as a
+// published type, which lets Marten create its table at startup and clear it on rebuild.
+public sealed partial class ActivityEntryProjection : EventProjection
 {
     public override async ValueTask ApplyAsync(IDocumentOperations operations, IEvent e, CancellationToken cancellation)
     {
