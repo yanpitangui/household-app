@@ -23,6 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="../HouseholdApp.UnitTests/Modules/Expenses/Import/Fixtures/*.csv"
+          LinkBase="Fixtures/Splitwise" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="TUnit.Core" />
     <Using Include="TUnit.Core.Interfaces" />
     <Using Include="TUnit.Assertions" />

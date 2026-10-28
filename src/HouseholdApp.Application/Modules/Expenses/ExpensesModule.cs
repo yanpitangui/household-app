@@ -37,6 +37,7 @@ public static class ExpensesModule
 
         services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();
+        services.AddScoped<IExpenseImport, ExpenseImportService>();
         services.AddScoped<IExpenseQueries, ExpenseQueryService>();
         services.AddScoped<IActivityFeedQueries, ActivityFeedQueryService>();
         services.AddScoped<IRecurringJobScheduler, TickerQJobScheduler>();

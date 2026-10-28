@@ -30,4 +30,9 @@
     <ProjectReference Include="..\..\src\HouseholdApp.Migrations\HouseholdApp.Migrations.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../HouseholdApp.UnitTests/Modules/Expenses/Import/Fixtures/*.csv"
+          LinkBase="Fixtures/Splitwise" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

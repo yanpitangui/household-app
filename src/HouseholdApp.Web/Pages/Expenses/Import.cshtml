@@ -1,0 +1,28 @@
+@page "/h/{householdId:guid}/Expenses/Import"
+@model HouseholdApp.Web.Pages.Expenses.ImportExpensesModel
+@{
+    ViewData["Title"] = L["Expenses.ImportHeading"];
+}
+
+<div class="page-heading">
+    <span>@L["Expenses.ImportHeading"]</span>
+    <a asp-page="Groups" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+</div>
+
+<div class="app-card mb-4">
+    <p class="list-row-meta" style="margin-top:0">@L["Expenses.ImportIntro"]</p>
+    @* The preview re-renders on every change; the Import button posts the whole form natively
+       so the selected file is sent again and nothing is kept on the server in between. *@
+    <form method="post" enctype="multipart/form-data" hx-boost="false"
+          hx-post="@Url.Page("Import", "Preview", new { householdId = Model.HouseholdId })"
+          hx-trigger="change" hx-target="#import-preview-host" hx-swap="innerHTML"
+          hx-encoding="multipart/form-data"
+          onsubmit="this.querySelectorAll('button[formaction]').forEach(b => b.disabled = true)">
+        @* The Import button is disabled on submit so a double-click can't start a second import. *@
+        <label class="form-label" for="import-upload">@L["Expenses.ImportFile"]</label>
+        <input id="import-upload" type="file" name="Upload" accept=".csv,text/csv" class="form-control mb-3" />
+        <div id="import-preview-host" aria-live="polite">
+            <partial name="_ImportPreview" model="Model" />
+        </div>
+    </form>
+</div>
