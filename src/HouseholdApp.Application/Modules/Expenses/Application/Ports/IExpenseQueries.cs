@@ -23,6 +23,10 @@ public sealed record ExpenseDetail(
     IReadOnlyList<AllocationDto> Allocations,
     DateTimeOffset RecordedAt);
 
+/// <summary>
+/// Balance between the viewer and one other member. Positive Cents: the member owes the viewer;
+/// negative: the viewer owes the member.
+/// </summary>
 public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description);
@@ -32,8 +36,9 @@ public sealed record RecurringExpenseSummary(
 
 public interface IExpenseQueries
 {
+    /// <summary>Balances are relative to <paramref name="viewerId"/>; see <see cref="MemberBalance"/>.</summary>
     Task<ExpensesSummary> GetExpensesSummaryAsync(
-        Guid householdId, Guid? groupId = null, CancellationToken ct = default);
+        Guid householdId, Guid viewerId, Guid? groupId = null, CancellationToken ct = default);
 
     Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default);
 
