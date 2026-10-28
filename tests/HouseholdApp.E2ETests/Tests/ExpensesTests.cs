@@ -21,6 +21,21 @@ public class ExpensesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Balance_card_survives_link_navigation()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewPageAsync();
+
+        // Boosted (htmx) navigation, the path where the card used to be dropped.
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
+        await page.ClickAsync("a:has-text('Back')");
+        await page.Locator(".page-heading:has-text('Expenses')").WaitForAsync();
+
+        await Assert.That(await page.Locator("#expenses-balance-card").CountAsync()).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task Create_expense_group_appears_in_list()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();

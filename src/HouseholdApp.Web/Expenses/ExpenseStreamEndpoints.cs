@@ -44,7 +44,7 @@ public static class ExpenseStreamEndpoints
                     var summary = await expenseQueries.GetExpensesSummaryAsync(householdId, currentUser.Id, ct: innerCt);
                     var listVm = new ExpensesListViewModel(householdId, currentUser.Id, summary.Expenses);
                     var listHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml", listVm);
-                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml", summary.Balances);
+                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml", new BalanceCardViewModel(summary.Balances, OutOfBand: true));
                     return listHtml + balanceHtml;
                 }
 

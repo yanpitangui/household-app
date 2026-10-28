@@ -13,7 +13,7 @@
     <span>@L["Nav.Expenses"]</span>
 </div>
 
-@await Html.PartialAsync("_BalanceCard", Model.Balances)
+@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.Balances, OutOfBand: false))
 
 <a asp-page="Settle" asp-route-householdId="@Model.HouseholdId" class="expenses-settle-btn">
     ✓ @L["Expenses.SettleUp"]
