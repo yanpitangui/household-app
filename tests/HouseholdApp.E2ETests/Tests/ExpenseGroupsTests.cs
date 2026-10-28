@@ -36,6 +36,47 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Three_members_see_their_own_balances_and_a_settle_leaves_the_third_untouched()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
+        await using var thirdCtx = await pw.AddMemberAsync(ownerCtx, householdId, E2EUser.Third);
+
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
+        var trip = await ownerPage.CreateGroupAsync(pw.AppUrl, householdId, "Trip");
+        await ownerPage.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Dinner", "90");  // partner and third owe owner 30
+        var partnerPage = await partnerCtx.NewTrackedPageAsync();
+        await partnerPage.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Taxi", "30");  // owner and third owe partner 10
+
+        static ILocator Row(IPage page, string text) => page.Locator($".expenses-person-row:has-text('{text}')");
+
+        await ownerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
+        await Assert.That(await Row(ownerPage, "Partner owes you").InnerTextAsync()).Contains("20.00");
+        await Assert.That(await Row(ownerPage, "Third owes you").InnerTextAsync()).Contains("30.00");
+        await Assert.That(await ownerPage.Locator($"#group-{trip:N}").InnerTextAsync()).Contains("you're owed").And.Contains("50.00");
+
+        var thirdPage = await thirdCtx.NewTrackedPageAsync();
+        await thirdPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
+        await Assert.That(await Row(thirdPage, "You owe Test").InnerTextAsync()).Contains("30.00");
+        await Assert.That(await Row(thirdPage, "You owe Partner").InnerTextAsync()).Contains("10.00");
+        await Assert.That(await thirdPage.Locator($"#group-{trip:N}").InnerTextAsync()).Contains("you owe").And.Contains("40.00");
+
+        await Row(thirdPage, "You owe Test").Locator(".expenses-settle-with").ClickAsync();
+        await Assert.That(await thirdPage.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("30.00");
+        await thirdPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
+        await thirdPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+
+        await Assert.That(await thirdPage.Locator(".expenses-person-row").CountAsync()).IsEqualTo(1);
+        await Assert.That(await Row(thirdPage, "You owe Partner").InnerTextAsync()).Contains("10.00");
+        await Assert.That(await thirdPage.Locator($"#group-{trip:N}").InnerTextAsync()).Contains("you owe").And.Contains("10.00");
+
+        await ownerPage.ReloadAsync();
+        await Assert.That(await ownerPage.Locator(".expenses-person-row").CountAsync()).IsEqualTo(1);
+        await Assert.That(await Row(ownerPage, "Partner owes you").InnerTextAsync()).Contains("20.00");
+    }
+
+    [Test]
     public async Task Overpaying_a_household_settle_is_blocked()
     {
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();

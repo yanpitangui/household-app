@@ -104,21 +104,11 @@ public partial class HouseholdLedgerProjection : MultiStreamProjection<Household
         IReadOnlyList<Allocation> allocations,
         int multiplier)
     {
-        var net = LedgerMath.NetPerUser(fundingSources, allocations);
-
-        var creditors = net.Where(kv => kv.Value > 0).ToList();
-        var debtors = net.Where(kv => kv.Value < 0).ToList();
-        var totalCredit = creditors.Sum(c => c.Value);
         var touched = false;
-
-        foreach (var debtor in debtors)
-        foreach (var creditor in creditors)
+        foreach (var (debtor, creditor, cents) in LedgerMath.PairShares(LedgerMath.NetPerUser(fundingSources, allocations)))
         {
-            var share = (long)Math.Round((double)Math.Abs(debtor.Value) * creditor.Value / totalCredit);
-            if (share == 0) continue;
-
-            var (u1, u2, sign) = Order(creditor.Key, debtor.Key);
-            GetOrAdd(ledger, groupId, u1, u2).Cents += multiplier * sign * share;
+            var (u1, u2, sign) = Order(creditor, debtor);
+            GetOrAdd(ledger, groupId, u1, u2).Cents += multiplier * sign * cents;
             touched = true;
         }
 

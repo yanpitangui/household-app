@@ -196,6 +196,9 @@ public sealed record FakeOidcUser(string Subject, string Email, string Name, str
     public static readonly FakeOidcUser Partner =
         new("partner-user", "partner@household.local", "Partner User", []);
 
+    public static readonly FakeOidcUser Third =
+        new("third-user", "third@household.local", "Third User", []);
+
     public static FakeOidcUser? Find(string subject) =>
-        new[] { Owner, Partner }.FirstOrDefault(u => u.Subject == subject);
+        new[] { Owner, Partner, Third }.FirstOrDefault(u => u.Subject == subject);
 }

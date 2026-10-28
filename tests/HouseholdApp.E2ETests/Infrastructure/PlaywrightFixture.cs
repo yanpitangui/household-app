@@ -6,6 +6,8 @@ public enum E2EUser
     Owner,
     /// <summary>"Partner User" — joins a household through <see cref="PlaywrightFixture.AddPartnerAsync"/>.</summary>
     Partner,
+    /// <summary>"Third User" — a third member for splits among more than two, joined like the partner.</summary>
+    Third,
 }
 
 public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
@@ -66,6 +68,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     {
         E2EUser.Owner => FakeOidcUser.Owner,
         E2EUser.Partner => FakeOidcUser.Partner,
+        E2EUser.Third => FakeOidcUser.Third,
         _ => throw new ArgumentOutOfRangeException(nameof(user), user, null),
     };
 
@@ -91,11 +94,14 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
         });
     }
 
+    public Task<IBrowserContext> AddPartnerAsync(IBrowserContext ownerCtx, Guid householdId) =>
+        AddMemberAsync(ownerCtx, householdId, E2EUser.Partner);
+
     /// <summary>
-    /// Invites the partner into <paramref name="householdId"/> from the owner's context and accepts
-    /// the invite as the partner. Returns the partner's context, which the caller disposes.
+    /// Invites <paramref name="member"/> into <paramref name="householdId"/> from the owner's context and accepts
+    /// the invite as them. Returns the member's context, which the caller disposes.
     /// </summary>
-    public async Task<IBrowserContext> AddPartnerAsync(IBrowserContext ownerCtx, Guid householdId)
+    public async Task<IBrowserContext> AddMemberAsync(IBrowserContext ownerCtx, Guid householdId, E2EUser member)
     {
         var ownerPage = await ownerCtx.NewPageAsync();
         await ownerPage.GotoAsync($"{AppUrl}/h/{householdId}");
@@ -106,19 +112,19 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
             ?? throw new InvalidOperationException("Invite card rendered without a data-invite-url");
         await ownerPage.CloseAsync();
 
-        var partnerCtx = await NewAuthenticatedContextAsync(E2EUser.Partner);
+        var memberCtx = await NewAuthenticatedContextAsync(member);
         try
         {
-            var partnerPage = await partnerCtx.NewPageAsync();
-            await partnerPage.GotoAsync(joinUrl);
-            await partnerPage.ClickAsync("button[type='submit']:has-text('Accept Invitation')");
-            await partnerPage.Locator(".alert-info").WaitForAsync();
-            await partnerPage.CloseAsync();
-            return partnerCtx;
+            var memberPage = await memberCtx.NewPageAsync();
+            await memberPage.GotoAsync(joinUrl);
+            await memberPage.ClickAsync("button[type='submit']:has-text('Accept Invitation')");
+            await memberPage.Locator(".alert-info").WaitForAsync();
+            await memberPage.CloseAsync();
+            return memberCtx;
         }
         catch
         {
-            await partnerCtx.DisposeAsync();
+            await memberCtx.DisposeAsync();
             throw;
         }
     }
