@@ -32,7 +32,9 @@
 
 <div hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Expenses/stream"
-     sse-swap="expenses-list">
+     sse-swap="expenses-list"
+     hx-swap="morph:innerHTML"
+     hx-disinherit="hx-swap">
     @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Entries))
 </div>
 

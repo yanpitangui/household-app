@@ -1,6 +1,17 @@
 window.householdApp ??= {};
 window.householdApp.appSelectId ??= 0;
 
+// SSE lists are morphed in place, so classes the client toggles for view state (an expanded expense
+// row, hidden done items) are carried onto the incoming markup and survive server re-renders.
+Idiomorph.defaults.callbacks.beforeNodeMorphed = function (oldNode, newNode) {
+    if (oldNode instanceof Element && newNode instanceof Element) {
+        ['expanded', 'done-hidden'].forEach(function (cls) {
+            if (oldNode.classList.contains(cls)) newNode.classList.add(cls);
+        });
+    }
+    return true;
+};
+
 function initToasts() {
     document.querySelectorAll('.toast-success').forEach(function (toast) {
         setTimeout(function () {

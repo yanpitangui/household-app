@@ -9,7 +9,7 @@ else
 {
     @foreach (var t in Model.Tasks)
     {
-        <div class="list-row" style="align-items:center">
+        <div class="list-row" id="task-@t.Id.ToString("N")" style="align-items:center">
             <form method="post" action="/h/@Model.HouseholdId/tasks?handler=@(t.Status == "Completed" ? "Uncomplete" : "Complete")" style="display:inline-flex; align-items:center; flex-shrink:0">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="taskId" value="@t.Id" />

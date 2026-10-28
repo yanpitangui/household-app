@@ -81,6 +81,8 @@
 
 <div hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Tasks/stream?showCompleted=@Model.ShowCompleted.ToString().ToLowerInvariant()"
-     sse-swap="tasks-list">
+     sse-swap="tasks-list"
+     hx-swap="morph:innerHTML"
+     hx-disinherit="hx-swap">
     @await Html.PartialAsync("_TasksList", new TasksListViewModel(Model.HouseholdId, Model.Tasks, Model.MemberNames, Model.ShowCompleted))
 </div>

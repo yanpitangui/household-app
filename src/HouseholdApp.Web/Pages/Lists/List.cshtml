@@ -105,6 +105,8 @@
      hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Lists/@Model.List.Id/stream"
      sse-swap="items-list"
+     hx-swap="morph:innerHTML"
+     hx-disinherit="hx-swap"
      data-done-label="@L["Tasks.Done"]">
     @await Html.PartialAsync("_ItemsList", Model.List)
 </div>

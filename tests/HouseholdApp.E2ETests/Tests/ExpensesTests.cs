@@ -266,6 +266,59 @@ public class ExpensesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Settle_link_survives_the_stream_render()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
+        var page = await NewTrackedPageAsync(ownerCtx);
+        await RecordEqualSplitAsync(page, householdId, "Shared dinner", "100");
+
+        // Delays are set so the stream's first render lands while the settle request is in flight.
+        await page.RouteAsync(url => url.EndsWith("/stream", StringComparison.OrdinalIgnoreCase), async route =>
+        {
+            await Task.Delay(300);
+            await route.ContinueAsync();
+        });
+        await page.RouteAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase), async route =>
+        {
+            await Task.Delay(1_000);
+            await route.ContinueAsync();
+        });
+        await page.ReloadAsync();
+
+        await page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
+        await page.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
+        await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("50.00");
+    }
+
+    [Test]
+    public async Task Expanded_row_stays_open_across_a_live_update()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
+        var ownerPage = await NewTrackedPageAsync(ownerCtx);
+        await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
+
+        var dinnerRow = ownerPage.Locator(".expense-row-wrap:has-text('Shared dinner')");
+        await dinnerRow.Locator(".expense-row-header").ClickAsync();
+        await Assert.That(await dinnerRow.GetAttributeAsync("class")).Contains("expanded");
+
+        var partnerPage = await partnerCtx.NewPageAsync();
+        await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
+        await partnerPage.FillAsync("input[name='Description']", "Partner taxi");
+        await partnerPage.FillAsync("input[name='Amount']", "40");
+        await partnerPage.Locator("select[name='GroupId']").SelectOptionAsync(new SelectOptionValue { Label = "Food" });
+        await partnerPage.ClickAsync("button[type='submit']:has-text('Record')");
+        await partnerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+
+        await ownerPage.Locator(".expense-row-header:has-text('Partner taxi')")
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        await Assert.That(await dinnerRow.GetAttributeAsync("class")).Contains("expanded");
+    }
+
+    [Test]
     public async Task Payment_appears_live_for_the_other_member()
     {
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
