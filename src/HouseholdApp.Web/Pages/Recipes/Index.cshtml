@@ -11,6 +11,8 @@
 
 <div hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Recipes/stream"
-     sse-swap="recipes-list">
+     sse-swap="recipes-list"
+     hx-swap="morph:innerHTML"
+     hx-disinherit="hx-swap">
     @await Html.PartialAsync("_RecipesList", new RecipesListViewModel(Model.HouseholdId, Model.Recipes))
 </div>

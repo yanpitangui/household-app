@@ -86,7 +86,7 @@
             <div class="app-card">
                 @foreach (var item in group.OrderBy(i => i.SortOrder))
                 {
-                    <div class="check-item">
+                    <div class="check-item" id="item-@item.Id.ToString("N")">
                         <button class="check-box"
                                 hx-post="?handler=CompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'
@@ -131,7 +131,7 @@
             <div class="app-card" id="done-items-card">
                 @foreach (var item in doneItems)
                 {
-                    <div class="check-item done">
+                    <div class="check-item done" id="item-@item.Id.ToString("N")">
                         <button class="check-box checked"
                                 hx-post="?handler=UncompleteItem"
                                 hx-vals='{"ListId": "@Model.Id", "ItemId": "@item.Id"}'

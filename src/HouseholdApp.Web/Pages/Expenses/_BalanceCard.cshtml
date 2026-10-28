@@ -5,7 +5,7 @@
     var nonZeroBalances = Model.Balances.Where(b => b.Cents != 0).ToList();
 }
 
-<div id="expenses-balance-card" hx-swap-oob="@(Model.OutOfBand ? "true" : null)">
+<div id="expenses-balance-card" hx-swap-oob="@(Model.OutOfBand ? "morph" : null)">
 @if (nonZeroBalances.Any())
 {
     var netCents = Model.Balances.Sum(b => b.Cents);

@@ -9,7 +9,7 @@ else
 {
     @foreach (var r in Model.Recipes)
     {
-        <a href="/h/@Model.HouseholdId/recipes/@r.Id"
+        <a href="/h/@Model.HouseholdId/recipes/@r.Id" id="recipe-@r.Id.ToString("N")"
            class="list-row" style="align-items:flex-start;text-decoration:none;color:inherit">
             <div class="list-row-icon" style="background:rgba(255,107,74,0.12)">🍳</div>
             <div class="list-row-body">
