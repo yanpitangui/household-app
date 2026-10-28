@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
@@ -18,13 +19,14 @@ public sealed class ExpenseCommandServiceVoidTests(PostgresFixture db)
         new ThrowingRecurringExpenseRepository(),
         new ThrowingRecurringJobScheduler(),
         new ThrowingUnitOfWork(),
-        new FakeTimeProvider());
+        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
 
     [Test]
     public async Task VoidExpenseAsync_reverses_the_ledger_balance()
     {
         var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
+        await ExpenseTestData.SeedGroupAsync(Store, householdId, groupId);
         var payerId = Guid.NewGuid();
         var debtorId = Guid.NewGuid();
 
@@ -36,7 +38,7 @@ public sealed class ExpenseCommandServiceVoidTests(PostgresFixture db)
             [new FundingSourceDto(payerId, 1000)],
             [new AllocationDto(payerId, 500), new AllocationDto(debtorId, 500)]);
 
-        await sut.VoidExpenseAsync(expenseId, "recorded by mistake");
+        await sut.VoidExpenseAsync(householdId, expenseId, "recorded by mistake");
 
         await using var qs = Store.QuerySession();
         var ledger = await qs.LoadAsync<HouseholdLedger>(householdId);
@@ -50,6 +52,7 @@ public sealed class ExpenseCommandServiceVoidTests(PostgresFixture db)
     {
         var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
+        await ExpenseTestData.SeedGroupAsync(Store, householdId, groupId);
         var payerId = Guid.NewGuid();
         var debtorId = Guid.NewGuid();
 
@@ -61,7 +64,7 @@ public sealed class ExpenseCommandServiceVoidTests(PostgresFixture db)
             [new FundingSourceDto(payerId, 1000)],
             [new AllocationDto(payerId, 500), new AllocationDto(debtorId, 500)]);
 
-        await sut.VoidExpenseAsync(expenseId, "recorded by mistake");
+        await sut.VoidExpenseAsync(householdId, expenseId, "recorded by mistake");
 
         await using var qs = Store.QuerySession();
         var readModel = await qs.LoadAsync<ExpenseReadModel>(expenseId);

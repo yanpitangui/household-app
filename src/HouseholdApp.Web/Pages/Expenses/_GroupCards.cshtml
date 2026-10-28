@@ -1,0 +1,44 @@
+@model HouseholdApp.Web.Pages.Expenses.GroupCardsViewModel
+@using System.Globalization
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+}
+
+<div id="expenses-group-cards">
+@if (!Model.Groups.Any())
+{
+    <p class="section-title">@L["Expenses.Group.None"]</p>
+}
+@foreach (var g in Model.Groups)
+{
+    var net = g.Balances.Sum(b => b.Cents);
+    var state = net > 0 ? "owed" : net < 0 ? "owe" : "zero";
+    <a href="/h/@Model.HouseholdId/expenses/groups/@g.Id" class="expenses-group-card" id="group-@g.Id.ToString("N")">
+        <span class="list-row-icon expenses-group-card-icon" aria-hidden="true">💳</span>
+        <span class="list-row-body">
+            <span class="list-row-name">@g.Name</span>
+            <span class="list-row-meta">
+                @if (g.LastExpenseDescription is { } last && g.LastExpenseDate is { } lastDate)
+                {
+                    @L["Expenses.Group.Last", last, lastDate.ToString("d MMM", CultureInfo.CurrentCulture)]
+                }
+                else
+                {
+                    @L["Expenses.Group.NoExpenses"]
+                }
+            </span>
+        </span>
+        <span class="expenses-group-card-balance @state">
+            @if (net == 0)
+            {
+                @L["Expenses.Group.SettledUp"]
+            }
+            else
+            {
+                <span>@(net > 0 ? L["Expenses.Group.YouAreOwed"] : L["Expenses.Group.YouOwe"])</span>
+                <strong>@currencySymbol @((Math.Abs(net) / 100m).ToString("F2"))</strong>
+            }
+        </span>
+    </a>
+}
+</div>

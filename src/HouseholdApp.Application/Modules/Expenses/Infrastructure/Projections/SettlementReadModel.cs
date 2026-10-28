@@ -13,6 +13,12 @@ public sealed class SettlementReadModel
     public long Cents { get; set; }
     public DateTimeOffset Date { get; set; }
     public DateTimeOffset RecordedAt { get; set; }
+    public Guid? HouseholdSettlementId { get; set; }
+    public bool IsOffset { get; set; }
+    public long? HouseholdSettlementCents { get; set; }
+
+    /// <summary>The leg that stands for a whole household settle on the home timeline.</summary>
+    public bool IsHouseholdLead { get; set; }
 }
 
 public partial class SettlementReadModelProjection : SingleStreamProjection<SettlementReadModel, Guid>
@@ -27,5 +33,9 @@ public partial class SettlementReadModelProjection : SingleStreamProjection<Sett
         model.Cents = e.Cents;
         model.Date = e.Date;
         model.RecordedAt = e.OccurredAt;
+        model.HouseholdSettlementId = e.HouseholdSettlementId;
+        model.IsOffset = e.IsOffset;
+        model.HouseholdSettlementCents = e.HouseholdSettlementCents;
+        model.IsHouseholdLead = e.HouseholdSettlementId is { } lead && lead == e.SettlementId;
     }
 }

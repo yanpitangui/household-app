@@ -144,11 +144,24 @@
     <div class="toast-container" id="toast-container">
         @if (TempData["Success"] is string success)
         {
-            <div class="toast toast-success" role="alert">
+            var undoGroupId = TempData["UndoGroupId"]?.ToString();
+            var canUndo = undoGroupId is not null && isHouseholdPage;
+            <div class="toast toast-success @(canUndo ? "toast-sticky" : "")" role="alert">
                 <div class="toast-icon">✓</div>
                 <div class="toast-body"><div class="toast-title">@success</div></div>
+                @if (canUndo)
+                {
+                    <form method="post" action="/h/@householdId/expenses?handler=RestoreGroup" class="toast-action">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="groupId" value="@undoGroupId" />
+                        <button type="submit" class="toast-action-btn">@L["Action.Undo"]</button>
+                    </form>
+                }
                 <button class="toast-close" onclick="this.closest('.toast').remove()">✕</button>
-                <div class="toast-progress"></div>
+                @if (!canUndo)
+                {
+                    <div class="toast-progress"></div>
+                }
             </div>
         }
         @if (TempData["Error"] is string error)

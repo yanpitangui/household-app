@@ -6,4 +6,5 @@ public sealed class ExpenseGroupDocument
     public Guid HouseholdId { get; set; }
     public string Name { get; set; } = default!;
     public string? Description { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 }

@@ -6,6 +6,7 @@ using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace HouseholdApp.UnitTests.Modules.Expenses.Application;
@@ -21,7 +22,7 @@ public sealed class ExpenseCommandServiceDeleteTests
 
     public ExpenseCommandServiceDeleteTests()
     {
-        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, new FakeTimeProvider());
+        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
     }
 
     [Test]
@@ -30,7 +31,7 @@ public sealed class ExpenseCommandServiceDeleteTests
         _session.LoadAsync<ExpenseGroupDocument>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ExpenseGroupDocument?)null);
 
-        await Assert.That(async () => await _sut.DeleteExpenseGroupAsync(Guid.NewGuid()))
+        await Assert.That(async () => await _sut.DeleteExpenseGroupAsync(Guid.NewGuid(), Guid.NewGuid()))
             .Throws<InvalidOperationException>();
     }
 

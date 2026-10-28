@@ -1,4 +1,5 @@
 using HouseholdApp.E2ETests.Infrastructure;
+using Microsoft.Playwright;
 
 namespace HouseholdApp.E2ETests.Tests;
 
@@ -16,7 +17,7 @@ public class ExpensesTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
 
         await Assert.That(await page.Locator(".page-heading:has-text('Expenses')").IsVisibleAsync()).IsTrue();
-        await Assert.That(await page.Locator("a:has-text('Groups')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator("a:has-text('New Group')").IsVisibleAsync()).IsTrue();
         await Assert.That(await page.Locator("a:has-text('Recurring')").IsVisibleAsync()).IsTrue();
     }
 
@@ -28,7 +29,7 @@ public class ExpensesTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         // Boosted (htmx) navigation, the path where the card used to be dropped.
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
         await page.ClickAsync("a:has-text('Back')");
         await page.Locator(".page-heading:has-text('Expenses')").WaitForAsync();
 
@@ -42,15 +43,12 @@ public class ExpensesTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         var page = await ctx.NewPageAsync();
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
-
         var groupName = $"Groceries {Guid.NewGuid().ToString("N")[..8]}";
-        await page.FillAsync("input[name='NewName']", groupName);
-        await page.ClickAsync("button:has-text('+ Create')");
-        // hx-boost redirects back to same Groups URL; wait for element to appear
-        await page.Locator($"text={groupName}").WaitForAsync();
+        await page.CreateGroupAsync(pw.AppUrl, householdId, groupName);
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
 
-        await Assert.That(await page.Locator($"text={groupName}").IsVisibleAsync()).IsTrue();
+        await page.Locator($".expenses-group-card:has-text('{groupName}')").WaitForAsync();
+        await Assert.That(await page.Locator($".expenses-group-card:has-text('{groupName}')").IsVisibleAsync()).IsTrue();
     }
 
     [Test]
@@ -73,25 +71,18 @@ public class ExpensesTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         // Create an expense group first (required for Record page)
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
-        await page.FillAsync("input[name='NewName']", "Food");
-        await page.ClickAsync("button:has-text('+ Create')");
-        await page.Locator("text=Food").WaitForAsync();
+        var groupId = await page.CreateGroupAsync(pw.AppUrl, householdId, "Food");
 
         // Navigate to Record page
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
 
         // Fill the form — payer is the current user (first/only member)
         await page.FillAsync("input[name='Description']", "Test Groceries");
         await page.FillAsync("input[name='Amount']", "100");
 
-        // Select the group
-        var groupSelect = page.Locator("select[name='GroupId']");
-        await groupSelect.SelectOptionAsync(new SelectOptionValue { Label = "Food" });
-
         // Submit
         await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
 
         // Expense row must appear in the list
         await page.Locator(".expense-row-header").First.WaitForAsync();
@@ -108,19 +99,14 @@ public class ExpensesTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         // Create an expense group first (required for Record page)
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
-        await page.FillAsync("input[name='NewName']", "Food");
-        await page.ClickAsync("button:has-text('+ Create')");
-        await page.Locator("text=Food").WaitForAsync();
+        var groupId = await page.CreateGroupAsync(pw.AppUrl, householdId, "Food");
 
         // Record the original expense
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await page.FillAsync("input[name='Description']", "Test Groceries");
         await page.FillAsync("input[name='Amount']", "100");
-        var groupSelect = page.Locator("select[name='GroupId']");
-        await groupSelect.SelectOptionAsync(new SelectOptionValue { Label = "Food" });
         await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
 
         // Expand the row to reveal the Edit link, then follow it
         await page.Locator(".expense-row-header:has-text('Test Groceries')").ClickAsync();
@@ -135,7 +121,7 @@ public class ExpensesTests(PlaywrightFixture pw)
         await page.FillAsync("input[name='Description']", "Test Groceries Updated");
         await page.FillAsync("input[name='Amount']", "150");
         await page.ClickAsync("button[type='submit']:has-text('Save')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
 
         // Updated entry replaces the original in the list
         await page.Locator(".expense-row-header").First.WaitForAsync();
@@ -182,17 +168,17 @@ public class ExpensesTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
 
         // Labels are pt-BR here: "+ Criar", "Registrar", "Editar".
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
         await page.FillAsync("input[name='NewName']", "Food");
         await page.ClickAsync("button:has-text('+ Criar')");
-        await page.Locator("text=Food").WaitForAsync();
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        var groupId = Guid.Parse(new Uri(page.Url).Segments[^1]);
 
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await page.FillAsync("input[name='Description']", "Decimal check");
         await page.FillAsync("input[name='Amount']", "12.34");
-        await page.Locator("select[name='GroupId']").SelectOptionAsync(new SelectOptionValue { Label = "Food" });
         await page.ClickAsync("button[type='submit']:has-text('Registrar')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
 
         var row = page.Locator(".expense-row-header:has-text('Decimal check')");
         await row.WaitForAsync();
@@ -225,7 +211,7 @@ public class ExpensesTests(PlaywrightFixture pw)
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
-        var ownerPage = await NewTrackedPageAsync(ownerCtx);
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
         await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
 
         var ownerRow = ownerPage.Locator("#expenses-balance-card .expenses-person-row");
@@ -233,9 +219,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         await Assert.That(await ownerRow.CountAsync()).IsEqualTo(1);
         await Assert.That(await ownerRow.InnerTextAsync()).Contains("Partner owes you").And.Contains("50.00");
 
-        var partnerPage = await NewTrackedPageAsync(partnerCtx);
+        var partnerPage = await partnerCtx.NewTrackedPageAsync();
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
-        await WaitForFirstSseRenderAsync(partnerPage);
+        await partnerPage.WaitForFirstSseRenderAsync();
         var partnerRow = partnerPage.Locator("#expenses-balance-card .expenses-person-row");
         await partnerRow.WaitForAsync();
         await Assert.That(await partnerRow.CountAsync()).IsEqualTo(1);
@@ -248,8 +234,8 @@ public class ExpensesTests(PlaywrightFixture pw)
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
-        var page = await NewTrackedPageAsync(ownerCtx);
-        await RecordEqualSplitAsync(page, householdId, "Shared dinner", "100");
+        var page = await ownerCtx.NewTrackedPageAsync();
+        var groupId = await RecordEqualSplitAsync(page, householdId, "Shared dinner", "100");
 
         await page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
         await page.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
@@ -259,8 +245,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("50.00");
 
         await page.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, groupId));
 
+        // The payment that settles the group heads the list; what it settled sits behind "Show earlier entries".
         await page.Locator(".payment-row:has-text('Partner paid you')").WaitForAsync();
         await Assert.That(await page.Locator("#expenses-balance-card .expenses-person-row").CountAsync()).IsEqualTo(0);
     }
@@ -271,7 +258,7 @@ public class ExpensesTests(PlaywrightFixture pw)
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
-        var page = await NewTrackedPageAsync(ownerCtx);
+        var page = await ownerCtx.NewTrackedPageAsync();
         await RecordEqualSplitAsync(page, householdId, "Shared dinner", "100");
 
         // Delays are set so the stream's first render lands while the settle request is in flight.
@@ -298,20 +285,19 @@ public class ExpensesTests(PlaywrightFixture pw)
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
-        var ownerPage = await NewTrackedPageAsync(ownerCtx);
-        await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
+        var groupId = await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
 
         var dinnerRow = ownerPage.Locator(".expense-row-wrap:has-text('Shared dinner')");
         await dinnerRow.Locator(".expense-row-header").ClickAsync();
         await Assert.That(await dinnerRow.GetAttributeAsync("class")).Contains("expanded");
 
         var partnerPage = await partnerCtx.NewPageAsync();
-        await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
+        await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await partnerPage.FillAsync("input[name='Description']", "Partner taxi");
         await partnerPage.FillAsync("input[name='Amount']", "40");
-        await partnerPage.Locator("select[name='GroupId']").SelectOptionAsync(new SelectOptionValue { Label = "Food" });
         await partnerPage.ClickAsync("button[type='submit']:has-text('Record')");
-        await partnerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await partnerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
 
         await ownerPage.Locator(".expense-row-header:has-text('Partner taxi')")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
@@ -324,20 +310,21 @@ public class ExpensesTests(PlaywrightFixture pw)
         await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
-        var ownerPage = await NewTrackedPageAsync(ownerCtx);
-        await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
+        var groupId = await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
 
         // The first stream render means the partner is subscribed before the payment lands.
-        var partnerPage = await NewTrackedPageAsync(partnerCtx);
-        await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
-        await WaitForFirstSseRenderAsync(partnerPage);
+        var partnerPage = await partnerCtx.NewTrackedPageAsync();
+        await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{groupId}");
+        await partnerPage.WaitForFirstSseRenderAsync();
         await Assert.That(await partnerPage.Locator(".payment-row").CountAsync()).IsEqualTo(0);
 
         await ownerPage.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
         await ownerPage.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
         await ownerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await ownerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await ownerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, groupId));
 
+        // The settling payment heads the live list.
         await partnerPage.Locator(".payment-row:has-text('You paid Test')")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         await Assert.That(await partnerPage.Locator("#expenses-balance-card .expenses-person-row").CountAsync()).IsEqualTo(0);
@@ -350,66 +337,24 @@ public class ExpensesTests(PlaywrightFixture pw)
         var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
         await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
 
-        var partnerPage = await NewTrackedPageAsync(partnerCtx);
+        var partnerPage = await partnerCtx.NewTrackedPageAsync();
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
-        await WaitForFirstSseRenderAsync(partnerPage);
+        await partnerPage.WaitForFirstSseRenderAsync();
 
-        var ownerPage = await NewTrackedPageAsync(ownerCtx);
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
         await RecordEqualSplitAsync(ownerPage, householdId, "Shared dinner", "100");
 
-        await partnerPage.Locator(".expense-row-header:has-text('Shared dinner')")
+        await partnerPage.Locator(".expenses-group-card:has-text('Food') .expenses-group-card-balance.owe")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         await Assert.That(await partnerPage.Locator("#expenses-balance-card .expenses-person-row").InnerTextAsync())
             .Contains("You owe Test");
     }
 
-    /// <summary>Records <paramref name="amount"/> paid by the page's user, split equally across all members, and lands on the Expenses index.</summary>
-    private async Task RecordEqualSplitAsync(IPage page, Guid householdId, string description, string amount)
+    /// <summary>Creates a "Food" group, records an equal split in it, and lands on the group page.</summary>
+    private async Task<Guid> RecordEqualSplitAsync(IPage page, Guid householdId, string description, string amount)
     {
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups");
-        await page.FillAsync("input[name='NewName']", "Food");
-        await page.ClickAsync("button:has-text('+ Create')");
-        await page.Locator("text=Food").WaitForAsync();
-
-        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record");
-        await page.FillAsync("input[name='Description']", description);
-        await page.FillAsync("input[name='Amount']", amount);
-        await page.Locator("select[name='GroupId']").SelectOptionAsync(new SelectOptionValue { Label = "Food" });
-        await ResetSseCountAsync(page);
-        await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
-        await page.Locator($".expense-row-header:has-text('{description}')").WaitForAsync();
-        await WaitForFirstSseRenderAsync(page);
+        var groupId = await page.CreateGroupAsync(pw.AppUrl, householdId, "Food");
+        await page.RecordEqualSplitAsync(pw.AppUrl, householdId, groupId, description, amount);
+        return groupId;
     }
-
-    private const string SseCounterScript = """
-        if (!window.__sseTracked) {
-            window.__sseTracked = true;
-            window.__sseMessages = 0;
-            document.addEventListener('htmx:sseMessage', () => window.__sseMessages++);
-        }
-        """;
-
-    /// <summary>A page that counts SSE swaps on every document it loads, so tests can wait for the stream's first render.</summary>
-    private static async Task<IPage> NewTrackedPageAsync(IBrowserContext ctx)
-    {
-        var page = await ctx.NewPageAsync();
-        await page.AddInitScriptAsync(SseCounterScript);
-        return page;
-    }
-
-    /// <summary>
-    /// Zeroes the SSE swap count before a boosted navigation, which keeps the window (and its count)
-    /// alive, so <see cref="WaitForFirstSseRenderAsync"/> then waits for the new page's stream.
-    /// </summary>
-    private static Task ResetSseCountAsync(IPage page) =>
-        page.EvaluateAsync("() => { window.__sseMessages = 0; }");
-
-    /// <summary>
-    /// Waits until the Expenses stream has swapped in its initial render since the last full load or
-    /// <see cref="ResetSseCountAsync"/>, so later clicks hit the settled balance card and the page is
-    /// subscribed to live updates.
-    /// </summary>
-    private static Task WaitForFirstSseRenderAsync(IPage page) =>
-        page.WaitForFunctionAsync("() => window.__sseMessages > 0");
 }

@@ -70,10 +70,10 @@ public partial class ImportExpensesModel(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Any failure after validation may have left the group behind, so point the user at the Groups page to check.
+            // Any failure after validation may have left the group behind, so send the user to the expenses page to check.
             logger.LogError(ex, "Splitwise import into household {HouseholdId} failed", HouseholdId);
             TempData["Error"] = Loc["Import.Error.ImportFailed"].Value;
-            return RedirectToPage("Groups", new { householdId = HouseholdId });
+            return RedirectToPage("Index", new { householdId = HouseholdId });
         }
         TempData["Success"] = Loc["Flash.ImportCompleted", plan.EntryCount].Value;
         return RedirectToPage("Index", new { householdId = HouseholdId });

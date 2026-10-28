@@ -2,10 +2,12 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace HouseholdApp.UnitTests.Modules.Expenses.Application;
@@ -23,6 +25,7 @@ public sealed class ExpenseCommandServiceRecurringTests
     private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly ILogger<ExpenseCommandService> _logger = Substitute.For<ILogger<ExpenseCommandService>>();
     private readonly FakeTimeProvider _time = new(BaseTime);
     private readonly ExpenseCommandService _sut;
 
@@ -35,7 +38,9 @@ public sealed class ExpenseCommandServiceRecurringTests
             .Returns(Guid.NewGuid());
 
         _currentUser.Id.Returns(UserId);
-        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, _time);
+        _session.LoadAsync<ExpenseGroupDocument>(GroupId, Arg.Any<CancellationToken>())
+            .Returns(new ExpenseGroupDocument { Id = GroupId, HouseholdId = HouseholdId, Name = "Home" });
+        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, _time, _logger);
     }
 
     [Test]
@@ -45,6 +50,16 @@ public sealed class ExpenseCommandServiceRecurringTests
             HouseholdId, GroupId, "Monthly rent", RecurrenceFrequency.Monthly, BaseTime.AddDays(1), DefaultFunding, DefaultAllocs);
 
         await Assert.That(id).IsNotEqualTo(Guid.Empty);
+    }
+
+    [Test]
+    public async Task CreateRecurringExpenseAsync_rejects_a_group_of_another_household()
+    {
+        await Assert.That(async () => await _sut.CreateRecurringExpenseAsync(
+                Guid.NewGuid(), GroupId, "Monthly rent", RecurrenceFrequency.Monthly, BaseTime.AddDays(1), DefaultFunding, DefaultAllocs))
+            .Throws<InvalidOperationException>();
+
+        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleCronAsync(default!, default!, default, default);
     }
 
     [Test]
@@ -263,5 +278,23 @@ public sealed class ExpenseCommandServiceRecurringTests
 
         _session.Events.Received(1).Append(Arg.Any<Guid>(), Arg.Any<object[]>());
         await _session.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task SpawnRecurringExpenseAsync_skips_a_deleted_group()
+    {
+        var recurring = RecurringExpense.Create(
+            HouseholdId, GroupId, "Rent", DefaultFunding.Select(f => new FundingSource(f.UserId, f.Cents)).ToList(),
+            DefaultAllocs.Select(a => new Allocation(a.UserId, a.Cents)).ToList(),
+            RecurrenceFrequency.Monthly, BaseTime);
+        _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
+        _session.LoadAsync<ExpenseGroupDocument>(GroupId, Arg.Any<CancellationToken>())
+            .Returns(new ExpenseGroupDocument { Id = GroupId, HouseholdId = HouseholdId, Name = "Home", DeletedAt = BaseTime });
+
+        await _sut.SpawnRecurringExpenseAsync(recurring.Id);
+
+        await _session.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        _logger.Received(1).Log(
+            LogLevel.Information, Arg.Any<EventId>(), Arg.Any<object>(), null, Arg.Any<Func<object, Exception?, string>>());
     }
 }

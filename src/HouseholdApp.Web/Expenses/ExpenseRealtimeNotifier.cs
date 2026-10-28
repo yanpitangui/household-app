@@ -7,7 +7,9 @@ namespace HouseholdApp.Web.Expenses;
 public sealed class ExpenseRealtimeNotifier(IConnectionMultiplexer redis, EventDispatchScope dispatchScope)
     : IEventHandler<ExpenseRecorded>,
       IEventHandler<ExpenseVoided>,
-      IEventHandler<SettlementRecorded>
+      IEventHandler<SettlementRecorded>,
+      IEventHandler<ExpenseGroupDeleted>,
+      IEventHandler<ExpenseGroupRestored>
 {
     private Task Notify(Guid householdId) =>
         dispatchScope.SuppressNotifications
@@ -20,4 +22,6 @@ public sealed class ExpenseRealtimeNotifier(IConnectionMultiplexer redis, EventD
     public Task HandleAsync(ExpenseRecorded evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
     public Task HandleAsync(ExpenseVoided evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
     public Task HandleAsync(SettlementRecorded evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
+    public Task HandleAsync(ExpenseGroupDeleted evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
+    public Task HandleAsync(ExpenseGroupRestored evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
 }

@@ -1,0 +1,12 @@
+@model HouseholdApp.Web.Pages.Expenses.ShowOlderButtonViewModel
+@if (!Model.Visible)
+{
+    <span id="expenses-show-older" hx-swap-oob="@Model.OobSwap"></span>
+}
+else
+{
+    <button type="button" id="expenses-show-older" class="timeline-show-older"
+            hx-get="@(Model.Cursor is null ? "?handler=Older" : $"?handler=Older&cursor={Model.Cursor}")"
+            hx-target="#expenses-older" hx-swap="beforeend"
+            hx-swap-oob="@Model.OobSwap">@L["Expenses.Timeline.ShowOlder"]</button>
+}

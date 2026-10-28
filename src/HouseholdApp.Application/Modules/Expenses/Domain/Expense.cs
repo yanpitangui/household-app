@@ -55,7 +55,7 @@ public sealed class Expense : AggregateRoot
         IsVoided = true;
         Raise(new ExpenseVoided(
             Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations,
-            performedByUserId, Description, correctedByExpenseId));
+            performedByUserId, Description, correctedByExpenseId, ExpenseGroupId));
     }
 
     public static Expense Create(ExpenseRecorded e) => new()

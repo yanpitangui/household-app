@@ -25,6 +25,8 @@ public static class ExpenseDocumentStore
             opts.Events.AddEventType<ExpenseRecorded>();
             opts.Events.AddEventType<ExpenseVoided>();
             opts.Events.AddEventType<SettlementRecorded>();
+            opts.Events.AddEventType<ExpenseGroupDeleted>();
+            opts.Events.AddEventType<ExpenseGroupRestored>();
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);

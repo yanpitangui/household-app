@@ -179,4 +179,20 @@ public sealed class ExpenseTests
         await Assert.That(raised.Description).IsEqualTo("Groceries");
         await Assert.That(raised.CorrectedByExpenseId).IsEqualTo(replacementId);
     }
+
+    [Test]
+    public async Task Void_carries_the_expense_group()
+    {
+        var groupId = Guid.NewGuid();
+        var user = Guid.NewGuid();
+        var expense = Expense.Record(
+            Guid.NewGuid(), groupId, "Hotel", DateTimeOffset.UtcNow,
+            [new FundingSource(user, 1000)], [new Allocation(user, 1000)],
+            DateTimeOffset.UtcNow, user);
+
+        expense.Void(null, DateTimeOffset.UtcNow, user);
+
+        var voided = expense.DomainEvents.OfType<ExpenseVoided>().Single();
+        await Assert.That(voided.ExpenseGroupId).IsEqualTo(groupId);
+    }
 }

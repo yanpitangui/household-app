@@ -1,0 +1,210 @@
+@model HouseholdApp.Web.Pages.Expenses.ExpensesListViewModel
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    var grouped = Model.Entries.GroupBy(e => new { e.Date.Year, e.Date.Month });
+    var voidAction = Model.GroupId is { } listGroupId
+        ? $"/h/{Model.HouseholdId}/expenses/groups/{listGroupId}?handler=Void"
+        : $"/h/{Model.HouseholdId}/expenses?handler=Void";
+}
+
+@foreach (var grp in grouped)
+{
+    var monthLabel = new DateTime(grp.Key.Year, grp.Key.Month, 1).ToString("MMMM yyyy");
+    <div class="expenses-month-header">@monthLabel</div>
+
+    @foreach (var entry in grp)
+    {
+        if (entry is PaymentEntry { Payment: var p })
+        {
+            var paymentRowId = $"pay-{p.Id:N}";
+            if (p.IsOffset)
+            {
+                <div class="payment-row payment-row-transfer" id="@paymentRowId">
+                    <div class="expenses-date-col">
+                        <span class="expenses-date-month">@p.Date.ToString("MMM")</span>
+                        <span class="expenses-date-day">@p.Date.Day</span>
+                    </div>
+                    <div class="list-row-icon payment-row-icon" aria-hidden="true">🔁</div>
+                    <div class="list-row-body">
+                        <div class="list-row-name">@L["Expenses.Payment.MovedOut", $"{currencySymbol} {(p.Cents / 100m):F2}"]</div>
+                        <div class="list-row-meta"><span>@L["Expenses.Payment.HouseholdSettle"]</span></div>
+                    </div>
+                </div>
+                continue;
+            }
+
+            var payerFirst = NameFormat.First(p.Payer.DisplayName);
+            var recipientFirst = NameFormat.First(p.Recipient.DisplayName);
+            var title = p.PerspectiveFor(Model.CurrentUserId) switch
+            {
+                PaymentPerspective.ViewerPaid => L["Expenses.Payment.YouPaid", recipientFirst].Value,
+                PaymentPerspective.ViewerReceived => L["Expenses.Payment.PaidYou", payerFirst].Value,
+                _ => L["Expenses.Payment.Paid", payerFirst, recipientFirst].Value,
+            };
+            <div class="payment-row" id="@paymentRowId">
+                <div class="expenses-date-col">
+                    <span class="expenses-date-month">@p.Date.ToString("MMM")</span>
+                    <span class="expenses-date-day">@p.Date.Day</span>
+                </div>
+                <div class="list-row-icon payment-row-icon" aria-hidden="true">💸</div>
+                <div class="list-row-body">
+                    <div class="list-row-name">@title</div>
+                    <div class="list-row-meta">
+                        <span>@L["Expenses.Payment.Label"]</span>
+                        @if (p.IsHouseholdSettle)
+                        {
+                            <span class="payment-row-tag">@L["Expenses.Payment.HouseholdSettle"]</span>
+                        }
+                    </div>
+                </div>
+                <span class="list-row-badge payment-row-badge">@currencySymbol @((p.Cents / 100m).ToString("F2"))</span>
+            </div>
+            continue;
+        }
+
+        if (entry is not ExpenseEntry { Expense: var e })
+        {
+            continue;
+        }
+        var myFunding = e.FundingSources.FirstOrDefault(f => f.UserId == Model.CurrentUserId)?.Cents ?? 0;
+        var myAllocation = e.Allocations.FirstOrDefault(a => a.UserId == Model.CurrentUserId)?.Cents ?? 0;
+        var myNet = myFunding - myAllocation;
+        var isParticipant = myFunding > 0 || myAllocation > 0;
+        var hasMultiplePayers = e.FundingSources.Count > 1;
+        var paidLabel = hasMultiplePayers
+            ? L["Expenses.Breakdown.PaidPlural"].Value
+            : L["Expenses.Breakdown.PaidSingular"].Value;
+        var rowId = $"exp-{e.Id:N}";
+
+        <div class="expense-row-wrap" id="@rowId">
+            <div class="expense-row-header">
+                <div class="expenses-date-col">
+                    <span class="expenses-date-month">@e.Date.ToString("MMM")</span>
+                    <span class="expenses-date-day">@e.Date.Day</span>
+                </div>
+                <div class="list-row-icon" style="background:rgba(59,130,246,0.12);width:30px;height:30px;border-radius:8px;font-size:14px;flex-shrink:0">
+                    💳
+                </div>
+                <div class="list-row-body">
+                    <div class="list-row-name">@e.Description</div>
+                    <div class="list-row-meta">
+                        @if (e.GroupName is not null)
+                        {
+                            <span class="expense-group-chip">@e.GroupName</span>
+                        }
+                        @foreach (var f in e.FundingSources)
+                        {
+                            if (f.UserId == Model.CurrentUserId)
+                            {
+                                <span>@L["Expenses.YouPaid"] @currencySymbol @((f.Cents / 100m).ToString("F2"))</span>
+                            }
+                            else
+                            {
+                                <span class="payer-chip">
+                                    <span class="payer-init">
+                                        @if (!string.IsNullOrEmpty(f.PictureUrl))
+                                        {
+                                            <img src="@f.PictureUrl" alt="@f.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            @(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')
+                                        }
+                                    </span>
+                                    @NameFormat.First(f.DisplayName) @paidLabel
+                                </span>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="expense-row-right">
+                    <span class="list-row-badge" style="background:rgba(59,130,246,0.12);color:var(--accent-expenses);font-size:12px;font-weight:700">
+                        @currencySymbol @((e.TotalCents / 100m).ToString("F2"))
+                    </span>
+                    @if (isParticipant && myNet != 0)
+                    {
+                        <span class="expenses-user-share @(myNet > 0 ? "lent" : "borrowed")">
+                            @currencySymbol @((Math.Abs(myNet) / 100m).ToString("F2"))
+                        </span>
+                        <span class="expenses-share-label">
+                            @(myNet > 0 ? L["Expenses.YouLent"].Value : L["Expenses.YouBorrowed"].Value)
+                        </span>
+                    }
+                    @if (e.FundingSources.Any())
+                    {
+                        <span class="expand-arrow">▾</span>
+                    }
+                </div>
+            </div>
+
+            <div class="expense-breakdown">
+                <div class="expense-breakdown-cols">
+                    <div>
+                        <div class="expense-breakdown-label">@L["Expenses.Breakdown.WhoPaid"]</div>
+                        @foreach (var f in e.FundingSources)
+                        {
+                            <div class="expense-breakdown-entry">
+                                <span class="expense-breakdown-person">
+                                    <span class="expense-breakdown-avatar">
+                                        @if (!string.IsNullOrEmpty(f.PictureUrl))
+                                        {
+                                            <img src="@f.PictureUrl" alt="@f.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            @(f.DisplayName.Length > 0 ? f.DisplayName[0] : '?')
+                                        }
+                                    </span>
+                                    @f.DisplayName
+                                </span>
+                                <span class="expense-breakdown-paid">@currencySymbol @((f.Cents / 100m).ToString("F2"))</span>
+                            </div>
+                        }
+                    </div>
+                    <div>
+                        <div class="expense-breakdown-label">@L["Expenses.Breakdown.HowSplit"]</div>
+                        @foreach (var a in e.Allocations)
+                        {
+                            <div class="expense-breakdown-entry">
+                                <span class="expense-breakdown-person">
+                                    <span class="expense-breakdown-avatar">
+                                        @if (!string.IsNullOrEmpty(a.PictureUrl))
+                                        {
+                                            <img src="@a.PictureUrl" alt="@a.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            @(a.DisplayName.Length > 0 ? a.DisplayName[0] : '?')
+                                        }
+                                    </span>
+                                    @a.DisplayName
+                                </span>
+                                <span class="expense-breakdown-owe">@currencySymbol @((a.Cents / 100m).ToString("F2"))</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                @if (e.RecordedAt is { } recordedAt)
+                {
+                    <div class="expense-breakdown-recorded">@L["Expenses.Breakdown.RecordedAt", recordedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)]</div>
+                }
+                <div class="expense-breakdown-footer">
+                    <a href="/h/@Model.HouseholdId/expenses/record?expenseId=@e.Id"
+                       class="btn btn-sm btn-outline-secondary">
+                        @L["Expenses.EditEntry"]
+                    </a>
+                    <form method="post" action="@voidAction" style="display:inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="expenseId" value="@e.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                data-confirm="@L["Expenses.Breakdown.VoidConfirm"]">
+                            @L["Expenses.VoidEntry"]
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+}

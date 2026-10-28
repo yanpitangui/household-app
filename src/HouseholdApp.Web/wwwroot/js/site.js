@@ -13,7 +13,7 @@ Idiomorph.defaults.callbacks.beforeNodeMorphed = function (oldNode, newNode) {
 };
 
 function initToasts() {
-    document.querySelectorAll('.toast-success').forEach(function (toast) {
+    document.querySelectorAll('.toast-success:not(.toast-sticky)').forEach(function (toast) {
         setTimeout(function () {
             toast.style.transition = 'opacity 0.3s';
             toast.style.opacity = '0';

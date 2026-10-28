@@ -7,6 +7,7 @@ using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
+using Microsoft.Extensions.Logging;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
@@ -16,13 +17,15 @@ public sealed class ExpenseCommandService(
     IRecurringExpenseRepository recurringRepo,
     IRecurringJobScheduler scheduler,
     IUnitOfWork uow,
-    TimeProvider time) : IExpenseCommands
+    TimeProvider time,
+    ILogger<ExpenseCommandService> logger) : IExpenseCommands
 {
     public async Task<Guid> RecordExpenseAsync(
         Guid householdId, Guid expenseGroupId, string description, DateTimeOffset date,
         IReadOnlyList<FundingSourceDto> fundingSources, IReadOnlyList<AllocationDto> allocations,
         CancellationToken ct = default)
     {
+        await EnsureActiveOwnedGroupAsync(householdId, expenseGroupId, ct);
         var expense = Expense.Record(
             householdId, expenseGroupId, description, date,
             ToDomain(fundingSources), ToDomain(allocations),
@@ -33,22 +36,26 @@ public sealed class ExpenseCommandService(
         return expense.Id;
     }
 
-    public async Task VoidExpenseAsync(Guid expenseId, string? reason, CancellationToken ct = default)
+    public async Task VoidExpenseAsync(Guid householdId, Guid expenseId, string? reason, CancellationToken ct = default)
     {
-        var expense = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
-            ?? throw new InvalidOperationException("Expense not found.");
+        var expense = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct);
+        if (expense is null || expense.HouseholdId != householdId)
+            throw new InvalidOperationException("Expense not found.");
+        await EnsureGroupNotDeletedAsync(expense.ExpenseGroupId, ct);
         expense.Void(reason, time.GetUtcNow(), currentUser.Id);
         session.Events.Append(expenseId, expense.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
     }
 
     public async Task<Guid> EditExpenseAsync(
-        Guid expenseId, string description, DateTimeOffset date,
+        Guid householdId, Guid expenseId, string description, DateTimeOffset date,
         IReadOnlyList<FundingSourceDto> fundingSources, IReadOnlyList<AllocationDto> allocations,
         CancellationToken ct = default)
     {
-        var old = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct)
-            ?? throw new InvalidOperationException("Expense not found.");
+        var old = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct);
+        if (old is null || old.HouseholdId != householdId)
+            throw new InvalidOperationException("Expense not found.");
+        await EnsureGroupNotDeletedAsync(old.ExpenseGroupId, ct);
 
         var replacementId = Guid.CreateVersion7();
         old.Void("Edited", time.GetUtcNow(), currentUser.Id, correctedByExpenseId: replacementId);
@@ -64,18 +71,52 @@ public sealed class ExpenseCommandService(
         return replacement.Id;
     }
 
-    public async Task<Guid> RecordSettlementAsync(
+    public async Task<Guid> RecordGroupSettlementAsync(
+        Guid householdId, Guid groupId, Guid payerId, Guid recipientId, long cents, DateTimeOffset date,
+        CancellationToken ct = default)
+    {
+        var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
+        if (group.DeletedAt is not null) throw new InvalidOperationException("Expense group is deleted.");
+
+        var settlementId = Guid.CreateVersion7();
+        session.Events.Append(settlementId, new SettlementRecorded(
+            Guid.CreateVersion7(), time.GetUtcNow(), settlementId,
+            householdId, payerId, recipientId, cents, date, currentUser.Id, ExpenseGroupId: groupId));
+        await session.SaveChangesAsync(ct);
+        return settlementId;
+    }
+
+    public async Task<Guid> RecordHouseholdSettlementAsync(
         Guid householdId, Guid payerId, Guid recipientId, long cents, DateTimeOffset date,
         CancellationToken ct = default)
     {
-        var settlementId = Guid.CreateVersion7();
-        var @event = new SettlementRecorded(
-            Guid.CreateVersion7(), time.GetUtcNow(), settlementId,
-            householdId, payerId, recipientId, cents, date, currentUser.Id);
+        var ledger = await session.LoadAsync<HouseholdLedger>(householdId, ct) ?? new HouseholdLedger { Id = householdId };
+        var activeGroups = (await session.QueryAsync(new ExpenseGroupsForHousehold { HouseholdId = householdId }, ct))
+            .Select(g => g.Id).ToHashSet();
+        var split = SettlementSplitter.Split(ledger.DebtsBetween(payerId, recipientId, activeGroups), cents);
+        if (split.Error is { } error) throw new SettlementSplitException(error);
 
-        session.Events.Append(settlementId, @event);
+        var householdSettlementId = Guid.CreateVersion7();
+        var now = time.GetUtcNow();
+        var groupIds = split.Legs.Select(l => l.GroupId).ToList();
+        for (var i = 0; i < split.Legs.Count; i++)
+        {
+            var leg = split.Legs[i];
+            var isLead = i == 0;
+            var settlementId = isLead ? householdSettlementId : Guid.CreateVersion7();
+            var (legPayer, legRecipient) = leg.IsOffset ? (recipientId, payerId) : (payerId, recipientId);
+            session.Events.Append(settlementId, new SettlementRecorded(
+                Guid.CreateVersion7(), now, settlementId, householdId, legPayer, legRecipient, leg.Cents, date,
+                currentUser.Id,
+                ExpenseGroupId: leg.GroupId,
+                HouseholdSettlementId: householdSettlementId,
+                IsOffset: leg.IsOffset,
+                HouseholdSettlementCents: isLead ? cents : null,
+                HouseholdSettlementGroupIds: isLead ? groupIds : null));
+        }
+
         await session.SaveChangesAsync(ct);
-        return settlementId;
+        return householdSettlementId;
     }
 
     public async Task<Guid> CreateExpenseGroupAsync(
@@ -88,17 +129,52 @@ public sealed class ExpenseCommandService(
         return group.Id;
     }
 
-    public async Task DeleteExpenseGroupAsync(Guid groupId, CancellationToken ct = default)
+    public async Task DeleteExpenseGroupAsync(Guid householdId, Guid groupId, CancellationToken ct = default)
     {
-        _ = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct)
-            ?? throw new InvalidOperationException("Expense group not found.");
+        var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
+        if (group.DeletedAt is not null) return;
 
-        var hasActiveExpenses = await session.QueryAsync(new HasActiveExpensesInGroup { GroupId = groupId }, ct);
-        if (hasActiveExpenses)
-            throw new InvalidOperationException("Cannot delete an expense group with active expenses.");
-
-        session.Delete<ExpenseGroupDocument>(groupId);
+        var now = time.GetUtcNow();
+        group.DeletedAt = now;
+        session.Store(group);
+        session.Events.Append(groupId, new ExpenseGroupDeleted(
+            Guid.CreateVersion7(), now, groupId, householdId, group.Name, currentUser.Id));
         await session.SaveChangesAsync(ct);
+    }
+
+    public async Task RestoreExpenseGroupAsync(Guid householdId, Guid groupId, CancellationToken ct = default)
+    {
+        var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
+        if (group.DeletedAt is null) return;
+
+        group.DeletedAt = null;
+        session.Store(group);
+        session.Events.Append(groupId, new ExpenseGroupRestored(
+            Guid.CreateVersion7(), time.GetUtcNow(), groupId, householdId, group.Name, currentUser.Id));
+        await session.SaveChangesAsync(ct);
+    }
+
+    private async Task<ExpenseGroupDocument> LoadOwnedGroupAsync(Guid householdId, Guid groupId, CancellationToken ct)
+    {
+        var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
+        return group is not null && group.HouseholdId == householdId
+            ? group
+            : throw new InvalidOperationException("Expense group not found.");
+    }
+
+    private async Task EnsureActiveOwnedGroupAsync(Guid householdId, Guid groupId, CancellationToken ct)
+    {
+        var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
+        if (group.DeletedAt is not null)
+            throw new InvalidOperationException("Expense group is deleted.");
+    }
+
+    // A deleted group is read-only; a missing document passes because the expense's group was validated when it was recorded.
+    private async Task EnsureGroupNotDeletedAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
+        if (group?.DeletedAt is not null)
+            throw new InvalidOperationException("Expense group is deleted.");
     }
 
     public async Task<Guid> CreateRecurringExpenseAsync(
@@ -108,6 +184,7 @@ public sealed class ExpenseCommandService(
         IReadOnlyList<AllocationDto> defaultAllocations,
         CancellationToken ct = default)
     {
+        await EnsureActiveOwnedGroupAsync(householdId, expenseGroupId, ct);
         var recurring = RecurringExpense.Create(
             householdId, expenseGroupId, description,
             ToDomain(defaultFundingSources), ToDomain(defaultAllocations),
@@ -177,6 +254,15 @@ public sealed class ExpenseCommandService(
     {
         var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct);
         if (recurring is null || !recurring.IsActive) return;
+
+        var group = await session.LoadAsync<ExpenseGroupDocument>(recurring.ExpenseGroupId, ct);
+        if (group?.DeletedAt is not null)
+        {
+            logger.LogInformation(
+                "Skipping recurring expense {RecurringExpenseId}: group {GroupId} is deleted",
+                recurringExpenseId, recurring.ExpenseGroupId);
+            return;
+        }
 
         var expense = recurring.Spawn(time.GetUtcNow());
         session.Events.Append(expense.Id, expense.DomainEvents.ToArray());

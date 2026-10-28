@@ -1,0 +1,29 @@
+@page "/h/{householdId:guid}/Expenses/Groups/New"
+@model HouseholdApp.Web.Pages.Expenses.NewExpenseGroupModel
+@{
+    ViewData["Title"] = L["Expenses.NewGroup"];
+}
+
+<div class="page-heading">
+    <span>@L["Expenses.NewGroup"]</span>
+    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+</div>
+
+<div class="app-card mb-4">
+    <form method="post">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">@L["Expenses.GroupName"]</label>
+                <input asp-for="NewName" class="form-control" placeholder="@L["Expenses.GroupNamePlaceholder"]" />
+                <span asp-validation-for="NewName" class="field-error"></span>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">@L["Expenses.GroupDescription"]</label>
+                <input asp-for="NewDescription" class="form-control" placeholder="@L["Recipes.DetailsPlaceholder"]" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">+ @L["Action.Create"]</button>
+            </div>
+        </div>
+    </form>
+</div>

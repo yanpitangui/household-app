@@ -100,6 +100,8 @@ builder.Services.AddExpensesModule(connStr);
 builder.Services.AddEventHandler<ExpenseRecorded, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<ExpenseVoided, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<SettlementRecorded, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<ExpenseGroupDeleted, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<ExpenseGroupRestored, ExpenseRealtimeNotifier>();
 
 var redisConnStr = builder.Configuration.GetConnectionString("redis")
     ?? throw new InvalidOperationException("Missing connection string 'redis'");

@@ -11,7 +11,11 @@ public sealed record ActivityFeedItem(
     string? GroupName,
     string? PayerDisplayName,
     string? RecipientDisplayName,
-    long? ViewerDeltaCents);
+    long? ViewerDeltaCents,
+    Guid? GroupId = null,
+    IReadOnlyList<string>? GroupNames = null,
+    long? SettlementCents = null,
+    bool CanRestore = false);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,

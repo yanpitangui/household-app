@@ -1,0 +1,50 @@
+@page "/h/{householdId:guid}/Expenses/Groups/{groupId:guid}"
+@model HouseholdApp.Web.Pages.Expenses.ExpenseGroupModel
+@{
+    ViewData["Title"] = Model.Group.Name;
+}
+
+@section Scripts {
+    <script src="~/js/expenses.js" asp-append-version="true"></script>
+}
+
+<div class="page-heading">
+    <span>@Model.Group.Name</span>
+    <span class="page-heading-actions">
+        <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Nav.Expenses"]</a>
+        @if (Model.CanManage)
+        {
+        <details class="page-menu">
+            <summary aria-label="@L["Expenses.Group.More"]">⋯</summary>
+            <div class="page-menu-items">
+                <form method="post" asp-page-handler="Delete" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@Model.GroupId">
+                    <button type="submit" class="page-menu-item danger"
+                            data-confirm="@L["Confirm.DeleteGroup", Model.Group.Name]">🗑 @L["Expenses.Group.Delete"]</button>
+                </form>
+            </div>
+        </details>
+        }
+    </span>
+</div>
+
+@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.HouseholdId, Model.Group.Balances, OutOfBand: false, Model.GroupId, Model.Group.Name))
+
+<a href="/h/@Model.HouseholdId/expenses/settle?group=@Model.GroupId" class="expenses-settle-btn">
+    ✓ @L["Expenses.SettleUp"]
+</a>
+
+<div hx-ext="sse"
+     sse-connect="/h/@Model.HouseholdId/Expenses/stream?group=@Model.GroupId"
+     sse-swap="expenses-list"
+     hx-swap="morph:innerHTML"
+     hx-disinherit="hx-swap">
+    @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.GroupId, Model.CurrentUserId, Model.Entries, Model.Group.HasOlder))
+</div>
+<div id="expenses-older"></div>
+@await Html.PartialAsync("~/Pages/Expenses/_ShowOlderButton.cshtml", new ShowOlderButtonViewModel(Model.Group.FirstOlderCursor, Model.Group.HasOlder))
+
+<div class="expenses-fab">
+    <a href="/h/@Model.HouseholdId/expenses/record?group=@Model.GroupId" class="expenses-fab-btn">
+        💳 @L["Expenses.Group.AddTo", Model.Group.Name]
+    </a>
+</div>

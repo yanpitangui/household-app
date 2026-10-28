@@ -18,7 +18,7 @@ public sealed class ExpenseImportService(
     {
         var name = groupName.Trim();
         var existing = await session.Query<ExpenseGroupDocument>()
-            .Where(g => g.HouseholdId == householdId)
+            .Where(g => g.HouseholdId == householdId && g.DeletedAt == null)
             .Select(g => g.Name)
             .ToListAsync(ct);
         return existing.Any(n => string.Equals(n.Trim(), name, StringComparison.OrdinalIgnoreCase));
@@ -81,7 +81,7 @@ public sealed class ExpenseImportService(
             }
             catch
             {
-                // Best effort: the original failure is what surfaces, and an empty group can be deleted from the Groups page.
+                // Best effort: the original failure is what surfaces, and an empty group can be deleted from its group page.
             }
             throw;
         }

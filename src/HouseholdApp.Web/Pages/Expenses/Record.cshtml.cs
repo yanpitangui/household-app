@@ -50,9 +50,10 @@ public class RecordExpenseModel(
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
     public ExpenseDetail? Editing { get; private set; }
 
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(Guid? group)
     {
         PayerId = CurrentUserId;
+        if (group is { } presetGroupId) GroupId = presetGroupId;
 
         if (ExpenseId.HasValue)
         {
@@ -127,16 +128,21 @@ public class RecordExpenseModel(
                 return RedirectToPage("Index", new { householdId = HouseholdId });
             }
 
-            await expenseCommands.EditExpenseAsync(ExpenseId.Value, Description, date, funding, allocations);
+            await expenseCommands.EditExpenseAsync(HouseholdId, ExpenseId.Value, Description, date, funding, allocations);
             TempData["Success"] = Loc["Flash.ExpenseUpdated"].Value;
-        }
-        else
-        {
-            await expenseCommands.RecordExpenseAsync(HouseholdId, GroupId, Description, date, funding, allocations);
-            TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
+            return RedirectToPage("Group", new { householdId = HouseholdId, groupId = existing.ExpenseGroupId });
         }
 
-        return RedirectToPage("Index", new { householdId = HouseholdId });
+        await LoadLookups();
+        if (Groups.All(g => g.Id != GroupId))
+        {
+            ModelState.AddModelError("", Loc["Expenses.Group.Gone"].Value);
+            return Page();
+        }
+
+        await expenseCommands.RecordExpenseAsync(HouseholdId, GroupId, Description, date, funding, allocations);
+        TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
+        return RedirectToPage("Group", new { householdId = HouseholdId, groupId = GroupId });
     }
 
     private async Task LoadLookups()

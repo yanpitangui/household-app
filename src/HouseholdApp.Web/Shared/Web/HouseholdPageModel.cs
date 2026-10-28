@@ -11,6 +11,8 @@ public abstract class HouseholdPageModel(ICurrentUser currentUser, IHouseholdGua
 {
     public abstract Guid HouseholdId { get; set; }
 
+    protected IHouseholdGuard Guard => guard;
+
     public override async Task OnPageHandlerExecutionAsync(PageHandlerExecutingContext ctx, PageHandlerExecutionDelegate next)
     {
         var method = ctx.HandlerMethod?.MethodInfo;

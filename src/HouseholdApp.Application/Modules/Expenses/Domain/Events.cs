@@ -33,9 +33,13 @@ public sealed record ExpenseVoided(
     IReadOnlyList<Allocation> Allocations,
     Guid PerformedByUserId = default,
     string Description = "",
-    Guid? CorrectedByExpenseId = null) : IDomainEvent;
+    Guid? CorrectedByExpenseId = null,
+    Guid? ExpenseGroupId = null) : IDomainEvent;
 
 // PerformedByUserId/ExpenseGroupId default for the same legacy-deserialization reason as ExpenseRecorded above.
+// A household settle appends one leg per group, all sharing HouseholdSettlementId. Offset legs run recipient → payer
+// and move no cash. The lead leg (SettlementId == HouseholdSettlementId) also carries the cash total and the
+// groups involved, so the activity feed and push notifications describe the whole payment from one event.
 public sealed record SettlementRecorded(
     Guid EventId,
     DateTimeOffset OccurredAt,
@@ -46,4 +50,24 @@ public sealed record SettlementRecorded(
     long Cents,
     DateTimeOffset Date,
     Guid PerformedByUserId = default,
-    Guid? ExpenseGroupId = null) : IDomainEvent;
+    Guid? ExpenseGroupId = null,
+    Guid? HouseholdSettlementId = null,
+    bool IsOffset = false,
+    long? HouseholdSettlementCents = null,
+    IReadOnlyList<Guid>? HouseholdSettlementGroupIds = null) : IDomainEvent;
+
+public sealed record ExpenseGroupDeleted(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid GroupId,
+    Guid HouseholdId,
+    string GroupName,
+    Guid PerformedByUserId) : IDomainEvent;
+
+public sealed record ExpenseGroupRestored(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid GroupId,
+    Guid HouseholdId,
+    string GroupName,
+    Guid PerformedByUserId) : IDomainEvent;

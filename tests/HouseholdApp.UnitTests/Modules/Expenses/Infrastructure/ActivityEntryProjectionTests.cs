@@ -63,7 +63,7 @@ public sealed class ActivityEntryProjectionTests
             [new FundingSource(payer, 1000)], [new Allocation(payer, 500), new Allocation(debtor, 500)],
             ActorId, "Groceries");
 
-        var entry = ActivityEntryProjection.MapVoided(Guid.NewGuid(), evt);
+        var entry = ActivityEntryProjection.MapVoided(Guid.NewGuid(), evt, GroupId);
 
         await Assert.That(entry).IsNotNull();
         await Assert.That(entry!.Kind).IsEqualTo(ActivityKind.Removed);
@@ -80,7 +80,7 @@ public sealed class ActivityEntryProjectionTests
             [new FundingSource(ActorId, 1000)], [new Allocation(ActorId, 1000)],
             ActorId, "Groceries", CorrectedByExpenseId: Guid.NewGuid());
 
-        var entry = ActivityEntryProjection.MapVoided(Guid.NewGuid(), evt);
+        var entry = ActivityEntryProjection.MapVoided(Guid.NewGuid(), evt, GroupId);
 
         await Assert.That(entry).IsNull();
     }
@@ -99,5 +99,46 @@ public sealed class ActivityEntryProjectionTests
         await Assert.That(entry.SettlementPayerId).IsEqualTo(payer);
         await Assert.That(entry.SettlementRecipientId).IsEqualTo(recipient);
         await Assert.That(entry.ViewerDeltaCents).IsEmpty();
+    }
+
+    [Test]
+    public async Task Map_ExpenseRecorded_keeps_the_group_id()
+    {
+        var evt = new ExpenseRecorded(
+            Guid.NewGuid(), Now, ExpenseId, HouseholdId, GroupId, "Groceries", Now,
+            [new FundingSource(ActorId, 1000)], [new Allocation(ActorId, 1000)], ActorId);
+
+        await Assert.That(ActivityEntryProjection.MapRecorded(Guid.NewGuid(), evt, "Casa").GroupId).IsEqualTo(GroupId);
+    }
+
+    [Test]
+    public async Task Map_household_settlement_uses_the_cash_total_and_group_names()
+    {
+        var payer = Guid.NewGuid();
+        var recipient = Guid.NewGuid();
+        var id = Guid.NewGuid();
+        var evt = new SettlementRecorded(Guid.NewGuid(), Now, id, HouseholdId, payer, recipient, 100, Now, ActorId,
+            GroupId, HouseholdSettlementId: id, HouseholdSettlementCents: 70,
+            HouseholdSettlementGroupIds: [GroupId, Guid.NewGuid()]);
+
+        var entry = ActivityEntryProjection.MapHouseholdSettlement(Guid.NewGuid(), evt, ["Trip", "Home"]);
+
+        await Assert.That(entry.Kind).IsEqualTo(ActivityKind.HouseholdSettlement);
+        await Assert.That(entry.SettlementCents).IsEqualTo(70L);
+        await Assert.That(entry.GroupNames).IsEquivalentTo(new[] { "Trip", "Home" });
+        await Assert.That(entry.GroupId).IsNull();
+    }
+
+    [Test]
+    public async Task Map_group_deleted_names_the_group()
+    {
+        var evt = new ExpenseGroupDeleted(Guid.NewGuid(), Now, GroupId, HouseholdId, "Trip", ActorId);
+
+        var entry = ActivityEntryProjection.MapGroupLifecycle(Guid.NewGuid(), ActivityKind.GroupDeleted,
+            evt.OccurredAt, evt.GroupId, evt.HouseholdId, evt.GroupName, evt.PerformedByUserId);
+
+        await Assert.That(entry.Kind).IsEqualTo(ActivityKind.GroupDeleted);
+        await Assert.That(entry.GroupId).IsEqualTo(GroupId);
+        await Assert.That(entry.GroupName).IsEqualTo("Trip");
     }
 }

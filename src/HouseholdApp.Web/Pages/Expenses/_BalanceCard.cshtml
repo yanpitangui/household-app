@@ -12,7 +12,9 @@
     var netColor = netCents >= 0 ? "var(--accent-tasks)" : "#f87171";
     var netLabel = netCents >= 0 ? L["Expenses.NetOwed"].Value : L["Expenses.NetOwe"].Value;
     <div class="expenses-balance-card">
-        <div class="expenses-balance-eyebrow">@L["Expenses.YourBalance"]</div>
+        <div class="expenses-balance-eyebrow">
+            @(Model.GroupName is null ? L["Expenses.YourBalance"] : L["Expenses.YourBalanceIn", Model.GroupName])
+        </div>
         <div class="expenses-balance-net" style="color:@netColor">
             @(netCents >= 0 ? "+" : "−") @currencySymbol @((Math.Abs(netCents) / 100m).ToString("F2"))
         </div>
@@ -38,7 +40,7 @@
                         @sentence
                         <span class="expenses-person-amount" style="color:@personColor">@currencySymbol @((Math.Abs(b.Cents) / 100m).ToString("F2"))</span>
                     </span>
-                    <a href="/h/@Model.HouseholdId/expenses/settle?with=@b.UserId" class="expenses-settle-with" aria-label="@L["Expenses.SettleWith"] — @sentence">@L["Expenses.SettleWith"]</a>
+                    <a href="/h/@Model.HouseholdId/expenses/settle?with=@b.UserId@(Model.GroupId is { } g ? $"&group={g}" : "")" class="expenses-settle-with" aria-label="@L["Expenses.SettleWith"] — @sentence">@L["Expenses.SettleWith"]</a>
                 </div>
             }
         </div>

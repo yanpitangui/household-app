@@ -18,6 +18,14 @@
     </a>
 </div>
 
+@if (!Model.Groups.Any())
+{
+    <div class="app-card mb-3">
+        @L["Expenses.Record.NoGroups"]
+        <a asp-page="NewGroup" asp-route-householdId="@Model.HouseholdId">+ @L["Expenses.NewGroup"]</a>
+    </div>
+}
+
 <form method="post" id="record-form">
     @Html.AntiForgeryToken()
     <div id="allocation-inputs"></div>

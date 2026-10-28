@@ -176,4 +176,24 @@ public sealed class ExpensePushNotificationHandlerTests
 
         await Assert.That(_dispatchScope.SuppressNotifications).IsFalse();
     }
+
+    [Test]
+    public async Task Household_settle_notifies_once_from_the_lead_leg_with_the_cash_total()
+    {
+        var id = Guid.NewGuid();
+        var lead = new SettlementRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, id, _householdId, _actorId, _otherId,
+            10000, DateTimeOffset.UtcNow, _actorId, Guid.NewGuid(), HouseholdSettlementId: id, HouseholdSettlementCents: 7000);
+        var otherCash = lead with { SettlementId = Guid.NewGuid(), HouseholdSettlementCents = null };
+        var offset = lead with { SettlementId = Guid.NewGuid(), PayerId = _otherId, RecipientId = _actorId,
+            Cents = 3000, IsOffset = true, HouseholdSettlementCents = null };
+
+        await _sut.HandleAsync(lead);
+        await _sut.HandleAsync(otherCash);
+        await _sut.HandleAsync(offset);
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, Arg.Any<string>(), "Alice paid Bob R$ 70.00", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _pushSender.Received(1).SendAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 }

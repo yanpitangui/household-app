@@ -16,10 +16,17 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
     {
         var decoded = Decode(cursor);
 
-        var page = (decoded is null
-            ? await session.QueryAsync(new ActivityFeedFirstPage { HouseholdId = householdId, PageSizePlusOne = pageSize + 1 }, ct)
-            : await session.QueryAsync(new ActivityFeedCursorPage { HouseholdId = householdId, Before = decoded.OccurredAt, PageSizePlusOne = pageSize + 1 }, ct))
-            .ToList();
+        var groups = await session.QueryAsync(new AllExpenseGroupsForHousehold { HouseholdId = householdId }, ct);
+        var deleted = groups.Where(g => g.DeletedAt is not null).Select(g => g.Id).ToArray();
+
+        var query = session.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId);
+        if (decoded is not null)
+            query = query.Where(a => a.OccurredAt < decoded.OccurredAt);
+        // A deleted group's entries hide with it; its deletion entry stays so it can be restored.
+        if (deleted.Length > 0)
+            query = query.Where(a => a.Kind == ActivityKind.GroupDeleted || a.GroupId == null || !a.GroupId.Value.IsOneOf(deleted));
+
+        var page = (await query.OrderByDescending(a => a.OccurredAt).Take(pageSize + 1).ToListAsync(ct)).ToList();
 
         var hasMore = page.Count > pageSize;
         var entries = page.Take(pageSize).ToList();
@@ -30,14 +37,15 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             .Distinct();
         var profiles = (await userQuery.GetByIdsAsync(profileIds, ct)).ToDictionary(p => p.Id);
 
-        var items = entries.Select(e => Render(e, viewerId, profiles)).ToList();
+        var deletedSet = deleted.ToHashSet();
+        var items = entries.Select(e => Render(e, viewerId, profiles, deletedSet)).ToList();
         var nextCursor = hasMore ? Encode(new Cursor(entries[^1].OccurredAt)) : null;
 
         return new ActivityFeedPage(items, nextCursor);
     }
 
     private static ActivityFeedItem Render(
-        ActivityEntry e, Guid viewerId, Dictionary<Guid, UserProfile> profiles)
+        ActivityEntry e, Guid viewerId, Dictionary<Guid, UserProfile> profiles, ISet<Guid> deletedGroups)
     {
         var actor = profiles.GetValueOrDefault(e.ActorUserId)?.DisplayName ?? "?";
         var payer = e.SettlementPayerId is { } p ? profiles.GetValueOrDefault(p)?.DisplayName ?? "?" : null;
@@ -45,7 +53,9 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
         var viewerDelta = e.ViewerDeltaCents.TryGetValue(viewerId, out var cents) ? cents : (long?)null;
 
         return new ActivityFeedItem(
-            e.Id, e.OccurredAt, e.Kind, actor, e.Description, e.GroupName, payer, recipient, viewerDelta);
+            e.Id, e.OccurredAt, e.Kind, actor, e.Description, e.GroupName, payer, recipient, viewerDelta,
+            e.GroupId, e.GroupNames, e.SettlementCents,
+            CanRestore: e.Kind == ActivityKind.GroupDeleted && e.GroupId is { } g && deletedGroups.Contains(g));
     }
 
     private static Cursor? Decode(string? cursor) =>

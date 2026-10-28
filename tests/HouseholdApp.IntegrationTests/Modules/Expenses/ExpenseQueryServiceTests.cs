@@ -20,57 +20,6 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
         new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()));
 
-    [Test]
-    public async Task GetExpensesSummaryAsync_returns_empty_for_unknown_household()
-    {
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(Guid.NewGuid(), Guid.NewGuid());
-
-        await Assert.That(summary.Expenses).IsEmpty();
-        await Assert.That(summary.Balances).IsEmpty();
-    }
-
-    [Test]
-    public async Task GetExpensesSummaryAsync_returns_expenses_with_participants()
-    {
-        var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        var payerId = Guid.NewGuid();
-        var splitUserId = Guid.NewGuid();
-        var expenseId = Guid.NewGuid();
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = payerId, sub = $"sub-{payerId}", email = "alice@test.com", name = "Alice" });
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = splitUserId, sub = $"sub-{splitUserId}", email = "bob@test.com", name = "Bob" });
-
-        await using (var s = Store.LightweightSession())
-        {
-            s.Events.Append(expenseId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
-                "Dinner", DateTimeOffset.UtcNow,
-                [new FundingSource(payerId, 1000)],
-                [new Allocation(payerId, 500), new Allocation(splitUserId, 500)],
-                payerId));
-            await s.SaveChangesAsync();
-        }
-
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid());
-
-        await Assert.That(summary.Expenses.Count).IsEqualTo(1);
-        var expense = summary.Expenses[0];
-        await Assert.That(expense.Description).IsEqualTo("Dinner");
-        await Assert.That(expense.TotalCents).IsEqualTo(1000L);
-        await Assert.That(expense.FundingSources.Count).IsEqualTo(1);
-        await Assert.That(expense.FundingSources[0].DisplayName).IsEqualTo("Alice");
-        await Assert.That(expense.FundingSources[0].Cents).IsEqualTo(1000L);
-        await Assert.That(expense.Allocations.Count).IsEqualTo(2);
-    }
-
     private async Task InsertUsersAsync(params Guid[] ids)
     {
         await using var conn = await db.DataSource.OpenConnectionAsync();
@@ -83,10 +32,12 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private async Task RecordAsync(Guid householdId, Guid payerId, long cents, params Guid[] splitBetween)
     {
         var expenseId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
         var share = cents / splitBetween.Length;
         await using var s = Store.LightweightSession();
+        s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "Group" });
         s.Events.Append(expenseId, new ExpenseRecorded(
-            Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, Guid.NewGuid(),
+            Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
             "Groceries", DateTimeOffset.UtcNow,
             [new FundingSource(payerId, cents)],
             splitBetween.Select(id => new Allocation(id, share)).ToList(),
@@ -103,9 +54,9 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payerId);
+        var balances = await BuildSut(qs).GetBalancesAsync(householdId, payerId);
 
-        var only = summary.Balances.Single();
+        var only = balances.Single();
         await Assert.That(only.UserId).IsEqualTo(debtorId);
         await Assert.That(only.Cents).IsEqualTo(500L);
     }
@@ -119,9 +70,9 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, debtorId);
+        var balances = await BuildSut(qs).GetBalancesAsync(householdId, debtorId);
 
-        var only = summary.Balances.Single();
+        var only = balances.Single();
         await Assert.That(only.UserId).IsEqualTo(payerId);
         await Assert.That(only.Cents).IsEqualTo(-500L);
     }
@@ -135,9 +86,9 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await RecordAsync(householdId, a, 900, a, b, c);
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, b);
+        var balances = await BuildSut(qs).GetBalancesAsync(householdId, b);
 
-        var only = summary.Balances.Single();
+        var only = balances.Single();
         await Assert.That(only.UserId).IsEqualTo(a);
         await Assert.That(only.Cents).IsEqualTo(-300L);
     }
@@ -210,86 +161,6 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     }
 
     [Test]
-    public async Task GetExpensesSummaryAsync_filters_by_groupId()
-    {
-        var householdId = Guid.NewGuid();
-        var groupA = Guid.NewGuid();
-        var groupB = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var expenseA = Guid.NewGuid();
-        var expenseB = Guid.NewGuid();
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = userId, sub = $"sub-{userId}", email = "user@test.com", name = "User" });
-
-        await using (var s = Store.LightweightSession())
-        {
-            s.Events.Append(expenseA, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseA, householdId, groupA,
-                "GroupA Expense", DateTimeOffset.UtcNow,
-                [new FundingSource(userId, 500)],
-                [new Allocation(userId, 500)],
-                userId));
-            s.Events.Append(expenseB, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseB, householdId, groupB,
-                "GroupB Expense", DateTimeOffset.UtcNow,
-                [new FundingSource(userId, 300)],
-                [new Allocation(userId, 300)],
-                userId));
-            await s.SaveChangesAsync();
-        }
-
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid(), groupId: groupA);
-
-        await Assert.That(summary.Expenses.Count).IsEqualTo(1);
-        await Assert.That(summary.Expenses[0].Description).IsEqualTo("GroupA Expense");
-    }
-
-    [Test]
-    public async Task GetExpensesSummaryAsync_returns_expenses_ordered_newest_date_first()
-    {
-        var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var oldestId = Guid.NewGuid();
-        var middleId = Guid.NewGuid();
-        var newestId = Guid.NewGuid();
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = userId, sub = $"sub-{userId}", email = "orderuser@test.com", name = "OrderUser" });
-
-        await using (var s = Store.LightweightSession())
-        {
-            s.Events.Append(oldestId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, oldestId, householdId, groupId,
-                "Oldest", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
-                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
-            s.Events.Append(newestId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, newestId, householdId, groupId,
-                "Newest", new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero),
-                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
-            s.Events.Append(middleId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, middleId, householdId, groupId,
-                "Middle", new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero),
-                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
-            await s.SaveChangesAsync();
-        }
-
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid(), groupId: groupId);
-
-        await Assert.That(summary.Expenses.Count).IsEqualTo(3);
-        await Assert.That(summary.Expenses[0].Description).IsEqualTo("Newest");
-        await Assert.That(summary.Expenses[1].Description).IsEqualTo("Middle");
-        await Assert.That(summary.Expenses[2].Description).IsEqualTo("Oldest");
-    }
-
-    [Test]
     public async Task ListExpenseGroupsAsync_returns_groups_for_household_ordered_by_name()
     {
         var householdId = Guid.NewGuid();
@@ -304,121 +175,512 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs = Store.QuerySession();
+
         var groups = await BuildSut(qs).ListExpenseGroupsAsync(householdId);
 
-        await Assert.That(groups.Count).IsEqualTo(2);
         await Assert.That(groups[0].Name).IsEqualTo("Apple Groceries");
         await Assert.That(groups[1].Name).IsEqualTo("Zebra Trip");
     }
 
-    private async Task SettleAsync(Guid householdId, Guid payerId, Guid recipientId, long cents,
-        DateTimeOffset date, Guid? groupId = null)
+    private async Task InsertUserAsync(Guid id, string name)
     {
-        var settlementId = Guid.NewGuid();
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        await conn.ExecuteAsync(
+            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
+            new { id, sub = $"sub-{id}", email = $"{id}@test.com", name });
+    }
+
+    private sealed record TwoGroups(Guid HouseholdId, Guid Trip, Guid Home, Guid Yan, Guid Ana);
+
+    // Trip: Yan owes Ana 100 (Hotel). Home: Ana owes Yan 30 (Groceries).
+    private async Task<TwoGroups> SeedTwoGroupsAsync()
+    {
+        var sc = new TwoGroups(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await InsertUserAsync(sc.Yan, "Yan Test");
+        await InsertUserAsync(sc.Ana, "Ana Test");
         await using var s = Store.LightweightSession();
-        s.Events.Append(settlementId, new SettlementRecorded(
-            Guid.NewGuid(), DateTimeOffset.UtcNow, settlementId, householdId,
-            payerId, recipientId, cents, date, payerId, groupId));
+        s.Store(new ExpenseGroupDocument { Id = sc.Trip, HouseholdId = sc.HouseholdId, Name = "Trip" });
+        s.Store(new ExpenseGroupDocument { Id = sc.Home, HouseholdId = sc.HouseholdId, Name = "Home" });
+        var hotel = Guid.NewGuid();
+        var groceries = Guid.NewGuid();
+        s.Events.Append(hotel, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, hotel, sc.HouseholdId, sc.Trip,
+            "Hotel", new DateTimeOffset(2026, 10, 26, 0, 0, 0, TimeSpan.Zero),
+            [new FundingSource(sc.Ana, 200)], [new Allocation(sc.Ana, 100), new Allocation(sc.Yan, 100)], sc.Ana));
+        s.Events.Append(groceries, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, groceries, sc.HouseholdId, sc.Home,
+            "Groceries", new DateTimeOffset(2026, 10, 27, 0, 0, 0, TimeSpan.Zero),
+            [new FundingSource(sc.Yan, 60)], [new Allocation(sc.Ana, 30), new Allocation(sc.Yan, 30)], sc.Yan));
+        await s.SaveChangesAsync();
+        return sc;
+    }
+
+    [Test]
+    public async Task Home_sums_groups_into_the_total_and_fills_each_card()
+    {
+        var sc = await SeedTwoGroupsAsync();
+
+        await using var qs = Store.QuerySession();
+        var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+
+        await Assert.That(home.Balances.Single().Cents).IsEqualTo(-70L);
+        var trip = home.Groups.Single(g => g.Name == "Trip");
+        await Assert.That(trip.Balances.Single().Cents).IsEqualTo(-100L);
+        await Assert.That(trip.LastExpenseDescription).IsEqualTo("Hotel");
+        await Assert.That(home.Groups.Single(g => g.Name == "Home").Balances.Single().Cents).IsEqualTo(30L);
+    }
+
+    [Test]
+    public async Task Deleted_group_leaves_the_total_and_the_cards()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        await using (var s = Store.LightweightSession())
+        {
+            var doc = await s.LoadAsync<ExpenseGroupDocument>(sc.Trip);
+            doc!.DeletedAt = DateTimeOffset.UtcNow;
+            s.Store(doc);
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+
+        await Assert.That(home.Balances.Single().Cents).IsEqualTo(30L);
+        await Assert.That(home.Groups.Select(g => g.Name)).IsEquivalentTo(new[] { "Home" });
+        await Assert.That(await sut.GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Yan)).IsNull();
+        await Assert.That((await sut.ListExpenseGroupsAsync(sc.HouseholdId)).Select(g => g.Name))
+            .IsEquivalentTo(new[] { "Home" });
+    }
+
+    [Test]
+    public async Task Group_page_lists_its_expenses_payments_and_balance()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        var settlementId = Guid.NewGuid();
+        await using (var s = Store.LightweightSession())
+        {
+            s.Events.Append(settlementId, new SettlementRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, settlementId,
+                sc.HouseholdId, sc.Yan, sc.Ana, 40, DateTimeOffset.UtcNow, sc.Yan, sc.Trip,
+                HouseholdSettlementId: settlementId));
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var page = await BuildSut(qs).GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Yan);
+
+        await Assert.That(page!.Name).IsEqualTo("Trip");
+        await Assert.That(page.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Hotel" });
+        await Assert.That(page.Settlements.Single().IsHouseholdSettle).IsTrue();
+        await Assert.That(page.Balances.Single().Cents).IsEqualTo(-60L);
+    }
+
+    [Test]
+    public async Task Group_page_is_null_for_another_households_group()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        await using var qs = Store.QuerySession();
+
+        await Assert.That(await BuildSut(qs).GetGroupPageAsync(Guid.NewGuid(), sc.Trip, sc.Yan)).IsNull();
+    }
+
+    [Test]
+    public async Task GetBalancesAsync_can_scope_to_one_group()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        await using var qs = Store.QuerySession();
+
+        var balances = await BuildSut(qs).GetBalancesAsync(sc.HouseholdId, sc.Yan, sc.Home);
+
+        await Assert.That(balances.Single().Cents).IsEqualTo(30L);
+    }
+
+    [Test]
+    public async Task Preview_names_each_leg_and_reports_errors()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+
+        var preview = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 40);
+        await Assert.That(preview.Error).IsNull();
+        await Assert.That(preview.OwedCents).IsEqualTo(70L);
+        await Assert.That(preview.Legs).IsEquivalentTo(new[]
+        {
+            new SettlementPreviewLeg(sc.Trip, "Trip", 70, false),
+            new SettlementPreviewLeg(sc.Home, "Home", 30, true)
+        });
+
+        var over = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 100);
+        await Assert.That(over.Error).IsEqualTo(SettlementSplitError.ExceedsOwed);
+    }
+
+    // ---- Timelines: Recent / Older / keyset paging ----
+
+    private static readonly DateTimeOffset Day0 = new(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
+
+    private sealed record Pair(Guid HouseholdId, Guid Group, Guid Yan, Guid Ana);
+
+    private async Task<Pair> SeedEmptyGroupAsync(string groupName = "Trip")
+    {
+        var p = new Pair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await InsertUserAsync(p.Yan, "Yan Test");
+        await InsertUserAsync(p.Ana, "Ana Test");
+        await using var s = Store.LightweightSession();
+        s.Store(new ExpenseGroupDocument { Id = p.Group, HouseholdId = p.HouseholdId, Name = groupName });
+        await s.SaveChangesAsync();
+        return p;
+    }
+
+    // Yan pays cents and splits it with Ana, so Ana owes Yan cents / 2.
+    private async Task<Guid> AddExpenseAsync(
+        Pair p, string description, DateTimeOffset date, DateTimeOffset recordedAt, long cents = 100, Guid? group = null, Guid? id = null)
+    {
+        var expenseId = id ?? Guid.NewGuid();
+        await using var s = Store.LightweightSession();
+        s.Events.Append(expenseId, new ExpenseRecorded(Guid.NewGuid(), recordedAt, expenseId, p.HouseholdId,
+            group ?? p.Group, description, date,
+            [new FundingSource(p.Yan, cents)], [new Allocation(p.Yan, cents / 2), new Allocation(p.Ana, cents / 2)], p.Yan));
+        await s.SaveChangesAsync();
+        return expenseId;
+    }
+
+    private async Task<Guid> AddPaymentAsync(
+        Pair p, DateTimeOffset date, DateTimeOffset recordedAt, long cents, Guid? group = null)
+    {
+        var id = Guid.NewGuid();
+        await using var s = Store.LightweightSession();
+        s.Events.Append(id, new SettlementRecorded(Guid.NewGuid(), recordedAt, id, p.HouseholdId, p.Ana, p.Yan, cents,
+            date, p.Ana, group ?? p.Group));
+        await s.SaveChangesAsync();
+        return id;
+    }
+
+    private async Task VoidAsync(Pair p, Guid expenseId, long cents = 100)
+    {
+        await using var s = Store.LightweightSession();
+        s.Events.Append(expenseId, new ExpenseVoided(Guid.NewGuid(), Day0.AddYears(1), expenseId, p.HouseholdId, null,
+            [new FundingSource(p.Yan, cents)], [new Allocation(p.Yan, cents / 2), new Allocation(p.Ana, cents / 2)],
+            p.Yan, "x", ExpenseGroupId: p.Group));
         await s.SaveChangesAsync();
     }
 
     [Test]
-    public async Task GetExpensesSummaryAsync_returns_settlements_with_names_and_group()
+    public async Task Group_page_starts_at_the_payment_that_settled_up()
     {
-        var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        Guid payer = Guid.NewGuid(), recipient = Guid.NewGuid();
-        await InsertUsersAsync(payer, recipient);
+        var p = await SeedEmptyGroupAsync();
+        await AddExpenseAsync(p, "Dinner", Day0, Day0, 100);
+        var payment = await AddPaymentAsync(p, Day0.AddDays(1), Day0.AddDays(1), 50);
+        await AddExpenseAsync(p, "Lunch", Day0.AddDays(2), Day0.AddDays(2), 40);
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+
+        await Assert.That(page!.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Lunch" });
+        await Assert.That(page.Settlements.Select(x => x.Id)).IsEquivalentTo(new[] { payment });
+        await Assert.That(page.HasOlder).IsTrue();
+
+        var older = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, null);
+        await Assert.That(older.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Dinner" });
+        await Assert.That(older.Settlements).IsEmpty();
+        await Assert.That(older.NextCursor).IsNull();
+        await Assert.That(older.Expenses.Single().RecordedAt).IsEqualTo(Day0);
+    }
+
+    [Test]
+    public async Task Group_without_a_marker_and_few_entries_has_nothing_older()
+    {
+        var p = await SeedEmptyGroupAsync();
+        await AddExpenseAsync(p, "Dinner", Day0, Day0);
+
+        await using var qs = Store.QuerySession();
+        var page = await BuildSut(qs).GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+
+        await Assert.That(page!.Expenses.Count).IsEqualTo(1);
+        await Assert.That(page.HasOlder).IsFalse();
+    }
+
+    [Test]
+    public async Task Backdated_expense_recorded_after_the_settle_is_recent()
+    {
+        var p = await SeedEmptyGroupAsync();
+        await AddExpenseAsync(p, "Dinner", Day0, Day0, 100);
+        await AddPaymentAsync(p, Day0.AddDays(1), Day0.AddDays(1), 50);
+        await AddExpenseAsync(p, "Forgotten", Day0.AddDays(-30), Day0.AddDays(2), 40);
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+        var older = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, null);
+
+        await Assert.That(page!.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Forgotten" });
+        await Assert.That(older.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Dinner" });
+    }
+
+    [Test]
+    public async Task Home_without_a_marker_returns_the_latest_30_and_pages_the_rest_without_overlap()
+    {
+        var p = await SeedEmptyGroupAsync();
+        for (var i = 0; i < 38; i++)
+            await AddExpenseAsync(p, $"E{i:D2}", Day0.AddDays(i), Day0.AddDays(i), 100);
+        for (var i = 0; i < 4; i++)
+            await AddPaymentAsync(p, Day0.AddDays(i * 10 + 5), Day0.AddDays(i * 10 + 5), 2);
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var home = await sut.GetExpensesHomeAsync(p.HouseholdId, p.Yan);
+
+        await Assert.That(home.Expenses.Count + home.Settlements.Count).IsEqualTo(30);
+        await Assert.That(home.HasOlder).IsTrue();
+        await Assert.That(home.Expenses.All(e => e.GroupName == "Trip")).IsTrue();
+
+        var seen = home.Expenses.Select(e => e.Id).Concat(home.Settlements.Select(x => x.Id)).ToList();
+        var oldestRecent = home.Expenses.Select(e => e.Date).Concat(home.Settlements.Select(x => x.Date)).Min();
+        string? cursor = home.FirstOlderCursor;
+        var pages = 0;
+        var lastDate = oldestRecent;
+        do
+        {
+            var page = await sut.GetOlderTimelineAsync(p.HouseholdId, null, cursor, pageSize: 5);
+            var ids = page.Expenses.Select(e => e.Id).Concat(page.Settlements.Select(x => x.Id)).ToList();
+            await Assert.That(ids.Count).IsLessThanOrEqualTo(5);
+            var dates = page.Expenses.Select(e => e.Date).Concat(page.Settlements.Select(x => x.Date))
+                .OrderByDescending(d => d).ToList();
+            await Assert.That(dates.All(d => d <= lastDate)).IsTrue();
+            if (dates.Count > 0) lastDate = dates.Min();
+            seen.AddRange(ids);
+            cursor = page.NextCursor;
+            pages++;
+        } while (cursor is not null && pages < 20);
+
+        await Assert.That(cursor).IsNull();
+        await Assert.That(seen.Count).IsEqualTo(42);
+        await Assert.That(seen.Distinct().Count()).IsEqualTo(42);
+    }
+
+    [Test]
+    public async Task Paging_is_stable_when_an_older_expense_is_voided_between_pages()
+    {
+        var p = await SeedEmptyGroupAsync();
+        var ids = new List<Guid>();
+        for (var i = 0; i < 12; i++)
+            ids.Add(await AddExpenseAsync(p, $"E{i:D2}", Day0.AddDays(i), Day0.AddDays(i), 100));
+
+        await using (var qs = Store.QuerySession())
+        {
+            var sut = BuildSut(qs);
+            var first = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, null, pageSize: 4);
+            await Assert.That(first.Expenses.Select(e => e.Description))
+                .IsEquivalentTo(new[] { "E11", "E10", "E09", "E08" });
+
+            // E08 (already shown) and E05 (still to come) are voided meanwhile.
+            await VoidAsync(p, ids[8]);
+            await VoidAsync(p, ids[5]);
+
+            await using var qs2 = Store.QuerySession();
+            var second = await BuildSut(qs2).GetOlderTimelineAsync(p.HouseholdId, p.Group, first.NextCursor, pageSize: 4);
+            await Assert.That(second.Expenses.Select(e => e.Description).ToList())
+                .IsEquivalentTo(new[] { "E07", "E06", "E04", "E03" });
+            var third = await BuildSut(qs2).GetOlderTimelineAsync(p.HouseholdId, p.Group, second.NextCursor, pageSize: 4);
+            await Assert.That(third.Expenses.Select(e => e.Description).ToList())
+                .IsEquivalentTo(new[] { "E02", "E01", "E00" });
+            await Assert.That(third.NextCursor).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task Rows_sharing_a_date_split_across_pages_keep_id_descending_order()
+    {
+        var p = await SeedEmptyGroupAsync();
+        var ids = new List<Guid>();
+        for (var i = 0; i < 7; i++)
+            ids.Add(await AddExpenseAsync(p, $"Same{i}", Day0, Day0.AddMinutes(i), 100));
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var collected = new List<Guid>();
+        string? cursor = null;
+        do
+        {
+            var page = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, cursor, pageSize: 3);
+            collected.AddRange(page.Expenses.Select(e => e.Id));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        await Assert.That(collected.Count).IsEqualTo(7);
+        await Assert.That(collected.Distinct().Count()).IsEqualTo(7);
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        var sqlOrder = (await conn.QueryAsync<Guid>(
+            "SELECT id FROM expenses.mt_doc_expensereadmodel WHERE id = ANY(@ids) ORDER BY id DESC", new { ids = ids.ToArray() })).ToList();
+        await Assert.That(collected).IsEquivalentTo(sqlOrder);
+        await Assert.That(collected.SequenceEqual(sqlOrder)).IsTrue();
+    }
+
+    [Test]
+    public async Task Home_lists_active_group_expenses_with_group_names_and_hides_deleted_groups()
+    {
+        var sc = await SeedTwoGroupsAsync();
+
+        await using (var qs = Store.QuerySession())
+        {
+            var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+            await Assert.That(home.Expenses.Select(e => (e.Description, e.GroupName)))
+                .IsEquivalentTo(new[] { ("Hotel", "Trip"), ("Groceries", "Home") });
+        }
+
         await using (var s = Store.LightweightSession())
         {
-            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "apartamento" });
+            var doc = await s.LoadAsync<ExpenseGroupDocument>(sc.Trip);
+            doc!.DeletedAt = DateTimeOffset.UtcNow;
+            s.Store(doc);
             await s.SaveChangesAsync();
         }
-        var date = new DateTimeOffset(2026, 10, 20, 0, 0, 0, TimeSpan.Zero);
-        await SettleAsync(householdId, payer, recipient, 50000, date, groupId);
 
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payer);
-
-        var only = summary.Settlements.Single();
-        await Assert.That(only.Payer.UserId).IsEqualTo(payer);
-        await Assert.That(only.Payer.DisplayName).IsEqualTo($"User {payer}");
-        await Assert.That(only.Recipient.UserId).IsEqualTo(recipient);
-        await Assert.That(only.Cents).IsEqualTo(50000L);
-        await Assert.That(only.Date).IsEqualTo(date);
-        await Assert.That(only.GroupName).IsEqualTo("apartamento");
+        await using var qs2 = Store.QuerySession();
+        var after = await BuildSut(qs2).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        await Assert.That(after.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Groceries" });
     }
 
     [Test]
-    public async Task GetExpensesSummaryAsync_group_filter_excludes_other_and_ungrouped_settlements()
+    public async Task Home_shows_a_household_settle_once_with_the_cash_total()
     {
-        var householdId = Guid.NewGuid();
-        Guid groupA = Guid.NewGuid(), groupB = Guid.NewGuid();
-        Guid payer = Guid.NewGuid(), recipient = Guid.NewGuid();
-        await InsertUsersAsync(payer, recipient);
-        await SettleAsync(householdId, payer, recipient, 100, DateTimeOffset.UtcNow, groupA);
-        await SettleAsync(householdId, payer, recipient, 200, DateTimeOffset.UtcNow, groupB);
-        await SettleAsync(householdId, payer, recipient, 300, DateTimeOffset.UtcNow);
-
-        await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payer, groupId: groupA);
-
-        await Assert.That(summary.Settlements.Single().Cents).IsEqualTo(100L);
-    }
-
-    [Test]
-    public async Task GetExpensesSummaryAsync_sets_group_name_on_expenses()
-    {
-        var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var expenseId = Guid.NewGuid();
-        await InsertUsersAsync(userId);
+        var sc = await SeedTwoGroupsAsync();
+        Guid leadId;
         await using (var s = Store.LightweightSession())
         {
-            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "despesas-variaveis" });
-            s.Events.Append(expenseId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
-                "Mercado", DateTimeOffset.UtcNow,
-                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
+            var commands = new ExpenseCommandService(
+                s, new FakeCurrentUser(sc.Yan), new ThrowingRecurringExpenseRepository(),
+                new ThrowingRecurringJobScheduler(), new ThrowingUnitOfWork(), new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(1)),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<ExpenseCommandService>.Instance);
+            leadId = await commands.RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 40, DateTimeOffset.UtcNow);
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+
+        // 40 of the 70 owed leaves the household unsettled: no marker, so the settle is Recent.
+        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        await Assert.That(home.HasOlder).IsFalse();
+        var payment = home.Settlements.Single();
+        await Assert.That(payment.Id).IsEqualTo(leadId);
+        await Assert.That(payment.Cents).IsEqualTo(40L);
+        await Assert.That(payment.IsHouseholdSettle).IsTrue();
+        await Assert.That(payment.IsOffset).IsFalse();
+        await Assert.That(payment.GroupName).IsNull();
+    }
+
+    [Test]
+    public async Task Pages_follow_the_visual_order_with_payments_first_within_a_day()
+    {
+        var p = await SeedEmptyGroupAsync();
+        // Same UTC day: the 08:00 payment still sorts above the 20:00 expense, as ExpenseTimeline.Merge shows it.
+        var day = new DateTimeOffset(2026, 9, 10, 0, 0, 0, TimeSpan.Zero);
+        await AddExpenseAsync(p, "Late", day.AddHours(20), Day0, 100);
+        await AddExpenseAsync(p, "Early", day.AddHours(1), Day0, 100);
+        await AddPaymentAsync(p, day.AddHours(8), Day0, 1);
+        await AddExpenseAsync(p, "Day before", day.AddDays(-1).AddHours(12), Day0, 100);
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var collected = new List<string>();
+        string? cursor = null;
+        do
+        {
+            var page = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, cursor, pageSize: 1);
+            collected.AddRange(ExpenseTimeline.Merge(page.Expenses, page.Settlements)
+                .Select(x => x is ExpenseEntry e ? e.Expense.Description : "payment"));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        await Assert.That(collected).IsEquivalentTo(new[] { "payment", "Late", "Early", "Day before" });
+        await Assert.That(collected.SequenceEqual(new[] { "payment", "Late", "Early", "Day before" })).IsTrue();
+    }
+
+    [Test]
+    public async Task A_malformed_cursor_starts_Older_from_the_beginning()
+    {
+        var p = await SeedEmptyGroupAsync();
+        await AddExpenseAsync(p, "Dinner", Day0, Day0);
+
+        await using var qs = Store.QuerySession();
+        var page = await BuildSut(qs).GetOlderTimelineAsync(p.HouseholdId, p.Group, "not-a-cursor!");
+
+        await Assert.That(page.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Dinner" });
+    }
+
+    [Test]
+    public async Task Home_ignores_the_household_marker_while_active_groups_still_owe()
+    {
+        var p = await SeedEmptyGroupAsync("Trip");
+        var home = Guid.NewGuid();
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = home, HouseholdId = p.HouseholdId, Name = "Home" });
+            // Home: Yan owes Ana 50.
+            var oldId = Guid.NewGuid();
+            s.Events.Append(oldId, new ExpenseRecorded(Guid.NewGuid(), Day0, oldId, p.HouseholdId, home, "Old", Day0,
+                [new FundingSource(p.Ana, 100)], [new Allocation(p.Ana, 50), new Allocation(p.Yan, 50)], p.Ana));
+            await s.SaveChangesAsync();
+        }
+
+        // Trip: Ana owes Yan 50, so the household nets to zero and gets a marker.
+        await AddExpenseAsync(p, "Dinner", Day0.AddDays(1), Day0.AddDays(1), 100);
+        await using (var qs0 = Store.QuerySession())
+        {
+            var settled = await BuildSut(qs0).GetExpensesHomeAsync(p.HouseholdId, p.Yan);
+            await Assert.That(settled.Balances).IsEmpty();
+            await Assert.That(settled.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Dinner" });
+            await Assert.That(settled.HasOlder).IsTrue();
+        }
+
+        // Deleting Trip leaves Home's 50 outstanding while the household marker still points at the settled moment.
+        await using (var s = Store.LightweightSession())
+        {
+            var doc = await s.LoadAsync<ExpenseGroupDocument>(p.Group);
+            doc!.DeletedAt = DateTimeOffset.UtcNow;
+            s.Store(doc);
             await s.SaveChangesAsync();
         }
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, userId);
+        var after = await BuildSut(qs).GetExpensesHomeAsync(p.HouseholdId, p.Yan);
 
-        await Assert.That(summary.Expenses.Single().GroupName).IsEqualTo("despesas-variaveis");
+        await Assert.That(after.Balances.Single().Cents).IsEqualTo(-50L);
+        await Assert.That(after.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Old" });
+        await Assert.That(after.HasOlder).IsFalse();
     }
 
     [Test]
-    public async Task GetExpensesSummaryAsync_leaves_group_name_null_for_unknown_group()
+    public async Task Recent_with_a_marker_is_capped_at_100_and_Older_continues_where_it_ends()
     {
-        var householdId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        await InsertUsersAsync(userId);
-        await RecordAsync(householdId, userId, 100, userId);
+        var p = await SeedEmptyGroupAsync();
+        await AddExpenseAsync(p, "Before", Day0, Day0, 100);
+        await AddPaymentAsync(p, Day0.AddDays(1), Day0.AddDays(1), 50);
+        for (var i = 0; i < 105; i++)
+            await AddExpenseAsync(p, $"After{i:D3}", Day0.AddDays(2).AddMinutes(i), Day0.AddDays(2).AddMinutes(i), 100);
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, userId);
+        var sut = BuildSut(qs);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
 
-        await Assert.That(summary.Expenses.Single().GroupName).IsNull();
-    }
+        await Assert.That(page!.Expenses.Count + page.Settlements.Count).IsEqualTo(100);
+        await Assert.That(page.HasOlder).IsTrue();
+        await Assert.That(page.FirstOlderCursor).IsNotNull();
 
-    [Test]
-    public async Task GetBalancesAsync_nets_settlements_from_the_viewers_side()
-    {
-        var householdId = Guid.NewGuid();
-        Guid payerId = Guid.NewGuid(), debtorId = Guid.NewGuid();
-        await InsertUsersAsync(payerId, debtorId);
-        await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
-        await SettleAsync(householdId, debtorId, payerId, 200, DateTimeOffset.UtcNow);
+        var seen = page.Expenses.Select(e => e.Id).Concat(page.Settlements.Select(x => x.Id)).ToList();
+        var cursor = page.FirstOlderCursor;
+        var pages = 0;
+        do
+        {
+            var next = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, cursor, pageSize: 4);
+            seen.AddRange(next.Expenses.Select(e => e.Id));
+            seen.AddRange(next.Settlements.Select(x => x.Id));
+            cursor = next.NextCursor;
+            pages++;
+        } while (cursor is not null && pages < 20);
 
-        await using var qs = Store.QuerySession();
-        var balances = await BuildSut(qs).GetBalancesAsync(householdId, debtorId);
-
-        var only = balances.Single();
-        await Assert.That(only.UserId).IsEqualTo(payerId);
-        await Assert.That(only.Cents).IsEqualTo(-300L);
-        await Assert.That(only.DisplayName).IsEqualTo($"User {payerId}");
+        // 105 expenses after the marker, the settle itself, and the one expense before it.
+        await Assert.That(cursor).IsNull();
+        await Assert.That(seen.Count).IsEqualTo(107);
+        await Assert.That(seen.Distinct().Count()).IsEqualTo(107);
     }
 }
