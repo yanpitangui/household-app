@@ -3,7 +3,6 @@ using HouseholdApp.E2ETests.Infrastructure;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
-[NotInParallel]
 public class PushNotificationsTests(PlaywrightFixture pw)
 {
     // Real Web Push (PushManager.subscribe against an actual push service) needs network
