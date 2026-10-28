@@ -33,7 +33,9 @@ public static class ExpenseStreamEndpoints
                 var redisChannel = RedisChannel.Literal($"expense:{householdId}");
                 var subject = new Subject<Unit>();
 
-                await sub.SubscribeAsync(redisChannel, (_, _) => subject.OnNext(Unit.Default));
+                // Held by reference so the finally block unsubscribes only this stream and other tabs
+                // on the same channel keep receiving updates.
+                Action<RedisChannel, RedisValue> onMessage = (_, _) => subject.OnNext(Unit.Default);
 
                 ctx.Response.Headers["Content-Type"] = "text/event-stream";
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
@@ -42,30 +44,31 @@ public static class ExpenseStreamEndpoints
                 async Task<string> RenderAsync(CancellationToken innerCt)
                 {
                     var summary = await expenseQueries.GetExpensesSummaryAsync(householdId, currentUser.Id, ct: innerCt);
-                    var listVm = new ExpensesListViewModel(householdId, currentUser.Id, summary.Expenses);
+                    var listVm = new ExpensesListViewModel(householdId, currentUser.Id, ExpenseTimeline.Merge(summary.Expenses, summary.Settlements));
                     var listHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml", listVm);
-                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml", new BalanceCardViewModel(summary.Balances, OutOfBand: true));
+                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml", new BalanceCardViewModel(householdId, summary.Balances, OutOfBand: true));
                     return listHtml + balanceHtml;
                 }
 
-                await WriteSseAsync(ctx.Response, await RenderAsync(ct), ct);
-
-                using var _ = subject
-                    .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
-                    .SubscribeAwait(async (__, innerCt) =>
-                    {
-                        await WriteSseAsync(ctx.Response, await RenderAsync(innerCt), innerCt);
-                    }, AwaitOperation.Sequential);
-
                 try
                 {
+                    await sub.SubscribeAsync(redisChannel, onMessage);
+                    await WriteSseAsync(ctx.Response, await RenderAsync(ct), ct);
+
+                    using var _ = subject
+                        .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
+                        .SubscribeAwait(async (__, innerCt) =>
+                        {
+                            await WriteSseAsync(ctx.Response, await RenderAsync(innerCt), innerCt);
+                        }, AwaitOperation.Sequential);
+
                     await Task.Delay(Timeout.Infinite, ct);
                 }
                 catch (OperationCanceledException) { }
                 finally
                 {
                     subject.OnCompleted();
-                    await sub.UnsubscribeAsync(redisChannel);
+                    await sub.UnsubscribeAsync(redisChannel, onMessage);
                 }
             }).RequireAuthorization();
 

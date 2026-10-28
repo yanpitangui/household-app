@@ -13,7 +13,8 @@ public class RecordExpenseModel(
     IHouseholdGuard guard,
     IExpenseCommands expenseCommands,
     IExpenseQueries expenseQueries,
-    IHouseholdQueries householdQueries) : HouseholdPageModel(currentUser, guard)
+    IHouseholdQueries householdQueries,
+    TimeProvider timeProvider) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -25,7 +26,7 @@ public class RecordExpenseModel(
     public string Description { get; set; } = "";
 
     [BindProperty]
-    public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Date { get; set; } = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
 
     [BindProperty, Range(0.01, double.MaxValue)]
     public decimal Amount { get; set; }

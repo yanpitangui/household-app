@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
@@ -12,7 +13,9 @@ public class SettleModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
     IExpenseCommands expenseCommands,
-    IHouseholdQueries householdQueries) : HouseholdPageModel(currentUser, guard)
+    IExpenseQueries expenseQueries,
+    IHouseholdQueries householdQueries,
+    TimeProvider timeProvider) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -27,14 +30,19 @@ public class SettleModel(
     public decimal Amount { get; set; }
 
     [BindProperty]
-    public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Date { get; set; } = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
 
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(Guid? with)
     {
-        PayerId = CurrentUserId;
         await LoadMembers();
+        var balances = await expenseQueries.GetBalancesAsync(HouseholdId, CurrentUserId);
+        var defaults = SettleDefaults.From(balances, CurrentUserId, with, Members.Select(m => m.UserId).ToList());
+
+        PayerId = defaults.PayerId;
+        RecipientId = defaults.RecipientId;
+        if (defaults.Cents is { } cents) Amount = cents / 100m;
     }
 
     public async Task<IActionResult> OnPostAsync()

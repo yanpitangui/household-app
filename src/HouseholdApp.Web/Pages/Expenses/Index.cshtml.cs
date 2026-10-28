@@ -16,13 +16,13 @@ public class ExpensesIndexModel(
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
 
-    public IReadOnlyList<ExpenseListItem> Expenses { get; private set; } = [];
+    public IReadOnlyList<ExpenseTimelineEntry> Entries { get; private set; } = [];
     public IReadOnlyList<MemberBalance> Balances { get; private set; } = [];
 
     public async Task OnGetAsync()
     {
         var summary = await expenseQueries.GetExpensesSummaryAsync(HouseholdId, CurrentUserId);
-        Expenses = summary.Expenses;
+        Entries = ExpenseTimeline.Merge(summary.Expenses, summary.Settlements);
         Balances = summary.Balances;
     }
 

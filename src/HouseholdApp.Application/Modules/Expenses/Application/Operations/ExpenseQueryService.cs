@@ -17,39 +17,79 @@ public sealed class ExpenseQueryService(
     public async Task<ExpensesSummary> GetExpensesSummaryAsync(
         Guid householdId, Guid viewerId, Guid? groupId = null, CancellationToken ct = default)
     {
-        var expenseModels = groupId.HasValue
-            ? await querySession.QueryAsync(new ExpensesForGroup { HouseholdId = householdId, GroupId = groupId.Value }, ct)
-            : await querySession.QueryAsync(new ExpensesForHousehold { HouseholdId = householdId }, ct);
+        var batch = querySession.CreateBatchQuery();
+        var expensesTask = groupId.HasValue
+            ? batch.Query(new ExpensesForGroup { HouseholdId = householdId, GroupId = groupId.Value })
+            : batch.Query(new ExpensesForHousehold { HouseholdId = householdId });
+        var settlementsTask = groupId.HasValue
+            ? batch.Query(new SettlementsForGroup { HouseholdId = householdId, GroupId = groupId.Value })
+            : batch.Query(new SettlementsForHousehold { HouseholdId = householdId });
+        var groupsTask = batch.Query(new ExpenseGroupsForHousehold { HouseholdId = householdId });
+        var ledgerTask = batch.Load<HouseholdLedger>(householdId);
+        await batch.Execute(ct);
 
-        var ledger = await querySession.LoadAsync<HouseholdLedger>(householdId, ct);
-        var pairs = ledger?.Pairs ?? [];
+        var expenseModels = await expensesTask;
+        var settlementModels = await settlementsTask;
+        var groupNames = (await groupsTask).ToDictionary(g => g.Id, g => g.Name);
+        var pairs = (await ledgerTask)?.Pairs ?? [];
 
         var allUserIds = expenseModels
             .SelectMany(e => e.FundingSources.Select(f => f.UserId)
                 .Concat(e.Allocations.Select(a => a.UserId)))
+            .Concat(settlementModels.SelectMany(s => new[] { s.PayerId, s.RecipientId }))
             .Concat(pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }))
             .Distinct();
+        var profileMap = await LoadProfilesAsync(allUserIds, ct);
 
-        var profiles = await userQuery.GetByIdsAsync(allUserIds, ct);
-        var profileMap = profiles.ToDictionary(p => p.Id);
+        ExpenseListParticipantDto Participant(Guid userId, long cents) => new(
+            userId,
+            profileMap.GetValueOrDefault(userId)?.DisplayName ?? "?",
+            cents,
+            profileMap.GetValueOrDefault(userId)?.PictureUrl);
 
         var expenses = expenseModels.Select(e => new ExpenseListItem(
             e.Id, e.Description, e.Date, e.TotalCents,
-            e.FundingSources.Select(f => new ExpenseListParticipantDto(
-                f.UserId,
-                profileMap.GetValueOrDefault(f.UserId)?.DisplayName ?? "?",
-                f.Cents,
-                profileMap.GetValueOrDefault(f.UserId)?.PictureUrl)).ToList(),
-            e.Allocations.Select(a => new ExpenseListParticipantDto(
-                a.UserId,
-                profileMap.GetValueOrDefault(a.UserId)?.DisplayName ?? "?",
-                a.Cents,
-                profileMap.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList()
+            e.FundingSources.Select(f => Participant(f.UserId, f.Cents)).ToList(),
+            e.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList(),
+            groupNames.GetValueOrDefault(e.ExpenseGroupId)
         )).ToList();
 
-        // Each pair is read from the viewer's side (PairEntry: positive = UserId2 owes UserId1),
-        // so a positive balance means that member owes the viewer.
-        var balances = pairs
+        var settlements = settlementModels.Select(s => new SettlementListItem(
+            s.Id, s.Date,
+            Participant(s.PayerId, s.Cents),
+            Participant(s.RecipientId, s.Cents),
+            s.Cents,
+            s.ExpenseGroupId is { } gid ? groupNames.GetValueOrDefault(gid) : null
+        )).ToList();
+
+        return new ExpensesSummary(expenses, settlements, ToViewerBalances(pairs, viewerId, profileMap));
+    }
+
+    public async Task<IReadOnlyList<MemberBalance>> GetBalancesAsync(
+        Guid householdId, Guid viewerId, CancellationToken ct = default)
+    {
+        var pairs = await LoadPairsAsync(householdId, ct);
+        var profileMap = await LoadProfilesAsync(pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }).Distinct(), ct);
+        return ToViewerBalances(pairs, viewerId, profileMap);
+    }
+
+    private async Task<IReadOnlyList<PairEntry>> LoadPairsAsync(Guid householdId, CancellationToken ct)
+    {
+        var ledger = await querySession.LoadAsync<HouseholdLedger>(householdId, ct);
+        return ledger?.Pairs ?? [];
+    }
+
+    private async Task<Dictionary<Guid, UserProfile>> LoadProfilesAsync(IEnumerable<Guid> userIds, CancellationToken ct)
+    {
+        var profiles = await userQuery.GetByIdsAsync(userIds, ct);
+        return profiles.ToDictionary(p => p.Id);
+    }
+
+    // Each pair is read from the viewer's side (PairEntry: positive = UserId2 owes UserId1),
+    // so a positive balance means that member owes the viewer.
+    private static List<MemberBalance> ToViewerBalances(
+        IReadOnlyList<PairEntry> pairs, Guid viewerId, Dictionary<Guid, UserProfile> profileMap) =>
+        pairs
             .Where(p => p.Cents != 0 && (p.UserId1 == viewerId || p.UserId2 == viewerId))
             .Select(p => p.UserId1 == viewerId ? (Other: p.UserId2, Cents: p.Cents) : (Other: p.UserId1, Cents: -p.Cents))
             .Select(b => new MemberBalance(
@@ -59,9 +99,6 @@ public sealed class ExpenseQueryService(
                 prof?.PictureUrl))
             .OrderByDescending(b => Math.Abs(b.Cents))
             .ToList();
-
-        return new ExpensesSummary(expenses, balances);
-    }
 
     public async Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default)
     {

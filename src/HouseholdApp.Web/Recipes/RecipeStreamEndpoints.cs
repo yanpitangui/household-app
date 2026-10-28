@@ -33,7 +33,9 @@ public static class RecipeStreamEndpoints
                 var redisChannel = RedisChannel.Literal($"recipe:{householdId}");
                 var subject = new Subject<Unit>();
 
-                await sub.SubscribeAsync(redisChannel, (_, _) => subject.OnNext(Unit.Default));
+                // Held by reference so the finally block unsubscribes only this stream and other tabs
+                // on the same channel keep receiving updates.
+                Action<RedisChannel, RedisValue> onMessage = (_, _) => subject.OnNext(Unit.Default);
 
                 ctx.Response.Headers["Content-Type"] = "text/event-stream";
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
@@ -46,24 +48,25 @@ public static class RecipeStreamEndpoints
                     return await viewRender.RenderPartialAsync("~/Pages/Recipes/_RecipesList.cshtml", vm);
                 }
 
-                await WriteSseAsync(ctx.Response, await RenderAsync(ct), ct);
-
-                using var _ = subject
-                    .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
-                    .SubscribeAwait(async (__, innerCt) =>
-                    {
-                        await WriteSseAsync(ctx.Response, await RenderAsync(innerCt), innerCt);
-                    }, AwaitOperation.Sequential);
-
                 try
                 {
+                    await sub.SubscribeAsync(redisChannel, onMessage);
+                    await WriteSseAsync(ctx.Response, await RenderAsync(ct), ct);
+
+                    using var _ = subject
+                        .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
+                        .SubscribeAwait(async (__, innerCt) =>
+                        {
+                            await WriteSseAsync(ctx.Response, await RenderAsync(innerCt), innerCt);
+                        }, AwaitOperation.Sequential);
+
                     await Task.Delay(Timeout.Infinite, ct);
                 }
                 catch (OperationCanceledException) { }
                 finally
                 {
                     subject.OnCompleted();
-                    await sub.UnsubscribeAsync(redisChannel);
+                    await sub.UnsubscribeAsync(redisChannel, onMessage);
                 }
             }).RequireAuthorization();
 

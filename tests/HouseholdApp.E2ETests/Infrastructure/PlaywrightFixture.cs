@@ -1,5 +1,13 @@
 namespace HouseholdApp.E2ETests.Infrastructure;
 
+public enum E2EUser
+{
+    /// <summary>"Test User" — creates the households in tests.</summary>
+    Owner,
+    /// <summary>"Partner User" — joins a household through <see cref="PlaywrightFixture.AddPartnerAsync"/>.</summary>
+    Partner,
+}
+
 public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 {
     [ClassDataSource<AppFixture>(Shared = SharedType.PerTestSession)]
@@ -7,7 +15,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 
     private IPlaywright? _playwright;
     private IBrowser? _browser;
-    private string _storageStatePath = "";
+    private readonly Dictionary<E2EUser, string> _storageStatePaths = [];
 
     public string AppUrl { get; private set; } = "";
 
@@ -27,17 +35,39 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 
         _playwright = await Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        _storageStatePath = Path.Combine(Path.GetTempPath(), $"e2e-auth-{Guid.NewGuid()}.json");
+        foreach (var user in Enum.GetValues<E2EUser>())
+            _storageStatePaths[user] = await LoginAndSaveStateAsync(user);
+    }
 
-        await using var ctx = await _browser.NewContextAsync(new BrowserNewContextOptions { IgnoreHTTPSErrors = true });
-        ctx.Console += (_, e) => Console.WriteLine($"[browser] {e.Type}: {e.Text}");
+    private async Task<string> LoginAndSaveStateAsync(E2EUser user)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"e2e-auth-{user}-{Guid.NewGuid()}.json");
+
+        await using var ctx = await _browser!.NewContextAsync(new BrowserNewContextOptions { IgnoreHTTPSErrors = true });
+        ctx.Console += (_, e) => Console.WriteLine($"[browser:{user}] {e.Type}: {e.Text}");
+
+        // The fake OIDC server signs in whichever user this cookie names on its own origin.
+        await ctx.AddCookiesAsync([new Cookie
+        {
+            Name = FakeOidcUser.CookieName,
+            Value = OidcUserFor(user).Subject,
+            Url = App.FakeOidc.Url,
+        }]);
 
         var page = await ctx.NewPageAsync();
-        page.Response += (_, r) => Console.WriteLine($"[browser] {r.Status} {r.Url}");
+        page.Response += (_, r) => Console.WriteLine($"[browser:{user}] {r.Status} {r.Url}");
 
         await LoginAsync(page);
-        await ctx.StorageStateAsync(new BrowserContextStorageStateOptions { Path = _storageStatePath });
+        await ctx.StorageStateAsync(new BrowserContextStorageStateOptions { Path = path });
+        return path;
     }
+
+    private static FakeOidcUser OidcUserFor(E2EUser user) => user switch
+    {
+        E2EUser.Owner => FakeOidcUser.Owner,
+        E2EUser.Partner => FakeOidcUser.Partner,
+        _ => throw new ArgumentOutOfRangeException(nameof(user), user, null),
+    };
 
     private async Task LoginAsync(IPage page)
     {
@@ -52,13 +82,45 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
         Console.WriteLine($"[E2E] Login complete");
     }
 
-    public async Task<IBrowserContext> NewAuthenticatedContextAsync()
+    public async Task<IBrowserContext> NewAuthenticatedContextAsync(E2EUser user = E2EUser.Owner)
     {
         return await _browser!.NewContextAsync(new BrowserNewContextOptions
         {
-            StorageStatePath = _storageStatePath,
+            StorageStatePath = _storageStatePaths[user],
             IgnoreHTTPSErrors = true,
         });
+    }
+
+    /// <summary>
+    /// Invites the partner into <paramref name="householdId"/> from the owner's context and accepts
+    /// the invite as the partner. Returns the partner's context, which the caller disposes.
+    /// </summary>
+    public async Task<IBrowserContext> AddPartnerAsync(IBrowserContext ownerCtx, Guid householdId)
+    {
+        var ownerPage = await ownerCtx.NewPageAsync();
+        await ownerPage.GotoAsync($"{AppUrl}/h/{householdId}");
+        await ownerPage.ClickAsync("button:has-text('Generate invite link')");
+        var inviteButton = ownerPage.Locator("[data-invite-url]").First;
+        await inviteButton.WaitForAsync();
+        var joinUrl = await inviteButton.GetAttributeAsync("data-invite-url")
+            ?? throw new InvalidOperationException("Invite card rendered without a data-invite-url");
+        await ownerPage.CloseAsync();
+
+        var partnerCtx = await NewAuthenticatedContextAsync(E2EUser.Partner);
+        try
+        {
+            var partnerPage = await partnerCtx.NewPageAsync();
+            await partnerPage.GotoAsync(joinUrl);
+            await partnerPage.ClickAsync("button[type='submit']:has-text('Accept Invitation')");
+            await partnerPage.Locator(".alert-info").WaitForAsync();
+            await partnerPage.CloseAsync();
+            return partnerCtx;
+        }
+        catch
+        {
+            await partnerCtx.DisposeAsync();
+            throw;
+        }
     }
 
     public async Task<Guid> CreateHouseholdAsync(IBrowserContext ctx, string name)
@@ -78,6 +140,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     {
         if (_browser is not null) await _browser.CloseAsync();
         _playwright?.Dispose();
-        if (File.Exists(_storageStatePath)) File.Delete(_storageStatePath);
+        foreach (var path in _storageStatePaths.Values)
+            if (File.Exists(path)) File.Delete(path);
     }
 }

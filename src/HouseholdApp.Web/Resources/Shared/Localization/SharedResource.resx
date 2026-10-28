@@ -278,9 +278,14 @@
   <data name="Expenses.YourBalance"><value>YOUR BALANCE</value></data>
   <data name="Expenses.NetOwed"><value>You are owed in total</value></data>
   <data name="Expenses.NetOwe"><value>You owe in total</value></data>
-  <data name="Expenses.TheyOwe"><value>owes you</value></data>
-  <data name="Expenses.YouOwe"><value>you owe</value></data>
+  <data name="Expenses.OwesYouName"><value>{0} owes you</value></data>
+  <data name="Expenses.YouOweName"><value>You owe {0}</value></data>
+  <data name="Expenses.SettleWith"><value>Settle</value></data>
   <data name="Expenses.YouPaid"><value>you paid</value></data>
+  <data name="Expenses.Payment.YouPaid"><value>You paid {0}</value></data>
+  <data name="Expenses.Payment.PaidYou"><value>{0} paid you</value></data>
+  <data name="Expenses.Payment.Paid"><value>{0} paid {1}</value></data>
+  <data name="Expenses.Payment.Label"><value>Payment</value></data>
   <data name="Expenses.YouLent"><value>you lent</value></data>
   <data name="Expenses.YouBorrowed"><value>you owe</value></data>
   <data name="Expenses.AddExpense"><value>Add expense</value></data>

@@ -21,7 +21,8 @@
             @foreach (var b in nonZeroBalances)
             {
                 var personColor = b.Cents > 0 ? "var(--accent-tasks)" : "#f87171";
-                var personLabel = b.Cents > 0 ? L["Expenses.TheyOwe"].Value : L["Expenses.YouOwe"].Value;
+                var firstName = NameFormat.First(b.DisplayName);
+                var sentence = b.Cents > 0 ? L["Expenses.OwesYouName", firstName].Value : L["Expenses.YouOweName", firstName].Value;
                 <div class="expenses-person-row">
                     <span class="payer-init" style="width:22px;height:22px;font-size:9px;border-radius:6px;flex-shrink:0">
                         @if (!string.IsNullOrEmpty(b.PictureUrl))
@@ -33,13 +34,11 @@
                             @(b.DisplayName.Length > 0 ? b.DisplayName[0] : '?')
                         }
                     </span>
-                    <span class="expenses-person-name">@b.DisplayName</span>
-                    <div style="text-align:right">
-                        <div class="expenses-person-amount" style="color:@personColor">
-                            @currencySymbol @((Math.Abs(b.Cents) / 100m).ToString("F2"))
-                        </div>
-                        <div class="expenses-person-label">@personLabel</div>
-                    </div>
+                    <span class="expenses-person-name">
+                        @sentence
+                        <span class="expenses-person-amount" style="color:@personColor">@currencySymbol @((Math.Abs(b.Cents) / 100m).ToString("F2"))</span>
+                    </span>
+                    <a href="/h/@Model.HouseholdId/expenses/settle?with=@b.UserId" class="expenses-settle-with" aria-label="@L["Expenses.SettleWith"] — @sentence">@L["Expenses.SettleWith"]</a>
                 </div>
             }
         </div>

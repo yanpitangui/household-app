@@ -21,7 +21,8 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
 
         var rsa = RSA.Create(2048);
         var signingKey = new RsaSecurityKey(rsa) { KeyId = "fake-key-1" };
-        var nonces = new ConcurrentDictionary<string, string>();
+        var codes = new ConcurrentDictionary<string, (FakeOidcUser User, string? Nonce)>();
+        var accessTokens = new ConcurrentDictionary<string, FakeOidcUser>();
 
         var webBuilder = WebApplication.CreateSlimBuilder();
         webBuilder.WebHost.UseUrls(baseUrl);
@@ -76,8 +77,11 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
             var nonce = ctx.Request.Query["nonce"].ToString();
             var responseMode = ctx.Request.Query["response_mode"].ToString();
             var code = Guid.NewGuid().ToString("N");
-            if (!string.IsNullOrEmpty(nonce))
-                nonces[code] = nonce;
+            var selected = ctx.Request.Cookies[FakeOidcUser.CookieName];
+            var user = string.IsNullOrEmpty(selected) ? FakeOidcUser.Owner : FakeOidcUser.Find(selected);
+            if (user is null)
+                return Results.BadRequest($"Unknown {FakeOidcUser.CookieName} '{selected}'");
+            codes[code] = (user, string.IsNullOrEmpty(nonce) ? null : nonce);
 
             // ASP.NET Core OIDC defaults to response_mode=form_post for security.
             // The /signin-oidc callback only handles HTTP POST, so we must return
@@ -103,16 +107,18 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
         {
             var form = await ctx.Request.ReadFormAsync();
             var code = form["code"].ToString();
-            nonces.TryRemove(code, out var nonce);
+            if (!codes.TryRemove(code, out var grant))
+                return Results.Json(new { error = "invalid_grant" }, statusCode: 400);
+            var (user, nonce) = grant;
 
             var issuer = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
             var now = DateTime.UtcNow;
             var claims = new List<Claim>
             {
-                new(JwtRegisteredClaimNames.Sub, "test-user"),
-                new(JwtRegisteredClaimNames.Email, "test@household.local"),
-                new(JwtRegisteredClaimNames.Name, "Test User"),
-                new("preferred_username", "test-user"),
+                new(JwtRegisteredClaimNames.Sub, user.Subject),
+                new(JwtRegisteredClaimNames.Email, user.Email),
+                new(JwtRegisteredClaimNames.Name, user.Name),
+                new("preferred_username", user.Subject),
                 new(JwtRegisteredClaimNames.Iat,
                     new DateTimeOffset(now).ToUnixTimeSeconds().ToString(),
                     ClaimValueTypes.Integer64),
@@ -129,6 +135,7 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
                 expires: now.AddHours(1),
                 signingCredentials: credentials);
             var idToken = new JwtSecurityTokenHandler().WriteToken(token);
+            accessTokens[idToken] = user;
 
             return Results.Json(new
             {
@@ -140,13 +147,22 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
             });
         });
 
-        app.MapGet("/userinfo", () => Results.Json(new
+        app.MapGet("/userinfo", (HttpContext ctx) =>
         {
-            sub = "test-user",
-            email = "test@household.local",
-            name = "Test User",
-            groups = new[] { "household-admins" },
-        }));
+            var header = ctx.Request.Headers.Authorization.ToString();
+            const string bearer = "Bearer ";
+            if (!header.StartsWith(bearer, StringComparison.OrdinalIgnoreCase)
+                || !accessTokens.TryGetValue(header[bearer.Length..].Trim(), out var user))
+                return Results.Unauthorized();
+
+            return Results.Json(new
+            {
+                sub = user.Subject,
+                email = user.Email,
+                name = user.Name,
+                groups = user.Groups,
+            });
+        });
 
         await app.StartAsync();
         _app = app;
@@ -167,4 +183,19 @@ public sealed class FakeOidcFixture : IAsyncInitializer, IAsyncDisposable
         if (_app is not null)
             await _app.DisposeAsync();
     }
+}
+
+/// <summary>A user the fake OIDC server can sign in, chosen per browser by the <see cref="CookieName"/> cookie.</summary>
+public sealed record FakeOidcUser(string Subject, string Email, string Name, string[] Groups)
+{
+    public const string CookieName = "fake_oidc_user";
+
+    public static readonly FakeOidcUser Owner =
+        new("test-user", "test@household.local", "Test User", ["household-admins"]);
+
+    public static readonly FakeOidcUser Partner =
+        new("partner-user", "partner@household.local", "Partner User", []);
+
+    public static FakeOidcUser? Find(string subject) =>
+        new[] { Owner, Partner }.FirstOrDefault(u => u.Subject == subject);
 }

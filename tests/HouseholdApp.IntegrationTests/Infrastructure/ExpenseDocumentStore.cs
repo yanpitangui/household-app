@@ -28,6 +28,7 @@ public static class ExpenseDocumentStore
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<SettlementReadModelProjection>(ProjectionLifecycle.Inline);
             opts.AutoCreateSchemaObjects = AutoCreate.All;
         })))
         .Value;

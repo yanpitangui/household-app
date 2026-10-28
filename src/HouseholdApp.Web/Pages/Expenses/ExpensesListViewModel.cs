@@ -5,4 +5,4 @@ namespace HouseholdApp.Web.Pages.Expenses;
 public sealed record ExpensesListViewModel(
     Guid HouseholdId,
     Guid CurrentUserId,
-    IReadOnlyList<ExpenseListItem> Expenses);
+    IReadOnlyList<ExpenseTimelineEntry> Entries);

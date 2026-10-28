@@ -40,7 +40,7 @@
             <span class="record-amount-currency">@currencySymbol</span>
             <input id="amount-input" name="Amount" type="number" step="0.01" min="0.01"
                    class="record-amount-input" placeholder="0,00"
-                   value="@(Model.Amount > 0 ? Model.Amount.ToString("F2") : "")" />
+                   value="@NumberInput.Value(Model.Amount)" />
         </div>
         <span asp-validation-for="Amount" class="field-error"></span>
 
