@@ -190,13 +190,13 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
             new { id, sub = $"sub-{id}", email = $"{id}@test.com", name });
     }
 
-    private sealed record TwoGroups(Guid HouseholdId, Guid Trip, Guid Home, Guid Yan, Guid Ana);
+    private sealed record TwoGroups(Guid HouseholdId, Guid Trip, Guid Home, Guid Leo, Guid Ana);
 
-    // Trip: Yan owes Ana 100 (Hotel). Home: Ana owes Yan 30 (Groceries).
+    // Trip: Leo owes Ana 100 (Hotel). Home: Ana owes Leo 30 (Groceries).
     private async Task<TwoGroups> SeedTwoGroupsAsync()
     {
         var sc = new TwoGroups(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        await InsertUserAsync(sc.Yan, "Yan Test");
+        await InsertUserAsync(sc.Leo, "Leo Test");
         await InsertUserAsync(sc.Ana, "Ana Test");
         await using var s = Store.LightweightSession();
         s.Store(new ExpenseGroupDocument { Id = sc.Trip, HouseholdId = sc.HouseholdId, Name = "Trip" });
@@ -205,10 +205,10 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var groceries = Guid.NewGuid();
         s.Events.Append(hotel, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, hotel, sc.HouseholdId, sc.Trip,
             "Hotel", new DateTimeOffset(2026, 10, 26, 0, 0, 0, TimeSpan.Zero),
-            [new FundingSource(sc.Ana, 200)], [new Allocation(sc.Ana, 100), new Allocation(sc.Yan, 100)], sc.Ana));
+            [new FundingSource(sc.Ana, 200)], [new Allocation(sc.Ana, 100), new Allocation(sc.Leo, 100)], sc.Ana));
         s.Events.Append(groceries, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, groceries, sc.HouseholdId, sc.Home,
             "Groceries", new DateTimeOffset(2026, 10, 27, 0, 0, 0, TimeSpan.Zero),
-            [new FundingSource(sc.Yan, 60)], [new Allocation(sc.Ana, 30), new Allocation(sc.Yan, 30)], sc.Yan));
+            [new FundingSource(sc.Leo, 60)], [new Allocation(sc.Ana, 30), new Allocation(sc.Leo, 30)], sc.Leo));
         await s.SaveChangesAsync();
         return sc;
     }
@@ -219,13 +219,60 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var sc = await SeedTwoGroupsAsync();
 
         await using var qs = Store.QuerySession();
-        var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
 
         await Assert.That(home.Balances.Single().Cents).IsEqualTo(-70L);
         var trip = home.Groups.Single(g => g.Name == "Trip");
         await Assert.That(trip.Balances.Single().Cents).IsEqualTo(-100L);
         await Assert.That(trip.LastExpenseDescription).IsEqualTo("Hotel");
         await Assert.That(home.Groups.Single(g => g.Name == "Home").Balances.Single().Cents).IsEqualTo(30L);
+    }
+
+    [Test]
+    public async Task Three_members_each_see_only_their_own_pairs_in_the_total_and_the_cards()
+    {
+        Guid householdId = Guid.NewGuid(), trip = Guid.NewGuid(), home = Guid.NewGuid();
+        Guid leo = Guid.NewGuid(), ana = Guid.NewGuid(), bia = Guid.NewGuid();
+        await InsertUserAsync(leo, "Leo Test");
+        await InsertUserAsync(ana, "Ana Test");
+        await InsertUserAsync(bia, "Bia Test");
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = trip, HouseholdId = householdId, Name = "Trip" });
+            s.Store(new ExpenseGroupDocument { Id = home, HouseholdId = householdId, Name = "Home" });
+            // Trip: Ana paid 900 for all three. Home: Leo paid 600 split with Bia.
+            var hotel = Guid.NewGuid();
+            var rent = Guid.NewGuid();
+            s.Events.Append(hotel, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, hotel, householdId, trip,
+                "Hotel", DateTimeOffset.UtcNow, [new FundingSource(ana, 900)],
+                [new Allocation(ana, 300), new Allocation(leo, 300), new Allocation(bia, 300)], ana));
+            s.Events.Append(rent, new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, rent, householdId, home,
+                "Rent", DateTimeOffset.UtcNow, [new FundingSource(leo, 600)],
+                [new Allocation(leo, 300), new Allocation(bia, 300)], leo));
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        static long Of(IEnumerable<MemberBalance> balances, Guid user) => balances.Single(b => b.UserId == user).Cents;
+
+        var forYan = await sut.GetExpensesHomeAsync(householdId, leo);
+        await Assert.That(forYan.Balances.Count).IsEqualTo(2);
+        await Assert.That(Of(forYan.Balances, ana)).IsEqualTo(-300L);
+        await Assert.That(Of(forYan.Balances, bia)).IsEqualTo(300L);
+        await Assert.That(forYan.Groups.Single(g => g.Name == "Trip").Balances.Select(b => (b.UserId, b.Cents)))
+            .IsEquivalentTo(new[] { (ana, -300L) });
+        await Assert.That(forYan.Groups.Single(g => g.Name == "Home").Balances.Select(b => (b.UserId, b.Cents)))
+            .IsEquivalentTo(new[] { (bia, 300L) });
+
+        var forBia = await sut.GetExpensesHomeAsync(householdId, bia);
+        await Assert.That(Of(forBia.Balances, ana)).IsEqualTo(-300L);
+        await Assert.That(Of(forBia.Balances, leo)).IsEqualTo(-300L);
+
+        var forAna = await sut.GetExpensesHomeAsync(householdId, ana);
+        await Assert.That(forAna.Groups.Single(g => g.Name == "Trip").Balances.Select(b => (b.UserId, b.Cents)))
+            .IsEquivalentTo(new[] { (leo, 300L), (bia, 300L) });
+        await Assert.That(forAna.Groups.Single(g => g.Name == "Home").Balances).IsEmpty();
     }
 
     [Test]
@@ -242,11 +289,11 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
-        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
 
         await Assert.That(home.Balances.Single().Cents).IsEqualTo(30L);
         await Assert.That(home.Groups.Select(g => g.Name)).IsEquivalentTo(new[] { "Home" });
-        await Assert.That(await sut.GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Yan)).IsNull();
+        await Assert.That(await sut.GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Leo)).IsNull();
         await Assert.That((await sut.ListExpenseGroupsAsync(sc.HouseholdId)).Select(g => g.Name))
             .IsEquivalentTo(new[] { "Home" });
     }
@@ -259,13 +306,13 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using (var s = Store.LightweightSession())
         {
             s.Events.Append(settlementId, new SettlementRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, settlementId,
-                sc.HouseholdId, sc.Yan, sc.Ana, 40, DateTimeOffset.UtcNow, sc.Yan, sc.Trip,
+                sc.HouseholdId, sc.Leo, sc.Ana, 40, DateTimeOffset.UtcNow, sc.Leo, sc.Trip,
                 HouseholdSettlementId: settlementId));
             await s.SaveChangesAsync();
         }
 
         await using var qs = Store.QuerySession();
-        var page = await BuildSut(qs).GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Yan);
+        var page = await BuildSut(qs).GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Leo);
 
         await Assert.That(page!.Name).IsEqualTo("Trip");
         await Assert.That(page.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Hotel" });
@@ -279,7 +326,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var sc = await SeedTwoGroupsAsync();
         await using var qs = Store.QuerySession();
 
-        await Assert.That(await BuildSut(qs).GetGroupPageAsync(Guid.NewGuid(), sc.Trip, sc.Yan)).IsNull();
+        await Assert.That(await BuildSut(qs).GetGroupPageAsync(Guid.NewGuid(), sc.Trip, sc.Leo)).IsNull();
     }
 
     [Test]
@@ -288,7 +335,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var sc = await SeedTwoGroupsAsync();
         await using var qs = Store.QuerySession();
 
-        var balances = await BuildSut(qs).GetBalancesAsync(sc.HouseholdId, sc.Yan, sc.Home);
+        var balances = await BuildSut(qs).GetBalancesAsync(sc.HouseholdId, sc.Leo, sc.Home);
 
         await Assert.That(balances.Single().Cents).IsEqualTo(30L);
     }
@@ -300,7 +347,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
 
-        var preview = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 40);
+        var preview = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 40);
         await Assert.That(preview.Error).IsNull();
         await Assert.That(preview.OwedCents).IsEqualTo(70L);
         await Assert.That(preview.Legs).IsEquivalentTo(new[]
@@ -309,7 +356,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
             new SettlementPreviewLeg(sc.Home, "Home", 30, true)
         });
 
-        var over = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 100);
+        var over = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 100);
         await Assert.That(over.Error).IsEqualTo(SettlementSplitError.ExceedsOwed);
     }
 
@@ -317,12 +364,12 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
     private static readonly DateTimeOffset Day0 = new(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
 
-    private sealed record Pair(Guid HouseholdId, Guid Group, Guid Yan, Guid Ana);
+    private sealed record Pair(Guid HouseholdId, Guid Group, Guid Leo, Guid Ana);
 
     private async Task<Pair> SeedEmptyGroupAsync(string groupName = "Trip")
     {
         var p = new Pair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        await InsertUserAsync(p.Yan, "Yan Test");
+        await InsertUserAsync(p.Leo, "Leo Test");
         await InsertUserAsync(p.Ana, "Ana Test");
         await using var s = Store.LightweightSession();
         s.Store(new ExpenseGroupDocument { Id = p.Group, HouseholdId = p.HouseholdId, Name = groupName });
@@ -330,7 +377,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         return p;
     }
 
-    // Yan pays cents and splits it with Ana, so Ana owes Yan cents / 2.
+    // Leo pays cents and splits it with Ana, so Ana owes Leo cents / 2.
     private async Task<Guid> AddExpenseAsync(
         Pair p, string description, DateTimeOffset date, DateTimeOffset recordedAt, long cents = 100, Guid? group = null, Guid? id = null)
     {
@@ -338,7 +385,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using var s = Store.LightweightSession();
         s.Events.Append(expenseId, new ExpenseRecorded(Guid.NewGuid(), recordedAt, expenseId, p.HouseholdId,
             group ?? p.Group, description, date,
-            [new FundingSource(p.Yan, cents)], [new Allocation(p.Yan, cents / 2), new Allocation(p.Ana, cents / 2)], p.Yan));
+            [new FundingSource(p.Leo, cents)], [new Allocation(p.Leo, cents / 2), new Allocation(p.Ana, cents / 2)], p.Leo));
         await s.SaveChangesAsync();
         return expenseId;
     }
@@ -348,7 +395,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     {
         var id = Guid.NewGuid();
         await using var s = Store.LightweightSession();
-        s.Events.Append(id, new SettlementRecorded(Guid.NewGuid(), recordedAt, id, p.HouseholdId, p.Ana, p.Yan, cents,
+        s.Events.Append(id, new SettlementRecorded(Guid.NewGuid(), recordedAt, id, p.HouseholdId, p.Ana, p.Leo, cents,
             date, p.Ana, group ?? p.Group));
         await s.SaveChangesAsync();
         return id;
@@ -358,8 +405,8 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     {
         await using var s = Store.LightweightSession();
         s.Events.Append(expenseId, new ExpenseVoided(Guid.NewGuid(), Day0.AddYears(1), expenseId, p.HouseholdId, null,
-            [new FundingSource(p.Yan, cents)], [new Allocation(p.Yan, cents / 2), new Allocation(p.Ana, cents / 2)],
-            p.Yan, "x", ExpenseGroupId: p.Group));
+            [new FundingSource(p.Leo, cents)], [new Allocation(p.Leo, cents / 2), new Allocation(p.Ana, cents / 2)],
+            p.Leo, "x", ExpenseGroupId: p.Group));
         await s.SaveChangesAsync();
     }
 
@@ -373,7 +420,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
-        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Leo);
 
         await Assert.That(page!.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Lunch" });
         await Assert.That(page.Settlements.Select(x => x.Id)).IsEquivalentTo(new[] { payment });
@@ -393,7 +440,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await AddExpenseAsync(p, "Dinner", Day0, Day0);
 
         await using var qs = Store.QuerySession();
-        var page = await BuildSut(qs).GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+        var page = await BuildSut(qs).GetGroupPageAsync(p.HouseholdId, p.Group, p.Leo);
 
         await Assert.That(page!.Expenses.Count).IsEqualTo(1);
         await Assert.That(page.HasOlder).IsFalse();
@@ -409,7 +456,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
-        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Leo);
         var older = await sut.GetOlderTimelineAsync(p.HouseholdId, p.Group, null);
 
         await Assert.That(page!.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Forgotten" });
@@ -427,7 +474,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
-        var home = await sut.GetExpensesHomeAsync(p.HouseholdId, p.Yan);
+        var home = await sut.GetExpensesHomeAsync(p.HouseholdId, p.Leo);
 
         await Assert.That(home.Expenses.Count + home.Settlements.Count).IsEqualTo(30);
         await Assert.That(home.HasOlder).IsTrue();
@@ -522,7 +569,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using (var qs = Store.QuerySession())
         {
-            var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+            var home = await BuildSut(qs).GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
             await Assert.That(home.Expenses.Select(e => (e.Description, e.GroupName)))
                 .IsEquivalentTo(new[] { ("Hotel", "Trip"), ("Groceries", "Home") });
         }
@@ -536,7 +583,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs2 = Store.QuerySession();
-        var after = await BuildSut(qs2).GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        var after = await BuildSut(qs2).GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
         await Assert.That(after.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Groceries" });
     }
 
@@ -548,17 +595,17 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using (var s = Store.LightweightSession())
         {
             var commands = new ExpenseCommandService(
-                s, new FakeCurrentUser(sc.Yan), new ThrowingRecurringExpenseRepository(),
+                s, new FakeCurrentUser(sc.Leo), new ThrowingRecurringExpenseRepository(),
                 new ThrowingRecurringJobScheduler(), new ThrowingUnitOfWork(), new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(1)),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<ExpenseCommandService>.Instance);
-            leadId = await commands.RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 40, DateTimeOffset.UtcNow);
+            leadId = await commands.RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 40, DateTimeOffset.UtcNow);
         }
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
 
         // 40 of the 70 owed leaves the household unsettled: no marker, so the settle is Recent.
-        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Yan);
+        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
         await Assert.That(home.HasOlder).IsFalse();
         var payment = home.Settlements.Single();
         await Assert.That(payment.Id).IsEqualTo(leadId);
@@ -615,18 +662,18 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using (var s = Store.LightweightSession())
         {
             s.Store(new ExpenseGroupDocument { Id = home, HouseholdId = p.HouseholdId, Name = "Home" });
-            // Home: Yan owes Ana 50.
+            // Home: Leo owes Ana 50.
             var oldId = Guid.NewGuid();
             s.Events.Append(oldId, new ExpenseRecorded(Guid.NewGuid(), Day0, oldId, p.HouseholdId, home, "Old", Day0,
-                [new FundingSource(p.Ana, 100)], [new Allocation(p.Ana, 50), new Allocation(p.Yan, 50)], p.Ana));
+                [new FundingSource(p.Ana, 100)], [new Allocation(p.Ana, 50), new Allocation(p.Leo, 50)], p.Ana));
             await s.SaveChangesAsync();
         }
 
-        // Trip: Ana owes Yan 50, so the household nets to zero and gets a marker.
+        // Trip: Ana owes Leo 50, so the household nets to zero and gets a marker.
         await AddExpenseAsync(p, "Dinner", Day0.AddDays(1), Day0.AddDays(1), 100);
         await using (var qs0 = Store.QuerySession())
         {
-            var settled = await BuildSut(qs0).GetExpensesHomeAsync(p.HouseholdId, p.Yan);
+            var settled = await BuildSut(qs0).GetExpensesHomeAsync(p.HouseholdId, p.Leo);
             await Assert.That(settled.Balances).IsEmpty();
             await Assert.That(settled.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Dinner" });
             await Assert.That(settled.HasOlder).IsTrue();
@@ -642,7 +689,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs = Store.QuerySession();
-        var after = await BuildSut(qs).GetExpensesHomeAsync(p.HouseholdId, p.Yan);
+        var after = await BuildSut(qs).GetExpensesHomeAsync(p.HouseholdId, p.Leo);
 
         await Assert.That(after.Balances.Single().Cents).IsEqualTo(-50L);
         await Assert.That(after.Expenses.Select(e => e.Description)).IsEquivalentTo(new[] { "Old" });
@@ -660,7 +707,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
         await using var qs = Store.QuerySession();
         var sut = BuildSut(qs);
-        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Yan);
+        var page = await sut.GetGroupPageAsync(p.HouseholdId, p.Group, p.Leo);
 
         await Assert.That(page!.Expenses.Count + page.Settlements.Count).IsEqualTo(100);
         await Assert.That(page.HasOlder).IsTrue();

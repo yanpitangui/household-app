@@ -92,6 +92,132 @@ public sealed class HouseholdLedgerProjectionTests
         await Assert.That(PairCents(ledger, Bob, Carol)).IsEqualTo(0L);
     }
 
+    private static readonly Guid Dave = Guid.NewGuid();
+
+    // What everyone else owes the user in the group, summed over their pairs; negative when the user owes.
+    private static long NetOf(HouseholdLedger ledger, Guid user, Guid? groupId = null) =>
+        ledger.Pairs
+            .Where(p => p.GroupId == (groupId ?? GroupA))
+            .Sum(p => p.UserId1 == user ? p.Cents : p.UserId2 == user ? -p.Cents : 0);
+
+    [Test]
+    public async Task Two_payers_two_debtors_keep_every_cent()
+    {
+        var ledger = EmptyLedger();
+        // Nets: Alice +1, Bob +1, Carol -1, Dave -1. Every proportional share is half a cent.
+        _projection.Apply(Expense(
+            [new FundingSource(Alice, 3), new FundingSource(Bob, 3)],
+            [new Allocation(Alice, 2), new Allocation(Bob, 2), new Allocation(Carol, 1), new Allocation(Dave, 1)]), ledger);
+
+        await Assert.That(NetOf(ledger, Alice)).IsEqualTo(1L);
+        await Assert.That(NetOf(ledger, Bob)).IsEqualTo(1L);
+        await Assert.That(NetOf(ledger, Carol)).IsEqualTo(-1L);
+        await Assert.That(NetOf(ledger, Dave)).IsEqualTo(-1L);
+    }
+
+    [Test]
+    public async Task Two_payers_split_each_debt_in_proportion_to_what_they_are_owed()
+    {
+        var ledger = EmptyLedger();
+        // Nets: Alice +500, Bob +100, Carol -300, Dave -300.
+        _projection.Apply(Expense(
+            [new FundingSource(Alice, 800), new FundingSource(Bob, 400)],
+            [new Allocation(Alice, 300), new Allocation(Bob, 300), new Allocation(Carol, 300), new Allocation(Dave, 300)]), ledger);
+
+        await Assert.That(PairCents(ledger, Alice, Carol)).IsEqualTo(250L);
+        await Assert.That(PairCents(ledger, Alice, Dave)).IsEqualTo(250L);
+        await Assert.That(PairCents(ledger, Bob, Carol)).IsEqualTo(50L);
+        await Assert.That(PairCents(ledger, Bob, Dave)).IsEqualTo(50L);
+        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(0L);
+    }
+
+    [Test]
+    public async Task Three_way_odd_cents_with_two_payers_keep_every_cent()
+    {
+        var ledger = EmptyLedger();
+        // R$10.00 split three ways (334/333/333), paid 7.00 by Alice and 3.00 by Bob.
+        // Nets: Alice +366, Bob -33, Carol -333.
+        _projection.Apply(Expense(
+            [new FundingSource(Alice, 700), new FundingSource(Bob, 300)],
+            [new Allocation(Alice, 334), new Allocation(Bob, 333), new Allocation(Carol, 333)]), ledger);
+
+        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(33L);
+        await Assert.That(PairCents(ledger, Alice, Carol)).IsEqualTo(333L);
+        await Assert.That(PairCents(ledger, Bob, Carol)).IsEqualTo(0L);
+    }
+
+    [Test]
+    public async Task Voiding_a_fractional_split_returns_every_pair_to_zero()
+    {
+        var ledger = EmptyLedger();
+        var funding = new FundingSource[] { new(Alice, 3), new(Bob, 3) };
+        var allocations = new Allocation[] { new(Alice, 2), new(Bob, 2), new(Carol, 1), new(Dave, 1) };
+        _projection.Apply(Expense(funding, allocations), ledger);
+
+        await _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, null, funding,
+            allocations, Alice, "Test", ExpenseGroupId: GroupA), ledger, NoSession);
+
+        await Assert.That(ledger.Pairs.All(p => p.Cents == 0)).IsTrue();
+    }
+
+    [Test]
+    [Arguments(1)]
+    [Arguments(2)]
+    [Arguments(3)]
+    public async Task Random_splits_keep_every_members_net_and_voids_reverse_exactly(int seed)
+    {
+        var random = new Random(seed);
+        var members = Enumerable.Range(0, 6).Select(_ => Guid.NewGuid()).ToArray();
+        var ledger = EmptyLedger();
+        var expected = members.ToDictionary(m => m, _ => 0L);
+        var recorded = new List<ExpenseRecorded>();
+
+        for (var i = 0; i < 200; i++)
+        {
+            var people = members.OrderBy(_ => random.Next()).Take(random.Next(2, members.Length + 1)).ToArray();
+            var total = random.NextInt64(1, 100_000);
+            var funding = RandomParts(random, total, people.Take(random.Next(1, Math.Min(3, people.Length) + 1)).ToArray())
+                .Select(p => new FundingSource(p.User, p.Cents)).ToList();
+            var allocations = RandomParts(random, total, people)
+                .Select(p => new Allocation(p.User, p.Cents)).ToList();
+
+            var e = Expense(funding, allocations);
+            _projection.Apply(e, ledger);
+            recorded.Add(e);
+            foreach (var f in funding) expected[f.UserId] += f.Cents;
+            foreach (var a in allocations) expected[a.UserId] -= a.Cents;
+        }
+
+        foreach (var m in members)
+            await Assert.That(NetOf(ledger, m)).IsEqualTo(expected[m]);
+
+        foreach (var e in recorded.OrderBy(_ => random.Next()))
+            await _projection.Apply(new ExpenseVoided(Guid.NewGuid(), Now, e.ExpenseId, HouseholdId, null,
+                e.FundingSources, e.Allocations, Alice, "Test", ExpenseGroupId: GroupA), ledger, NoSession);
+
+        await Assert.That(ledger.Pairs.All(p => p.Cents == 0)).IsTrue();
+    }
+
+    [Test]
+    public async Task Unbalanced_expense_owing_more_than_was_paid_gives_the_payer_only_what_they_paid()
+    {
+        var ledger = EmptyLedger();
+        // Shares outgrow funding; the domain rejects this, but a rebuild must still get past such an event.
+        _projection.Apply(Expense([new FundingSource(Alice, 100)], [new Allocation(Bob, 100), new Allocation(Carol, 100)]), ledger);
+
+        await Assert.That(NetOf(ledger, Alice)).IsEqualTo(100L);
+    }
+
+    // Splits total into one positive part per user.
+    private static IEnumerable<(Guid User, long Cents)> RandomParts(Random random, long total, Guid[] users)
+    {
+        if (total < users.Length) users = users.Take((int)total).ToArray();
+        var cuts = new SortedSet<long>();
+        while (cuts.Count < users.Length - 1) cuts.Add(random.NextInt64(1, total));
+        var bounds = cuts.Prepend(0).Append(total).ToArray();
+        return users.Select((u, i) => (u, bounds[i + 1] - bounds[i]));
+    }
+
     [Test]
     public async Task Settlement_reduces_debt()
     {
@@ -311,6 +437,27 @@ public sealed class HouseholdLedgerProjectionTests
         // A historical import lands late: an expense and its settlement both dated before the marker.
         _projection.Apply(ExpenseAt(T1.AddMinutes(-30), 400, Alice, Bob), ledger);
         _projection.Apply(SettlementAt(T1, Bob, Alice, 200), ledger);
+
+        await Assert.That(ledger.GroupSettledAt[GroupA]).IsEqualTo(T3);
+        await Assert.That(ledger.HouseholdSettledAt).IsEqualTo(T3);
+    }
+
+    [Test]
+    public async Task Settling_one_pair_of_three_leaves_the_other_pair_and_keeps_markers_open()
+    {
+        var ledger = EmptyLedger();
+        _projection.Apply(new ExpenseRecorded(Guid.NewGuid(), T1, Guid.NewGuid(), HouseholdId, GroupA, "Dinner", T1,
+            [new FundingSource(Alice, 900)],
+            [new Allocation(Alice, 300), new Allocation(Bob, 300), new Allocation(Carol, 300)]), ledger);
+
+        _projection.Apply(SettlementAt(T2, Bob, Alice, 300), ledger);
+
+        await Assert.That(PairCents(ledger, Alice, Bob)).IsEqualTo(0L);
+        await Assert.That(PairCents(ledger, Alice, Carol)).IsEqualTo(300L);
+        await Assert.That(ledger.GroupSettledAt.ContainsKey(GroupA)).IsFalse();
+        await Assert.That(ledger.HouseholdSettledAt).IsNull();
+
+        _projection.Apply(SettlementAt(T3, Carol, Alice, 300), ledger);
 
         await Assert.That(ledger.GroupSettledAt[GroupA]).IsEqualTo(T3);
         await Assert.That(ledger.HouseholdSettledAt).IsEqualTo(T3);

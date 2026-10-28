@@ -18,9 +18,9 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
         session, new FakeCurrentUser(actorId), new ThrowingRecurringExpenseRepository(),
         new ThrowingRecurringJobScheduler(), new ThrowingUnitOfWork(), new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
 
-    private sealed record Scenario(Guid HouseholdId, Guid Trip, Guid Home, Guid Yan, Guid Ana);
+    private sealed record Scenario(Guid HouseholdId, Guid Trip, Guid Home, Guid Leo, Guid Ana);
 
-    // Trip: Yan owes Ana 100. Home: Ana owes Yan 30.
+    // Trip: Leo owes Ana 100. Home: Ana owes Leo 30.
     private async Task<Scenario> SeedAsync()
     {
         var sc = new Scenario(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
@@ -29,11 +29,11 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
         s.Store(new ExpenseGroupDocument { Id = sc.Home, HouseholdId = sc.HouseholdId, Name = "Home" });
         await s.SaveChangesAsync();
 
-        var sut = BuildSut(s, sc.Yan);
+        var sut = BuildSut(s, sc.Leo);
         await sut.RecordExpenseAsync(sc.HouseholdId, sc.Trip, "Hotel", DateTimeOffset.UtcNow,
-            [new FundingSourceDto(sc.Ana, 200)], [new AllocationDto(sc.Ana, 100), new AllocationDto(sc.Yan, 100)]);
+            [new FundingSourceDto(sc.Ana, 200)], [new AllocationDto(sc.Ana, 100), new AllocationDto(sc.Leo, 100)]);
         await sut.RecordExpenseAsync(sc.HouseholdId, sc.Home, "Groceries", DateTimeOffset.UtcNow,
-            [new FundingSourceDto(sc.Yan, 60)], [new AllocationDto(sc.Ana, 30), new AllocationDto(sc.Yan, 30)]);
+            [new FundingSourceDto(sc.Leo, 60)], [new AllocationDto(sc.Ana, 30), new AllocationDto(sc.Leo, 30)]);
         return sc;
     }
 
@@ -44,21 +44,21 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
 
         Guid householdSettlementId;
         await using (var s = Store.LightweightSession())
-            householdSettlementId = await BuildSut(s, sc.Yan).RecordHouseholdSettlementAsync(
-                sc.HouseholdId, sc.Yan, sc.Ana, 70, DateTimeOffset.UtcNow);
+            householdSettlementId = await BuildSut(s, sc.Leo).RecordHouseholdSettlementAsync(
+                sc.HouseholdId, sc.Leo, sc.Ana, 70, DateTimeOffset.UtcNow);
 
         await using var qs = Store.QuerySession();
         var ledger = await qs.LoadAsync<HouseholdLedger>(sc.HouseholdId);
-        await Assert.That(ledger!.DebtsBetween(sc.Yan, sc.Ana)).IsEmpty();
+        await Assert.That(ledger!.DebtsBetween(sc.Leo, sc.Ana)).IsEmpty();
 
         var legs = await qs.Query<SettlementReadModel>()
             .Where(x => x.HouseholdSettlementId == householdSettlementId).ToListAsync();
         await Assert.That(legs.Count).IsEqualTo(2);
         var trip = legs.Single(l => l.ExpenseGroupId == sc.Trip);
         await Assert.That(trip.Id).IsEqualTo(householdSettlementId);
-        await Assert.That((trip.PayerId, trip.RecipientId, trip.Cents, trip.IsOffset)).IsEqualTo((sc.Yan, sc.Ana, 100L, false));
+        await Assert.That((trip.PayerId, trip.RecipientId, trip.Cents, trip.IsOffset)).IsEqualTo((sc.Leo, sc.Ana, 100L, false));
         var home = legs.Single(l => l.ExpenseGroupId == sc.Home);
-        await Assert.That((home.PayerId, home.RecipientId, home.Cents, home.IsOffset)).IsEqualTo((sc.Ana, sc.Yan, 30L, true));
+        await Assert.That((home.PayerId, home.RecipientId, home.Cents, home.IsOffset)).IsEqualTo((sc.Ana, sc.Leo, 30L, true));
     }
 
     [Test]
@@ -67,7 +67,7 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
         var sc = await SeedAsync();
         Guid id;
         await using (var s = Store.LightweightSession())
-            id = await BuildSut(s, sc.Yan).RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 40, DateTimeOffset.UtcNow);
+            id = await BuildSut(s, sc.Leo).RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 40, DateTimeOffset.UtcNow);
 
         await using var qs = Store.QuerySession();
         var lead = (await qs.Events.FetchStreamAsync(id)).Select(e => e.Data).OfType<SettlementRecorded>().Single();
@@ -82,8 +82,8 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
         var sc = await SeedAsync();
         await using var s = Store.LightweightSession();
 
-        var ex = await Assert.That(async () => await BuildSut(s, sc.Yan).RecordHouseholdSettlementAsync(
-            sc.HouseholdId, sc.Yan, sc.Ana, 71, DateTimeOffset.UtcNow)).Throws<SettlementSplitException>();
+        var ex = await Assert.That(async () => await BuildSut(s, sc.Leo).RecordHouseholdSettlementAsync(
+            sc.HouseholdId, sc.Leo, sc.Ana, 71, DateTimeOffset.UtcNow)).Throws<SettlementSplitException>();
         await Assert.That(ex!.Error).IsEqualTo(SettlementSplitError.ExceedsOwed);
     }
 
@@ -92,15 +92,38 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
     {
         var sc = await SeedAsync();
         await using (var s = Store.LightweightSession())
-            await BuildSut(s, sc.Yan).DeleteExpenseGroupAsync(sc.HouseholdId, sc.Home);
+            await BuildSut(s, sc.Leo).DeleteExpenseGroupAsync(sc.HouseholdId, sc.Home);
 
-        // Without Home, Yan owes 100 in Trip only.
+        // Without Home, Leo owes 100 in Trip only.
         await using (var s = Store.LightweightSession())
-            await BuildSut(s, sc.Yan).RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Yan, sc.Ana, 100, DateTimeOffset.UtcNow);
+            await BuildSut(s, sc.Leo).RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 100, DateTimeOffset.UtcNow);
 
         await using var qs = Store.QuerySession();
         var ledger = await qs.LoadAsync<HouseholdLedger>(sc.HouseholdId);
-        await Assert.That(ledger!.DebtsBetween(sc.Yan, sc.Ana)).IsEquivalentTo(new[] { new GroupDebt(sc.Home, -30) });
+        await Assert.That(ledger!.DebtsBetween(sc.Leo, sc.Ana)).IsEquivalentTo(new[] { new GroupDebt(sc.Home, -30) });
+    }
+
+    [Test]
+    public async Task Household_settle_between_two_members_leaves_the_third_untouched()
+    {
+        var sc = await SeedAsync();
+        var bia = Guid.NewGuid();
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, sc.Ana).RecordExpenseAsync(sc.HouseholdId, sc.Trip, "Dinner", DateTimeOffset.UtcNow,
+                [new FundingSourceDto(sc.Ana, 900)],
+                [new AllocationDto(sc.Ana, 300), new AllocationDto(sc.Leo, 300), new AllocationDto(bia, 300)]);
+
+        // Leo now owes Ana 400 in Trip and is owed 30 in Home.
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, sc.Leo).RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 370, DateTimeOffset.UtcNow);
+
+        await using var qs = Store.QuerySession();
+        var ledger = await qs.LoadAsync<HouseholdLedger>(sc.HouseholdId);
+        await Assert.That(ledger!.DebtsBetween(sc.Leo, sc.Ana)).IsEmpty();
+        await Assert.That(ledger.DebtsBetween(bia, sc.Ana)).IsEquivalentTo(new[] { new GroupDebt(sc.Trip, 300) });
+        await Assert.That(ledger.DebtsBetween(bia, sc.Leo)).IsEmpty();
+        await Assert.That(ledger.GroupSettledAt.ContainsKey(sc.Trip)).IsFalse();
+        await Assert.That(ledger.HouseholdSettledAt).IsNull();
     }
 
     [Test]
@@ -108,11 +131,11 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
     {
         var sc = await SeedAsync();
         await using (var s = Store.LightweightSession())
-            await BuildSut(s, sc.Yan).RecordGroupSettlementAsync(sc.HouseholdId, sc.Trip, sc.Yan, sc.Ana, 150, DateTimeOffset.UtcNow);
+            await BuildSut(s, sc.Leo).RecordGroupSettlementAsync(sc.HouseholdId, sc.Trip, sc.Leo, sc.Ana, 150, DateTimeOffset.UtcNow);
 
         await using var qs = Store.QuerySession();
         var ledger = await qs.LoadAsync<HouseholdLedger>(sc.HouseholdId);
-        await Assert.That(ledger!.DebtsBetween(sc.Yan, sc.Ana))
+        await Assert.That(ledger!.DebtsBetween(sc.Leo, sc.Ana))
             .IsEquivalentTo(new[] { new GroupDebt(sc.Trip, -50), new GroupDebt(sc.Home, -30) });
     }
 
@@ -121,10 +144,10 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
     {
         var sc = await SeedAsync();
         await using (var s = Store.LightweightSession())
-            await BuildSut(s, sc.Yan).DeleteExpenseGroupAsync(sc.HouseholdId, sc.Trip);
+            await BuildSut(s, sc.Leo).DeleteExpenseGroupAsync(sc.HouseholdId, sc.Trip);
 
         await using var session = Store.LightweightSession();
-        await Assert.That(async () => await BuildSut(session, sc.Yan).RecordGroupSettlementAsync(
-            sc.HouseholdId, sc.Trip, sc.Yan, sc.Ana, 10, DateTimeOffset.UtcNow)).Throws<InvalidOperationException>();
+        await Assert.That(async () => await BuildSut(session, sc.Leo).RecordGroupSettlementAsync(
+            sc.HouseholdId, sc.Trip, sc.Leo, sc.Ana, 10, DateTimeOffset.UtcNow)).Throws<InvalidOperationException>();
     }
 }
