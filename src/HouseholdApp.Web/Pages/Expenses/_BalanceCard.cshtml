@@ -1,14 +1,14 @@
-@model IReadOnlyList<HouseholdApp.Application.Modules.Expenses.Application.Ports.MemberBalance>
+@model HouseholdApp.Web.Pages.Expenses.BalanceCardViewModel
 @using System.Globalization
 @{
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
-    var nonZeroBalances = Model.Where(b => b.Cents != 0).ToList();
+    var nonZeroBalances = Model.Balances.Where(b => b.Cents != 0).ToList();
 }
 
-<div id="expenses-balance-card" hx-swap-oob="true">
+<div id="expenses-balance-card" hx-swap-oob="@(Model.OutOfBand ? "true" : null)">
 @if (nonZeroBalances.Any())
 {
-    var netCents = Model.Sum(b => b.Cents);
+    var netCents = Model.Balances.Sum(b => b.Cents);
     var netColor = netCents >= 0 ? "var(--accent-tasks)" : "#f87171";
     var netLabel = netCents >= 0 ? L["Expenses.NetOwed"].Value : L["Expenses.NetOwe"].Value;
     <div class="expenses-balance-card">

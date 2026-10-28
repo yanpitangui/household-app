@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Modules/Expenses/Import/Fixtures/*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="TUnit.Core" />
     <Using Include="TUnit.Assertions" />
     <Using Include="TUnit.Assertions.Extensions" />

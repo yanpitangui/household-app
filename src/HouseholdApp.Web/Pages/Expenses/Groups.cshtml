@@ -6,7 +6,10 @@
 
 <div class="page-heading">
     <span>@L["Expenses.GroupsHeading"]</span>
-    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+    <span class="d-flex gap-3">
+        <a asp-page="Import" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">⇪ @L["Expenses.ImportLink"]</a>
+        <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
+    </span>
 </div>
 
 <div class="app-card mb-4">

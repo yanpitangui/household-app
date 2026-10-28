@@ -332,4 +332,49 @@
   <data name="Recipes.AddItemsToList" xml:space="preserve">
     <value>Adicionar itens à lista</value>
   </data>
+  <data name="Expenses.ImportHeading"><value>Importar do Splitwise</value></data>
+  <data name="Expenses.ImportLink"><value>Importar do Splitwise</value></data>
+  <data name="Expenses.ImportIntro"><value>Envie a exportação de um grupo do Splitwise (configurações do grupo → Exportar como planilha). Apenas grupos de duas pessoas em BRL. Cada arquivo vira um novo grupo de despesas.</value></data>
+  <data name="Expenses.ImportFile"><value>Arquivo CSV do Splitwise</value></data>
+  <data name="Expenses.ImportBalanceCheck"><value>Conferência de saldo</value></data>
+  <data name="Expenses.ImportCounts"><value>{0} despesas e {1} pagamentos, de {2} a {3}</value></data>
+  <data name="Expenses.ImportColumn"><value>Pessoa no Splitwise</value></data>
+  <data name="Expenses.ImportSplitwiseTotal"><value>Splitwise</value></data>
+  <data name="Expenses.ImportComputedTotal"><value>Calculado</value></data>
+  <data name="Expenses.ImportMember"><value>membro da casa</value></data>
+  <data name="Expenses.ImportMemberColumn"><value>Membro da casa</value></data>
+  <data name="Expenses.ImportChooseMember"><value>Escolha um membro</value></data>
+  <data name="Expenses.ImportRecentRows"><value>Mais recentes</value></data>
+  <data name="Expenses.ImportLine"><value>linha {0}</value></data>
+  <data name="Expenses.ImportSubmit"><value>Importar</value></data>
+  <data name="Flash.ImportCompleted"><value>{0} lançamentos importados.</value></data>
+  <data name="Import.Error.NoFile"><value>Escolha um arquivo CSV.</value></data>
+  <data name="Import.Error.FileTooLarge"><value>O arquivo tem mais de 1 MB.</value></data>
+  <data name="Import.Error.Empty"><value>O arquivo está vazio.</value></data>
+  <data name="Import.Error.BadHeader"><value>Este arquivo não é uma exportação de grupo do Splitwise com duas pessoas (colunas esperadas: Data, Descrição, Categoria, Custo, Moeda e duas pessoas).</value></data>
+  <data name="Import.Error.BadColumnCount"><value>Linha com número de colunas errado.</value></data>
+  <data name="Import.Error.Currency"><value>Apenas BRL é suportado.</value></data>
+  <data name="Import.Error.BadDate"><value>Data ilegível.</value></data>
+  <data name="Import.Error.BadAmount"><value>Valor ilegível.</value></data>
+  <data name="Import.Error.TooManyDecimals"><value>Valor com mais de duas casas decimais.</value></data>
+  <data name="Import.Error.MissingTotal"><value>Falta a linha "Saldo total", então não dá para conferir o saldo.</value></data>
+  <data name="Import.Error.DuplicateTotal"><value>O arquivo tem mais de uma linha "Saldo total".</value></data>
+  <data name="Import.Error.NoRows"><value>O arquivo não tem despesas nem pagamentos.</value></data>
+  <data name="Import.Error.RowNotBalanced"><value>Os valores da linha não somam zero.</value></data>
+  <data name="Import.Error.ZeroRow"><value>A linha não altera o saldo de ninguém.</value></data>
+  <data name="Import.Error.ShareExceedsCost"><value>A parte devida é maior que a despesa.</value></data>
+  <data name="Import.Error.PaymentMismatch"><value>O valor do pagamento não confere com o custo.</value></data>
+  <data name="Import.Error.TotalMismatch"><value>As linhas não somam o total do Splitwise. A exportação pode estar incompleta.</value></data>
+  <data name="Import.Error.Unmapped"><value>Escolha um membro da casa para cada pessoa do Splitwise.</value></data>
+  <data name="Import.Error.DuplicateMapping"><value>Cada pessoa do Splitwise precisa de um membro diferente.</value></data>
+  <data name="Import.Error.NotAMember"><value>A pessoa escolhida não é membro desta casa.</value></data>
+  <data name="Import.Error.GroupNameEmpty"><value>Dê um nome ao novo grupo de despesas.</value></data>
+  <data name="Import.Error.GroupNameTaken"><value>Já existe um grupo de despesas com esse nome. Cada importação cria um grupo novo.</value></data>
+  <data name="Import.Error.ImportFailed"><value>Não foi possível concluir a importação. Confira a página de Grupos: se o grupo estiver lá, a importação foi feita.</value></data>
+  <data name="Expenses.ImportResultOwes"><value>Após importar, {0} deve {2} a {1} por este arquivo.</value></data>
+  <data name="Expenses.ImportResultSettled"><value>Este arquivo não deixa saldo entre vocês.</value></data>
+  <data name="Expenses.ImportStatus"><value>Situação</value></data>
+  <data name="Expenses.ImportMatches"><value>Confere</value></data>
+  <data name="Expenses.ImportDiffers"><value>Diverge</value></data>
+  <data name="Expenses.ImportMoreErrors"><value>…e mais {0}</value></data>
 </root>

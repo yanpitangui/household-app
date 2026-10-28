@@ -35,7 +35,7 @@ public sealed record ExpenseVoided(
     string Description = "",
     Guid? CorrectedByExpenseId = null) : IDomainEvent;
 
-// PerformedByUserId defaults for the same legacy-deserialization reason as ExpenseRecorded above.
+// PerformedByUserId/ExpenseGroupId default for the same legacy-deserialization reason as ExpenseRecorded above.
 public sealed record SettlementRecorded(
     Guid EventId,
     DateTimeOffset OccurredAt,
@@ -45,4 +45,5 @@ public sealed record SettlementRecorded(
     Guid RecipientId,
     long Cents,
     DateTimeOffset Date,
-    Guid PerformedByUserId = default) : IDomainEvent;
+    Guid PerformedByUserId = default,
+    Guid? ExpenseGroupId = null) : IDomainEvent;

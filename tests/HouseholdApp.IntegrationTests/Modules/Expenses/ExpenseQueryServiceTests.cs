@@ -24,7 +24,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     public async Task GetExpensesSummaryAsync_returns_empty_for_unknown_household()
     {
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(Guid.NewGuid());
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(Guid.NewGuid(), Guid.NewGuid());
 
         await Assert.That(summary.Expenses).IsEmpty();
         await Assert.That(summary.Balances).IsEmpty();
@@ -59,7 +59,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId);
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid());
 
         await Assert.That(summary.Expenses.Count).IsEqualTo(1);
         var expense = summary.Expenses[0];
@@ -71,42 +71,75 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await Assert.That(expense.Allocations.Count).IsEqualTo(2);
     }
 
+    private async Task InsertUsersAsync(params Guid[] ids)
+    {
+        await using var conn = await db.DataSource.OpenConnectionAsync();
+        foreach (var id in ids)
+            await conn.ExecuteAsync(
+                "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
+                new { id, sub = $"sub-{id}", email = $"{id}@test.com", name = $"User {id}" });
+    }
+
+    private async Task RecordAsync(Guid householdId, Guid payerId, long cents, params Guid[] splitBetween)
+    {
+        var expenseId = Guid.NewGuid();
+        var share = cents / splitBetween.Length;
+        await using var s = Store.LightweightSession();
+        s.Events.Append(expenseId, new ExpenseRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, Guid.NewGuid(),
+            "Groceries", DateTimeOffset.UtcNow,
+            [new FundingSource(payerId, cents)],
+            splitBetween.Select(id => new Allocation(id, share)).ToList(),
+            payerId));
+        await s.SaveChangesAsync();
+    }
+
     [Test]
-    public async Task GetExpensesSummaryAsync_returns_balances_from_ledger()
+    public async Task Balances_show_the_payer_that_the_other_member_owes_them()
     {
         var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        var payerId = Guid.NewGuid();
-        var debtorId = Guid.NewGuid();
-        var expenseId = Guid.NewGuid();
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = payerId, sub = $"sub-{payerId}", email = "payer@test.com", name = "Payer" });
-        await conn.ExecuteAsync(
-            "INSERT INTO identity.users (id, subject, email, display_name) VALUES (@id, @sub, @email, @name)",
-            new { id = debtorId, sub = $"sub-{debtorId}", email = "debtor@test.com", name = "Debtor" });
-
-        await using (var s = Store.LightweightSession())
-        {
-            s.Events.Append(expenseId, new ExpenseRecorded(
-                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
-                "Groceries", DateTimeOffset.UtcNow,
-                [new FundingSource(payerId, 1000)],
-                [new Allocation(payerId, 500), new Allocation(debtorId, 500)],
-                payerId));
-            await s.SaveChangesAsync();
-        }
+        Guid payerId = Guid.NewGuid(), debtorId = Guid.NewGuid();
+        await InsertUsersAsync(payerId, debtorId);
+        await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId);
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payerId);
 
-        await Assert.That(summary.Balances.Count).IsEqualTo(2);
-        var payerBalance = summary.Balances.Single(b => b.UserId == payerId);
-        var debtorBalance = summary.Balances.Single(b => b.UserId == debtorId);
-        await Assert.That(payerBalance.Cents).IsEqualTo(500L);
-        await Assert.That(debtorBalance.Cents).IsEqualTo(-500L);
+        var only = summary.Balances.Single();
+        await Assert.That(only.UserId).IsEqualTo(debtorId);
+        await Assert.That(only.Cents).IsEqualTo(500L);
+    }
+
+    [Test]
+    public async Task Balances_show_the_debtor_that_they_owe_the_payer()
+    {
+        var householdId = Guid.NewGuid();
+        Guid payerId = Guid.NewGuid(), debtorId = Guid.NewGuid();
+        await InsertUsersAsync(payerId, debtorId);
+        await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, debtorId);
+
+        var only = summary.Balances.Single();
+        await Assert.That(only.UserId).IsEqualTo(payerId);
+        await Assert.That(only.Cents).IsEqualTo(-500L);
+    }
+
+    [Test]
+    public async Task Balances_list_only_the_viewers_own_pairs()
+    {
+        var householdId = Guid.NewGuid();
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+        await InsertUsersAsync(a, b, c);
+        await RecordAsync(householdId, a, 900, a, b, c);
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, b);
+
+        var only = summary.Balances.Single();
+        await Assert.That(only.UserId).IsEqualTo(a);
+        await Assert.That(only.Cents).IsEqualTo(-300L);
     }
 
     [Test]
@@ -209,7 +242,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, groupId: groupA);
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid(), groupId: groupA);
 
         await Assert.That(summary.Expenses.Count).IsEqualTo(1);
         await Assert.That(summary.Expenses[0].Description).IsEqualTo("GroupA Expense");
@@ -248,7 +281,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         }
 
         await using var qs = Store.QuerySession();
-        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, groupId: groupId);
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, Guid.NewGuid(), groupId: groupId);
 
         await Assert.That(summary.Expenses.Count).IsEqualTo(3);
         await Assert.That(summary.Expenses[0].Description).IsEqualTo("Newest");

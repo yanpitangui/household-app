@@ -10,10 +10,12 @@ namespace HouseholdApp.Application.Modules.Expenses.Infrastructure;
 public sealed class ExpensePushNotificationHandler(
     IPushSender pushSender,
     IHouseholdQueries householdQueries,
-    IUserQuery userQuery)
+    IUserQuery userQuery,
+    EventDispatchScope dispatchScope)
     : IEventHandler<ExpenseRecorded>, IEventHandler<ExpenseVoided>, IEventHandler<SettlementRecorded>
 {
-    public Task HandleAsync(ExpenseRecorded evt, CancellationToken ct = default) => SafeAsync(async () =>
+    public Task HandleAsync(ExpenseRecorded evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
     {
         var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
         var isEdit = evt.CorrectedFromExpenseId is not null;
@@ -27,7 +29,7 @@ public sealed class ExpensePushNotificationHandler(
         // A void that carries CorrectedByExpenseId is the "delete" half of an edit
         // (void + resubmit) — the paired ExpenseRecorded already notified. Mirrors the
         // same suppression ActivityEntryProjection.MapVoided applies to the activity feed.
-        if (evt.CorrectedByExpenseId is not null) return Task.CompletedTask;
+        if (dispatchScope.SuppressNotifications || evt.CorrectedByExpenseId is not null) return Task.CompletedTask;
 
         return SafeAsync(async () =>
         {
@@ -37,7 +39,8 @@ public sealed class ExpensePushNotificationHandler(
         }, ct);
     }
 
-    public Task HandleAsync(SettlementRecorded evt, CancellationToken ct = default) => SafeAsync(async () =>
+    public Task HandleAsync(SettlementRecorded evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
     {
         var ids = new[] { evt.PerformedByUserId, evt.PayerId, evt.RecipientId };
         var profiles = (await userQuery.GetByIdsAsync(ids, ct)).ToDictionary(p => p.Id);

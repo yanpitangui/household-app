@@ -15,7 +15,7 @@ public sealed class ExpenseQueryService(
     IUserQuery userQuery) : IExpenseQueries
 {
     public async Task<ExpensesSummary> GetExpensesSummaryAsync(
-        Guid householdId, Guid? groupId = null, CancellationToken ct = default)
+        Guid householdId, Guid viewerId, Guid? groupId = null, CancellationToken ct = default)
     {
         var expenseModels = groupId.HasValue
             ? await querySession.QueryAsync(new ExpensesForGroup { HouseholdId = householdId, GroupId = groupId.Value }, ct)
@@ -47,18 +47,15 @@ public sealed class ExpenseQueryService(
                 profileMap.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList()
         )).ToList();
 
-        var netPerUser = new Dictionary<Guid, long>();
-        foreach (var p in pairs)
-        {
-            netPerUser[p.UserId1] = netPerUser.GetValueOrDefault(p.UserId1) + p.Cents;
-            netPerUser[p.UserId2] = netPerUser.GetValueOrDefault(p.UserId2) - p.Cents;
-        }
-
-        var balances = netPerUser
-            .Select(kv => new MemberBalance(
-                kv.Key,
-                profileMap.TryGetValue(kv.Key, out var prof) ? prof.DisplayName : "Unknown",
-                kv.Value,
+        // Each pair is read from the viewer's side (PairEntry: positive = UserId2 owes UserId1),
+        // so a positive balance means that member owes the viewer.
+        var balances = pairs
+            .Where(p => p.Cents != 0 && (p.UserId1 == viewerId || p.UserId2 == viewerId))
+            .Select(p => p.UserId1 == viewerId ? (Other: p.UserId2, Cents: p.Cents) : (Other: p.UserId1, Cents: -p.Cents))
+            .Select(b => new MemberBalance(
+                b.Other,
+                profileMap.TryGetValue(b.Other, out var prof) ? prof.DisplayName : "Unknown",
+                b.Cents,
                 prof?.PictureUrl))
             .OrderByDescending(b => Math.Abs(b.Cents))
             .ToList();

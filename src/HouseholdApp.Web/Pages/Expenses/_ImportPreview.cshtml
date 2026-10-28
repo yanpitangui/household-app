@@ -1,0 +1,128 @@
+@model HouseholdApp.Web.Pages.Expenses.ImportExpensesModel
+@using System.Globalization
+@{
+    var preview = Model.Preview;
+    var plan = preview?.Plan;
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{(cents < 0 ? "−" : "")}{currencySymbol} {(Math.Abs(cents) / 100m):F2}";
+}
+
+<div id="import-preview">
+@if (preview is not null)
+{
+    @if (plan is not null)
+    {
+        <div class="app-card mb-3">
+            <div class="section-title" style="margin-top:0">@L["Expenses.ImportBalanceCheck"]</div>
+            <p class="list-row-meta" id="import-summary">
+                @L["Expenses.ImportCounts", plan.Expenses.Count, plan.Settlements.Count,
+                    plan.FirstDate.ToString("d", CultureInfo.CurrentCulture), plan.LastDate.ToString("d", CultureInfo.CurrentCulture)]
+            </p>
+            <table class="table table-sm mb-0" id="import-balance-check">
+                <thead>
+                    <tr>
+                        <th>@L["Expenses.ImportColumn"]</th>
+                        <th>@L["Expenses.ImportMemberColumn"]</th>
+                        <th class="text-end">@L["Expenses.ImportSplitwiseTotal"]</th>
+                        <th class="text-end">@L["Expenses.ImportComputedTotal"]</th>
+                        <th><span class="visually-hidden">@L["Expenses.ImportStatus"]</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @for (var i = 0; i < plan.People.Count; i++)
+                {
+                    <tr>
+                        <td>@plan.People[i]</td>
+                        @* Shown next to the balance so a swapped mapping is visible before importing. *@
+                        <td>@(Model.Members.FirstOrDefault(m => m.UserId == Model.ColumnMembers.ElementAtOrDefault(i))?.DisplayName ?? "—")</td>
+                        <td class="text-end">@Money(plan.ReportedNetCents[i])</td>
+                        <td class="text-end">@Money(plan.ComputedNetCents[i])</td>
+                        @{ var matches = plan.ComputedNetCents[i] == plan.ReportedNetCents[i]; }
+                        <td aria-label="@L[matches ? "Expenses.ImportMatches" : "Expenses.ImportDiffers"]">@(matches ? "✅" : "❌")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            @if (Model.MappingValid)
+            {
+                var owed = plan.ReportedNetCents[0] < 0 ? 0 : plan.ReportedNetCents[1] < 0 ? 1 : -1;
+                string MemberName(int col) => Model.Members.First(m => m.UserId == Model.ColumnMembers[col]).DisplayName;
+                <p class="list-row-meta mb-0 mt-2" id="import-result">
+                    @if (owed < 0)
+                    {
+                        @L["Expenses.ImportResultSettled"]
+                    }
+                    else
+                    {
+                        @L["Expenses.ImportResultOwes", MemberName(owed), MemberName(1 - owed), Money(-plan.ReportedNetCents[owed])]
+                    }
+                </p>
+            }
+        </div>
+
+        <div class="app-card mb-3">
+            <input type="hidden" name="PreviewedFileName" value="@Model.Upload?.FileName" />
+            @for (var i = 0; i < plan.People.Count; i++)
+            {
+                <div class="mb-2">
+                    <label class="form-label" for="import-member-@i">@plan.People[i] → @L["Expenses.ImportMember"]</label>
+                    <select id="import-member-@i" name="ColumnMembers[@i]" class="form-select">
+                        <option value="">@L["Expenses.ImportChooseMember"]</option>
+                        @foreach (var m in Model.Members)
+                        {
+                            <option value="@m.UserId" selected="@(Model.ColumnMembers.ElementAtOrDefault(i) == m.UserId)">@m.DisplayName</option>
+                        }
+                    </select>
+                </div>
+            }
+            <label class="form-label" for="import-group-name">@L["Expenses.GroupName"]</label>
+            <input id="import-group-name" name="GroupName" value="@Model.GroupName" class="form-control" />
+        </div>
+
+        <div class="app-card mb-3">
+            <div class="section-title" style="margin-top:0">@L["Expenses.ImportRecentRows"]</div>
+            @foreach (var row in plan.Expenses
+                .Select(e => (e.LineNumber, e.Date, Text: e.Description, Cents: e.CostCents, Payer: plan.People[e.PayerColumn]))
+                .Concat(plan.Settlements.Select(s => (s.LineNumber, s.Date,
+                    Text: $"{plan.People[s.PayerColumn]} → {plan.People[1 - s.PayerColumn]}",
+                    Cents: s.Cents, Payer: plan.People[s.PayerColumn])))
+                .OrderByDescending(r => r.Date).ThenByDescending(r => r.LineNumber)
+                .Take(10))
+            {
+                <div class="list-row">
+                    <div class="list-row-body">
+                        <div class="list-row-name">@row.Text</div>
+                        <div class="list-row-meta">@row.Date.ToString("d", CultureInfo.CurrentCulture) · @row.Payer</div>
+                    </div>
+                    <div>@Money(row.Cents)</div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (preview.Errors.Count > 0)
+    {
+        <div class="alert alert-danger" id="import-errors" role="alert">
+            <ul class="mb-0">
+            @foreach (var e in preview.Errors.Take(20))
+            {
+                <li>
+                    @L["Import.Error." + e.Code]
+                    @if (e.LineNumber is not null) { <span>(@L["Expenses.ImportLine", e.LineNumber])</span> }
+                    @if (e.Detail is not null) { <code>@e.Detail</code> }
+                </li>
+            }
+            </ul>
+            @if (preview.Errors.Count > 20)
+            {
+                <div class="mt-2">@L["Expenses.ImportMoreErrors", preview.Errors.Count - 20]</div>
+            }
+        </div>
+    }
+
+    @* Plain formaction (no tag helper) so Razor drops the boolean disabled attribute when false. *@
+    <button type="submit" class="btn btn-primary"
+            formaction="@Url.Page("Import", "Import", new { householdId = Model.HouseholdId })"
+            disabled="@(!preview.CanImport)">@L["Expenses.ImportSubmit"]</button>
+}
+</div>

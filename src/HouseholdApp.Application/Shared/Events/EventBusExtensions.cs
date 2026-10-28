@@ -8,6 +8,7 @@ public static class EventBusExtensions
     public static IServiceCollection AddEventBus(this IServiceCollection services)
     {
         services.AddScoped<IEventBus, InProcessEventBus>();
+        services.AddScoped<EventDispatchScope>();
         return services;
     }
 

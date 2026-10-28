@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using HouseholdApp.Application.Modules.Notifications.Application.Ports;
+using HouseholdApp.Application.Shared.Events;
 using NSubstitute;
 
 namespace HouseholdApp.UnitTests.Modules.Expenses.Infrastructure;
@@ -15,11 +16,12 @@ public sealed class ExpensePushNotificationHandlerTests
     private readonly IPushSender _pushSender = Substitute.For<IPushSender>();
     private readonly IHouseholdQueries _householdQueries = Substitute.For<IHouseholdQueries>();
     private readonly IUserQuery _userQuery = Substitute.For<IUserQuery>();
+    private readonly EventDispatchScope _dispatchScope = new();
     private readonly ExpensePushNotificationHandler _sut;
 
     public ExpensePushNotificationHandlerTests()
     {
-        _sut = new ExpensePushNotificationHandler(_pushSender, _householdQueries, _userQuery);
+        _sut = new ExpensePushNotificationHandler(_pushSender, _householdQueries, _userQuery, _dispatchScope);
 
         _householdQueries.GetMembersAsync(_householdId, Arg.Any<CancellationToken>()).Returns(
         [
@@ -130,5 +132,48 @@ public sealed class ExpensePushNotificationHandlerTests
         await _pushSender.Received(1).SendAsync(
             _otherId, "Alice recorded a settlement", "Bob paid Alice R$ 20.00",
             $"/h/{_householdId}/Expenses/Activity", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Suppressed_scope_sends_no_notifications()
+    {
+        var recorded = new ExpenseRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId, Guid.NewGuid(),
+            "Groceries", DateTimeOffset.UtcNow,
+            [new FundingSource(_actorId, 1000)], [new Allocation(_otherId, 1000)], _actorId);
+        var voided = new ExpenseVoided(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, recorded.ExpenseId, _householdId, null,
+            recorded.FundingSources, recorded.Allocations, _actorId, "Groceries");
+        var settled = new SettlementRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            _actorId, _otherId, 500, DateTimeOffset.UtcNow, _actorId);
+
+        using (_dispatchScope.Suppress())
+        {
+            await _sut.HandleAsync(recorded);
+            await _sut.HandleAsync(voided);
+            await _sut.HandleAsync(settled);
+        }
+
+        await Assert.That(_pushSender.ReceivedCalls().Count()).IsEqualTo(0);
+
+        await _sut.HandleAsync(recorded);
+
+        await Assert.That(_pushSender.ReceivedCalls().Count()).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task Nested_suppress_keeps_outer_scope_suppressed()
+    {
+        using (_dispatchScope.Suppress())
+        {
+            using (_dispatchScope.Suppress())
+            {
+            }
+
+            await Assert.That(_dispatchScope.SuppressNotifications).IsTrue();
+        }
+
+        await Assert.That(_dispatchScope.SuppressNotifications).IsFalse();
     }
 }
