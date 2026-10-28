@@ -47,11 +47,11 @@ public sealed class ExpenseQueryService(
             cards.Add(new GroupCard(
                 g.Id, g.Name,
                 ToViewerBalances(pairs.Where(p => p.GroupId == g.Id), viewerId, profileMap),
-                last?.Description, last?.Date));
+                last?.Description, last?.Date, GroupIcons.Display(g.Icon)));
         }
 
         var (expenses, settlements) = MapTimeline(
-            recent.Expenses, recent.Settlements, profileMap, groups.ToDictionary(g => g.Id, g => g.Name), isHome: true);
+            recent.Expenses, recent.Settlements, profileMap, groups.ToDictionary(g => g.Id), isHome: true);
         return new ExpensesHome(
             ToViewerBalances(pairs, viewerId, profileMap), cards, expenses, settlements,
             recent.HasOlder, recent.FirstOlderCursor);
@@ -83,7 +83,7 @@ public sealed class ExpenseQueryService(
         var (expenses, settlements) = MapTimeline(recent.Expenses, recent.Settlements, profileMap, null, isHome: false);
         return new GroupPage(
             group.Id, group.Name, ToViewerBalances(pairs, viewerId, profileMap), expenses, settlements,
-            recent.HasOlder, recent.FirstOlderCursor);
+            recent.HasOlder, recent.FirstOlderCursor, GroupIcons.Display(group.Icon));
     }
 
     public async Task<TimelinePage> GetOlderTimelineAsync(
@@ -128,7 +128,7 @@ public sealed class ExpenseQueryService(
 
         var profileMap = await LoadProfilesAsync(TimelineUserIds(keptE, keptS).Distinct(), ct);
         var (expenses, settlements) = MapTimeline(
-            keptE, keptS, profileMap, groups.ToDictionary(x => x.Id, x => x.Name), isHome: groupId is null,
+            keptE, keptS, profileMap, groups.ToDictionary(x => x.Id), isHome: groupId is null,
             nameGroups: groupId is null);
         return new TimelinePage(expenses, settlements, next);
     }
@@ -151,7 +151,7 @@ public sealed class ExpenseQueryService(
         IReadOnlyList<ExpenseReadModel> expenseModels,
         IReadOnlyList<SettlementReadModel> settlementModels,
         Dictionary<Guid, UserProfile> profileMap,
-        Dictionary<Guid, string>? groupNames,
+        Dictionary<Guid, ExpenseGroupDocument>? groups,
         bool isHome,
         bool nameGroups = true)
     {
@@ -161,15 +161,16 @@ public sealed class ExpenseQueryService(
             cents,
             profileMap.GetValueOrDefault(userId)?.PictureUrl);
 
-        string? NameOf(Guid? groupId) =>
-            nameGroups && groupNames is not null && groupId is { } id ? groupNames.GetValueOrDefault(id) : null;
+        ExpenseGroupDocument? GroupOf(Guid? groupId) =>
+            nameGroups && groups is not null && groupId is { } id ? groups.GetValueOrDefault(id) : null;
 
         var expenses = expenseModels.Select(e => new ExpenseListItem(
             e.Id, e.Description, e.Date, e.TotalCents,
             e.FundingSources.Select(f => Participant(f.UserId, f.Cents)).ToList(),
             e.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList(),
-            NameOf(e.ExpenseGroupId),
-            e.RecordedAt)).ToList();
+            GroupOf(e.ExpenseGroupId)?.Name,
+            e.RecordedAt,
+            GroupOf(e.ExpenseGroupId) is { } g ? GroupIcons.Display(g.Icon) : null)).ToList();
 
         var settlements = settlementModels.Select(s =>
         {
@@ -183,7 +184,7 @@ public sealed class ExpenseQueryService(
 
             return new SettlementListItem(
                 s.Id, s.Date, Participant(s.PayerId, s.Cents), Participant(s.RecipientId, s.Cents), s.Cents,
-                NameOf(s.ExpenseGroupId),
+                GroupOf(s.ExpenseGroupId)?.Name,
                 IsHouseholdSettle: s.HouseholdSettlementId is not null,
                 IsOffset: s.IsOffset);
         }).ToList();
@@ -345,10 +346,11 @@ public sealed class ExpenseQueryService(
         Guid householdId, Guid payerId, Guid recipientId, long cents, CancellationToken ct = default)
     {
         var (ledger, groups) = await LoadLedgerAsync(householdId, ct);
-        var names = groups.ToDictionary(g => g.Id, g => g.Name);
-        var split = SettlementSplitter.Split(ledger.DebtsBetween(payerId, recipientId, names.Keys.ToHashSet()), cents);
+        var byId = groups.ToDictionary(g => g.Id);
+        var split = SettlementSplitter.Split(ledger.DebtsBetween(payerId, recipientId, byId.Keys.ToHashSet()), cents);
         return new SettlementPreview(
-            split.Legs.Select(l => new SettlementPreviewLeg(l.GroupId, names[l.GroupId], l.Cents, l.IsOffset)).ToList(),
+            split.Legs.Select(l => new SettlementPreviewLeg(
+                l.GroupId, byId[l.GroupId].Name, l.Cents, l.IsOffset, GroupIcons.Display(byId[l.GroupId].Icon))).ToList(),
             split.OwedCents,
             split.Error);
     }
@@ -403,7 +405,7 @@ public sealed class ExpenseQueryService(
         Guid householdId, CancellationToken ct = default)
     {
         var groups = await querySession.QueryAsync(new ExpenseGroupsForHousehold { HouseholdId = householdId }, ct);
-        return groups.Select(g => new ExpenseGroupSummary(g.Id, g.Name, g.Description)).ToList();
+        return groups.Select(g => new ExpenseGroupSummary(g.Id, g.Name, g.Description, GroupIcons.Display(g.Icon))).ToList();
     }
 
     public async Task<IReadOnlyList<RecurringExpenseSummary>> ListRecurringExpensesAsync(

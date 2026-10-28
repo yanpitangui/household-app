@@ -14,7 +14,7 @@
     var net = g.Balances.Sum(b => b.Cents);
     var state = net > 0 ? "owed" : net < 0 ? "owe" : "zero";
     <a href="/h/@Model.HouseholdId/expenses/groups/@g.Id" class="expenses-group-card" id="group-@g.Id.ToString("N")">
-        <span class="list-row-icon expenses-group-card-icon" aria-hidden="true">💳</span>
+        <span class="list-row-icon expenses-group-card-icon" aria-hidden="true">@g.Icon</span>
         <span class="list-row-body">
             <span class="list-row-name">@g.Name</span>
             <span class="list-row-meta">

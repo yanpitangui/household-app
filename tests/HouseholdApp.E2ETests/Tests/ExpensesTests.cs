@@ -110,7 +110,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         // Expand the row to reveal the Edit link, then follow it
         await page.Locator(".expense-row-header:has-text('Test Groceries')").ClickAsync();
-        await page.Locator("a:has-text('Edit')").ClickAsync();
+        await page.Locator("a.btn:has-text('Edit')").ClickAsync();
         await page.WaitForURLAsync(url => url.Contains("/expenses/record") && url.Contains("expenseId"));
 
         // Edit page must be in edit mode with the original values prefilled
@@ -169,7 +169,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         // Labels are pt-BR here: "+ Criar", "Registrar", "Editar".
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
-        await page.FillAsync("input[name='NewName']", "Food");
+        await page.FillAsync("input[name='Form.Name']", "Food");
         await page.ClickAsync("button:has-text('+ Criar')");
         await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
         var groupId = Guid.Parse(new Uri(page.Url).Segments[^1]);
@@ -186,7 +186,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         // Edit form renders the stored amount back into the number input.
         await row.ClickAsync();
-        await page.Locator("a:has-text('Editar')").ClickAsync();
+        await page.Locator("a.btn:has-text('Editar')").ClickAsync();
         await page.WaitForURLAsync(url => url.Contains("/expenses/record") && url.Contains("expenseId"));
         await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("12.34");
     }

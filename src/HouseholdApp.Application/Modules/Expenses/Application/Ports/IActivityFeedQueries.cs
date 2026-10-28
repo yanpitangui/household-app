@@ -15,7 +15,9 @@ public sealed record ActivityFeedItem(
     Guid? GroupId = null,
     IReadOnlyList<string>? GroupNames = null,
     long? SettlementCents = null,
-    bool CanRestore = false);
+    bool CanRestore = false,
+    string? RenamedFrom = null,
+    string? RenamedTo = null);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,

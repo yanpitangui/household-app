@@ -730,4 +730,33 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await Assert.That(seen.Count).IsEqualTo(107);
         await Assert.That(seen.Distinct().Count()).IsEqualTo(107);
     }
+
+    [Test]
+    public async Task Icons_reach_cards_chips_group_page_preview_and_group_list()
+    {
+        var sc = await SeedTwoGroupsAsync();
+        await using (var s = Store.LightweightSession())
+        {
+            var trip = await s.LoadAsync<ExpenseGroupDocument>(sc.Trip);
+            trip!.Icon = "✈️";
+            s.Store(trip);
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var home = await sut.GetExpensesHomeAsync(sc.HouseholdId, sc.Leo);
+        await Assert.That(home.Groups.Single(g => g.Id == sc.Trip).Icon).IsEqualTo("✈️");
+        await Assert.That(home.Groups.Single(g => g.Id == sc.Home).Icon).IsEqualTo(GroupIcons.Default);
+        await Assert.That(home.Expenses.Single(e => e.Description == "Hotel").GroupIcon).IsEqualTo("✈️");
+
+        var page = await sut.GetGroupPageAsync(sc.HouseholdId, sc.Trip, sc.Leo);
+        await Assert.That(page!.Icon).IsEqualTo("✈️");
+
+        var preview = await sut.PreviewHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 70);
+        await Assert.That(preview.Legs.Single(l => l.GroupId == sc.Trip).GroupIcon).IsEqualTo("✈️");
+
+        var groups = await sut.ListExpenseGroupsAsync(sc.HouseholdId);
+        await Assert.That(groups.Single(g => g.Id == sc.Trip).Icon).IsEqualTo("✈️");
+    }
 }

@@ -7,5 +7,5 @@ namespace HouseholdApp.Application.Modules.Expenses.Infrastructure;
 public sealed class DefaultExpenseGroupHandler(IExpenseCommands commands) : IEventHandler<HouseholdCreated>
 {
     public Task HandleAsync(HouseholdCreated evt, CancellationToken ct) =>
-        commands.CreateExpenseGroupAsync(evt.HouseholdId, "General", null, ct);
+        commands.CreateExpenseGroupAsync(evt.HouseholdId, "General", null, ct: ct);
 }

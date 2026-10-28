@@ -55,7 +55,9 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
         return new ActivityFeedItem(
             e.Id, e.OccurredAt, e.Kind, actor, e.Description, e.GroupName, payer, recipient, viewerDelta,
             e.GroupId, e.GroupNames, e.SettlementCents,
-            CanRestore: e.Kind == ActivityKind.GroupDeleted && e.GroupId is { } g && deletedGroups.Contains(g));
+            CanRestore: e.Kind == ActivityKind.GroupDeleted && e.GroupId is { } g && deletedGroups.Contains(g),
+            RenamedFrom: e.RenamedFrom,
+            RenamedTo: e.RenamedTo);
     }
 
     private static Cursor? Decode(string? cursor) =>

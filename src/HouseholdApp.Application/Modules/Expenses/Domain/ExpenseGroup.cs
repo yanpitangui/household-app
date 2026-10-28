@@ -28,11 +28,19 @@ public sealed class ExpenseGroup
         {
             Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
-            Name = name,
-            Description = description,
+            Name = NormalizeName(name),
+            Description = NormalizeDescription(description),
             DefaultRules = defaultRules,
             CreatedAt = now
         };
         return group;
     }
+
+    public static string? NormalizeDescription(string? description) =>
+        string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+    public static string NormalizeName(string name) =>
+        string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("A group needs a name.", nameof(name))
+            : name.Trim();
 }

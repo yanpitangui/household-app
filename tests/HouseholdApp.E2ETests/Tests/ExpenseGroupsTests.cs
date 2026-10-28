@@ -318,4 +318,100 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         var back = page.Locator(".page-heading a");
         await Assert.That(await back.GetAttributeAsync("href")).IsEqualTo($"/h/{householdId}/expenses");
     }
+
+    [Test]
+    public async Task Group_created_with_an_icon_can_be_renamed_and_given_another_icon()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ownerCtx.NewTrackedPageAsync();
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
+        await page.FillAsync("input[name='Form.Name']", "Trip");
+        await page.CheckAsync("input[name='Form.Icon'][value='✈️']");
+        await page.ClickAsync("button:has-text('+ Create')");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        var trip = Guid.Parse(new Uri(page.Url).Segments[^1]);
+        await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("✈️ Trip");
+        await page.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Hotel", "200");
+
+        await page.ClickAsync("summary[aria-label='More actions']");
+        await page.ClickAsync("a:has-text('Edit group')");
+        await Assert.That(await page.Locator("input[name='Form.Name']").InputValueAsync()).IsEqualTo("Trip");
+        await page.FillAsync("input[name='Form.Name']", "Japan");
+        await page.FillAsync("input[name='Form.IconOther']", "🗾");
+        await page.ClickAsync("button[type='submit']:has-text('Save')");
+        // The id-scoped IsGroupPage also matches the /edit URL, so the end-anchored form tells the saved redirect apart.
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && url.Contains(trip.ToString()));
+        await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🗾 Japan");
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
+        await Assert.That(await page.Locator($"#group-{trip:N}").InnerTextAsync()).Contains("🗾").And.Contains("Japan");
+        await Assert.That(await page.Locator(".expense-row-wrap:has-text('Hotel') .expense-group-chip").InnerTextAsync())
+            .Contains("🗾 Japan");
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
+        await page.Locator(".activity-row:has-text('renamed group')").WaitForAsync();
+        await Assert.That(await page.Locator(".activity-row:has-text('renamed group')").InnerTextAsync())
+            .Contains("'Trip' to 'Japan'");
+        await Assert.That(await page.Locator(".activity-row:has-text('Hotel')").InnerTextAsync()).Contains("Japan");
+    }
+
+    [Test]
+    public async Task Picking_a_quick_pick_clears_the_other_emoji_field()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ownerCtx.NewTrackedPageAsync();
+        var trip = await page.CreateGroupAsync(pw.AppUrl, householdId, "Trip");
+        var editUrl = $"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}/edit";
+
+        await page.GotoAsync(editUrl);
+        await page.FillAsync("input[name='Form.IconOther']", "🗾");
+        await page.ClickAsync("button[type='submit']:has-text('Save')");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit"));
+        await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🗾 Trip");
+
+        await page.GotoAsync(editUrl);
+        await Assert.That(await page.Locator("input[name='Form.IconOther']").InputValueAsync()).IsEqualTo("🗾");
+        await page.CheckAsync("input[name='Form.Icon'][value='🏠']");
+        await Assert.That(await page.Locator("input[name='Form.IconOther']").InputValueAsync()).IsEmpty();
+        await page.ClickAsync("button[type='submit']:has-text('Save')");
+        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit"));
+        await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🏠 Trip");
+    }
+
+    [Test]
+    public async Task An_invalid_other_icon_is_rejected_by_the_server()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ownerCtx.NewTrackedPageAsync();
+        var trip = await page.CreateGroupAsync(pw.AppUrl, householdId, "Trip");
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}/edit");
+        // Removing the pattern skips the browser check so the post reaches the server.
+        await page.EvalOnSelectorAsync("input[name='Form.IconOther']", "el => el.removeAttribute('pattern')");
+        await page.FillAsync("input[name='Form.IconOther']", "ab");
+        await page.ClickAsync("button[type='submit']:has-text('Save')");
+
+        await page.Locator(".field-error:has-text('Use a single emoji.')").WaitForAsync();
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}");
+        await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("💳 Trip");
+    }
+
+    [Test]
+    public async Task Members_who_cannot_manage_cannot_open_the_edit_page()
+    {
+        await using var ownerCtx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ownerCtx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        await using var partnerCtx = await pw.AddPartnerAsync(ownerCtx, householdId);
+        var ownerPage = await ownerCtx.NewTrackedPageAsync();
+        var trip = await ownerPage.CreateGroupAsync(pw.AppUrl, householdId, "Trip");
+
+        var partnerPage = await partnerCtx.NewTrackedPageAsync();
+        var response = await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}/edit");
+
+        await Assert.That(response!.Status).IsEqualTo(404);
+    }
 }

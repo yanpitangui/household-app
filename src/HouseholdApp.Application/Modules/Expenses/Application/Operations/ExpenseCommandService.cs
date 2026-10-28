@@ -7,6 +7,7 @@ using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
+using Marten.Patching;
 using Microsoft.Extensions.Logging;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
@@ -120,13 +121,45 @@ public sealed class ExpenseCommandService(
     }
 
     public async Task<Guid> CreateExpenseGroupAsync(
-        Guid householdId, string name, string? description, CancellationToken ct = default)
+        Guid householdId, string name, string? description, string? icon = null, CancellationToken ct = default)
     {
         var group = ExpenseGroup.Create(householdId, name, description, [], time.GetUtcNow());
-        var doc = new ExpenseGroupDocument { Id = group.Id, HouseholdId = group.HouseholdId, Name = group.Name, Description = group.Description };
+        var doc = new ExpenseGroupDocument
+        {
+            Id = group.Id, HouseholdId = group.HouseholdId, Name = group.Name, Description = group.Description,
+            Icon = icon is null ? GroupIcons.Default : GroupIcons.Normalize(icon)
+        };
         session.Store(doc);
         await session.SaveChangesAsync(ct);
         return group.Id;
+    }
+
+    public async Task UpdateExpenseGroupAsync(
+        Guid householdId, Guid groupId, string name, string? description, string icon, CancellationToken ct = default)
+    {
+        var newName = ExpenseGroup.NormalizeName(name);
+        var newDescription = ExpenseGroup.NormalizeDescription(description);
+        var newIcon = GroupIcons.Normalize(icon);
+
+        var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
+        if (group.DeletedAt is not null)
+            throw new InvalidOperationException("Expense group is deleted.");
+
+        var oldName = group.Name.Trim();
+        var oldDescription = ExpenseGroup.NormalizeDescription(group.Description);
+        var oldIcon = GroupIcons.Display(group.Icon);
+        if (newName == oldName && newDescription == oldDescription && newIcon == oldIcon) return;
+
+        var updated = new ExpenseGroupUpdated(
+            Guid.CreateVersion7(), time.GetUtcNow(), groupId, householdId,
+            oldName, newName, oldDescription, newDescription, oldIcon, newIcon, currentUser.Id);
+        // Patching only the edited fields leaves a concurrent delete's DeletedAt intact.
+        session.Patch<ExpenseGroupDocument>(groupId)
+            .Set(x => x.Name, newName)
+            .Set(x => x.Description, newDescription)
+            .Set(x => x.Icon, newIcon);
+        session.Events.Append(groupId, updated);
+        await session.SaveChangesAsync(ct);
     }
 
     public async Task DeleteExpenseGroupAsync(Guid householdId, Guid groupId, CancellationToken ct = default)

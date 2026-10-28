@@ -10,20 +10,5 @@
 </div>
 
 <div class="app-card mb-4">
-    <form method="post">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label">@L["Expenses.GroupName"]</label>
-                <input asp-for="NewName" class="form-control" placeholder="@L["Expenses.GroupNamePlaceholder"]" />
-                <span asp-validation-for="NewName" class="field-error"></span>
-            </div>
-            <div class="col-md-5">
-                <label class="form-label">@L["Expenses.GroupDescription"]</label>
-                <input asp-for="NewDescription" class="form-control" placeholder="@L["Recipes.DetailsPlaceholder"]" />
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary">+ @L["Action.Create"]</button>
-            </div>
-        </div>
-    </form>
+    @await Html.PartialAsync("~/Pages/Expenses/_GroupForm.cshtml", new GroupFormViewModel(Model.Form, $"+ {L["Action.Create"].Value}"))
 </div>

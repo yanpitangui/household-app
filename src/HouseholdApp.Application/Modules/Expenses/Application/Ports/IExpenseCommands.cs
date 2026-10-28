@@ -32,7 +32,11 @@ public interface IExpenseCommands
         CancellationToken ct = default);
 
     Task<Guid> CreateExpenseGroupAsync(
-        Guid householdId, string name, string? description,
+        Guid householdId, string name, string? description, string? icon = null,
+        CancellationToken ct = default);
+
+    Task UpdateExpenseGroupAsync(
+        Guid householdId, Guid groupId, string name, string? description, string icon,
         CancellationToken ct = default);
 
     Task<Guid> CreateRecurringExpenseAsync(

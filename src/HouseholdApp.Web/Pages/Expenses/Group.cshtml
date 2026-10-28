@@ -9,7 +9,7 @@
 }
 
 <div class="page-heading">
-    <span>@Model.Group.Name</span>
+    <span>@Model.Group.Icon @Model.Group.Name</span>
     <span class="page-heading-actions">
         <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Nav.Expenses"]</a>
         @if (Model.CanManage)
@@ -17,6 +17,7 @@
         <details class="page-menu">
             <summary aria-label="@L["Expenses.Group.More"]">⋯</summary>
             <div class="page-menu-items">
+                <a class="page-menu-item" asp-page="EditGroup" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@Model.GroupId">✏️ @L["Expenses.Group.Edit"]</a>
                 <form method="post" asp-page-handler="Delete" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@Model.GroupId">
                     <button type="submit" class="page-menu-item danger"
                             data-confirm="@L["Confirm.DeleteGroup", Model.Group.Name]">🗑 @L["Expenses.Group.Delete"]</button>
@@ -45,6 +46,6 @@
 
 <div class="expenses-fab">
     <a href="/h/@Model.HouseholdId/expenses/record?group=@Model.GroupId" class="expenses-fab-btn">
-        💳 @L["Expenses.Group.AddTo", Model.Group.Name]
+        @Model.Group.Icon @L["Expenses.Group.AddTo", Model.Group.Name]
     </a>
 </div>

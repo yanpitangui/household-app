@@ -18,7 +18,7 @@ else
     foreach (var leg in preview.Legs)
     {
         <div class="settle-breakdown-row" id="leg-@leg.GroupId.ToString("N")">
-            <span class="expense-group-chip">@leg.GroupName</span>
+            <span class="expense-group-chip">@leg.GroupIcon @leg.GroupName</span>
             <span class="settle-breakdown-what">
                 @(leg.IsOffset
                     ? L["Expenses.Settle.Leg", Model.RecipientName, Model.PayerName]

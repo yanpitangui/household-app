@@ -1,0 +1,43 @@
+@model HouseholdApp.Web.Pages.Expenses.GroupFormViewModel
+@using HouseholdApp.Application.Modules.Expenses.Domain
+
+<form method="post" class="group-form">
+    <div class="mb-3">
+        <label asp-for="Form.Name" class="form-label">@L["Expenses.GroupName"]</label>
+        <input asp-for="Form.Name" class="form-control" placeholder="@L["Expenses.GroupNamePlaceholder"]" />
+        <span asp-validation-for="Form.Name" class="field-error"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Form.Description" class="form-label">@L["Expenses.GroupDescription"]</label>
+        <input asp-for="Form.Description" class="form-control" placeholder="@L["Recipes.DetailsPlaceholder"]" />
+    </div>
+    <fieldset class="mb-3">
+        <legend class="form-label">@L["Expenses.GroupIcon"]</legend>
+        <div class="group-icon-grid">
+            @foreach (var pick in GroupIcons.QuickPicks)
+            {
+                <label class="group-icon-pick">
+                    <input type="radio" name="Form.Icon" value="@pick" checked="@(pick == Model.Form.Icon)" />
+                    <span>@pick</span>
+                </label>
+            }
+        </div>
+        <label asp-for="Form.IconOther" class="form-label">@L["Expenses.GroupIcon.Other"]</label>
+        <input asp-for="Form.IconOther" class="form-control group-icon-other" autocomplete="off"
+               placeholder="@L["Expenses.GroupIcon.OtherPlaceholder"]"
+               pattern="\p{RGI_Emoji}" title="@L["Expenses.GroupIcon.Invalid"]" />
+        <span asp-validation-for="Form.IconOther" class="field-error"></span>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">@Model.SubmitLabel</button>
+</form>
+<script>
+    // The quick picks and the Other field exclude each other, so the last choice made is the one saved.
+    (function (form) {
+        const other = form.querySelector('input[name="Form.IconOther"]');
+        const picks = form.querySelectorAll('input[name="Form.Icon"]');
+        picks.forEach(p => p.addEventListener('change', () => { other.value = ''; }));
+        other.addEventListener('input', () => {
+            if (other.value.trim() !== '') picks.forEach(p => { p.checked = false; });
+        });
+    })(document.currentScript.previousElementSibling);
+</script>

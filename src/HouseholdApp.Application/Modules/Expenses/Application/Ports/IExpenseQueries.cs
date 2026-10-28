@@ -12,7 +12,8 @@ public sealed record ExpenseListItem(
     IReadOnlyList<ExpenseListParticipantDto> FundingSources,
     IReadOnlyList<ExpenseListParticipantDto> Allocations,
     string? GroupName,
-    DateTimeOffset? RecordedAt = null);
+    DateTimeOffset? RecordedAt = null,
+    string? GroupIcon = null);
 
 public enum PaymentPerspective { ViewerPaid, ViewerReceived, Others }
 
@@ -35,7 +36,7 @@ public sealed record SettlementListItem(
 
 public sealed record GroupCard(
     Guid Id, string Name, IReadOnlyList<MemberBalance> Balances,
-    string? LastExpenseDescription, DateTimeOffset? LastExpenseDate);
+    string? LastExpenseDescription, DateTimeOffset? LastExpenseDate, string Icon = GroupIcons.Default);
 
 /// <summary>
 /// Expenses/Settlements hold the Recent timeline only (after the last settled-up marker, or the latest 30 without
@@ -50,12 +51,13 @@ public sealed record ExpensesHome(
 public sealed record GroupPage(
     Guid Id, string Name, IReadOnlyList<MemberBalance> Balances,
     IReadOnlyList<ExpenseListItem> Expenses, IReadOnlyList<SettlementListItem> Settlements,
-    bool HasOlder = false, string? FirstOlderCursor = null);
+    bool HasOlder = false, string? FirstOlderCursor = null, string Icon = GroupIcons.Default);
 
 public sealed record TimelinePage(
     IReadOnlyList<ExpenseListItem> Expenses, IReadOnlyList<SettlementListItem> Settlements, string? NextCursor);
 
-public sealed record SettlementPreviewLeg(Guid GroupId, string GroupName, long Cents, bool IsOffset);
+public sealed record SettlementPreviewLeg(
+    Guid GroupId, string GroupName, long Cents, bool IsOffset, string GroupIcon = GroupIcons.Default);
 
 public sealed record SettlementPreview(
     IReadOnlyList<SettlementPreviewLeg> Legs, long OwedCents, SettlementSplitError? Error);
@@ -73,7 +75,7 @@ public sealed record ExpenseDetail(
 /// </summary>
 public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
 
-public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description);
+public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description, string Icon = GroupIcons.Default);
 
 public sealed record RecurringExpenseSummary(
     Guid Id, string Description, RecurrenceFrequency Frequency, DateTimeOffset StartAt, bool IsActive, Guid ExpenseGroupId);

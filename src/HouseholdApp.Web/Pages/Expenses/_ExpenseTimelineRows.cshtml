@@ -92,7 +92,7 @@
                     <div class="list-row-meta">
                         @if (e.GroupName is not null)
                         {
-                            <span class="expense-group-chip">@e.GroupName</span>
+                            <span class="expense-group-chip">@e.GroupIcon @e.GroupName</span>
                         }
                         @foreach (var f in e.FundingSources)
                         {

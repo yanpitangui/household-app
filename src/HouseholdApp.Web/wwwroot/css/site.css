@@ -2169,6 +2169,16 @@ textarea.form-control { resize: vertical; }
     font-family: var(--font-body);
 }
 .page-menu-item.danger { color: #d64545; }
+a.page-menu-item { color: inherit; text-decoration: none; }
+
+/* Group icon picker: quick picks are radios styled as tiles */
+.group-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; margin-bottom: 12px; max-width: 372px; }
+.group-icon-pick { position: relative; margin: 0; }
+.group-icon-pick input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.group-icon-pick span { display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 9px; font-size: 20px; background: rgba(59,130,246,0.08); }
+.group-icon-pick input:checked + span { outline: 2px solid #3b82f6; background: rgba(59,130,246,0.2); }
+.group-icon-pick input:focus-visible + span { box-shadow: 0 0 0 3px rgba(59,130,246,0.35); }
+.group-icon-other { max-width: 220px; }
 
 /* Household settle legs inside a group */
 .payment-row-transfer { background: transparent; border-style: dashed; }

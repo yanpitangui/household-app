@@ -121,12 +121,28 @@ public sealed class ActivityEntryProjectionTests
             GroupId, HouseholdSettlementId: id, HouseholdSettlementCents: 70,
             HouseholdSettlementGroupIds: [GroupId, Guid.NewGuid()]);
 
-        var entry = ActivityEntryProjection.MapHouseholdSettlement(Guid.NewGuid(), evt, ["Trip", "Home"]);
+        var other = Guid.NewGuid();
+        var entry = ActivityEntryProjection.MapHouseholdSettlement(Guid.NewGuid(), evt, [(GroupId, "Trip"), (other, "Home")]);
 
         await Assert.That(entry.Kind).IsEqualTo(ActivityKind.HouseholdSettlement);
         await Assert.That(entry.SettlementCents).IsEqualTo(70L);
         await Assert.That(entry.GroupNames).IsEquivalentTo(new[] { "Trip", "Home" });
+        await Assert.That(entry.GroupIds).IsEquivalentTo(new[] { GroupId, other });
         await Assert.That(entry.GroupId).IsNull();
+    }
+
+    [Test]
+    public async Task Map_rename_keeps_both_names_on_the_entry()
+    {
+        var evt = new ExpenseGroupUpdated(Guid.NewGuid(), Now, GroupId, HouseholdId,
+            "Trip", "Japan 2027", null, null, "✈️", "🗾", ActorId);
+
+        var entry = ActivityEntryProjection.MapGroupRenamed(Guid.NewGuid(), evt);
+
+        await Assert.That(entry.Kind).IsEqualTo(ActivityKind.GroupRenamed);
+        await Assert.That((entry.RenamedFrom, entry.RenamedTo)).IsEqualTo(("Trip", "Japan 2027"));
+        await Assert.That(entry.GroupId).IsEqualTo(GroupId);
+        await Assert.That(entry.ActorUserId).IsEqualTo(ActorId);
     }
 
     [Test]

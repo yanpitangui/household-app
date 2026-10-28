@@ -415,4 +415,11 @@
   <data name="Expenses.Settle.Error.WrongDirection"><value>{1} deve a {0}, não o contrário. Troque quem paga e quem recebe.</value></data>
   <data name="Expenses.Settle.Error.AmountNotPositive"><value>Informe um valor para ver para onde ele vai.</value></data>
   <data name="Expenses.Settle.Error.ExceedsOwed"><value>Mais que os {2} que {0} deve a {1}. Para pagar a mais, acerte dentro de um grupo.</value></data>
+  <data name="Expenses.Group.Edit"><value>Editar grupo</value></data>
+  <data name="Expenses.GroupIcon"><value>Ícone</value></data>
+  <data name="Expenses.GroupIcon.Other"><value>Outro emoji</value></data>
+  <data name="Expenses.GroupIcon.OtherPlaceholder"><value>Cole ou digite um emoji</value></data>
+  <data name="Expenses.GroupIcon.Invalid"><value>Use um único emoji.</value></data>
+  <data name="Expenses.Activity.GroupRenamed"><value>{0} renomeou o grupo &apos;{1}&apos; para &apos;{2}&apos;.</value></data>
+  <data name="Flash.GroupUpdated"><value>Grupo atualizado.</value></data>
 </root>
