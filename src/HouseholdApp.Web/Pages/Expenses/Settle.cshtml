@@ -2,15 +2,22 @@
 @model HouseholdApp.Web.Pages.Expenses.SettleModel
 @{
     ViewData["Title"] = L["Expenses.SettleUpHeading"];
+    var backHref = Model.GroupId is { } backGroupId
+        ? $"/h/{Model.HouseholdId}/expenses/groups/{backGroupId}"
+        : $"/h/{Model.HouseholdId}/expenses";
 }
 
 <div class="page-heading">
-    <span>@L["Expenses.SettleUpHeading"]</span>
-    <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
+    <span>@L["Expenses.SettleUpHeading"]@(Model.GroupName is null ? "" : $" · {Model.GroupName}")</span>
+    <a href="@backHref" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Cancel"]</a>
 </div>
 
 <div class="app-card">
     <form method="post">
+        @if (Model.GroupId is { } groupId)
+        {
+            <input type="hidden" name="group" value="@groupId" />
+        }
 
         <div class="mb-3">
             <label asp-for="PayerId" class="form-label">@L["Expenses.Payer"]</label>
@@ -30,12 +37,14 @@
                     <option value="@m.UserId">@m.DisplayName</option>
                 }
             </select>
+            <span asp-validation-for="RecipientId" class="field-error"></span>
         </div>
 
-        <div class="row mb-4">
+        <div class="row mb-3">
             <div class="col">
                 <label asp-for="Amount" class="form-label">@L["Expenses.Amount"]</label>
                 <input asp-for="Amount" type="number" step="0.01" min="0.01" class="form-control" value="@NumberInput.Value(Model.Amount)" />
+                <span asp-validation-for="Amount" class="field-error"></span>
             </div>
             <div class="col">
                 <label asp-for="Date" class="form-label">@L["Expenses.Date"]</label>
@@ -43,9 +52,24 @@
             </div>
         </div>
 
+        @if (Model.GroupId is null)
+        {
+            <div id="settle-breakdown" class="settle-breakdown"
+                 hx-post="?handler=Preview"
+                 hx-trigger="load, input from:closest form delay:300ms, change from:closest form"
+                 hx-include="closest form"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                @if (Model.Breakdown is not null)
+                {
+                    <partial name="_SettleBreakdown" model="Model.Breakdown" />
+                }
+            </div>
+        }
+
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">@L["Expenses.RecordSettlement"]</button>
-            <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
+            <a href="@backHref" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
         </div>
     </form>
 </div>

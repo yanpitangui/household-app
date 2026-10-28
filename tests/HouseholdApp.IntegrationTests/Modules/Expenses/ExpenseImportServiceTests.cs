@@ -263,6 +263,27 @@ public sealed class ExpenseImportServiceTests(PostgresFixture db)
     }
 
     [Test]
+    public async Task A_deleted_group_does_not_block_reusing_its_name()
+    {
+        var householdId = Guid.NewGuid();
+        var (groupId, _) = await ImportAsync(householdId, "Casa", PlanFor(Casa));
+        await using (var s = Store.LightweightSession())
+        {
+            var doc = await s.LoadAsync<ExpenseGroupDocument>(groupId);
+            doc!.DeletedAt = DateTimeOffset.UtcNow;
+            s.Store(doc);
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = new ExpenseImportService(
+            Store.LightweightSession(), Substitute.For<IHouseholdQueries>(),
+            new EventDispatchScope(), new FakeTimeProvider());
+
+        await Assert.That(await sut.GroupNameTakenAsync(householdId, "Casa")).IsFalse();
+    }
+
+    [Test]
     public async Task Unbalanced_plan_is_refused_before_anything_is_written()
     {
         var householdId = Guid.NewGuid();

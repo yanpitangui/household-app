@@ -1,6 +1,5 @@
 @page "/h/{householdId:guid}/Expenses"
 @model HouseholdApp.Web.Pages.Expenses.ExpensesIndexModel
-@using System.Globalization
 @{
     ViewData["Title"] = L["Nav.Expenses"];
 }
@@ -13,30 +12,37 @@
     <span>@L["Nav.Expenses"]</span>
 </div>
 
-@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.HouseholdId, Model.Balances, OutOfBand: false))
+@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.HouseholdId, Model.Home.Balances, OutOfBand: false))
 
 <a asp-page="Settle" asp-route-householdId="@Model.HouseholdId" class="expenses-settle-btn">
     ✓ @L["Expenses.SettleUp"]
 </a>
 <div class="expenses-secondary-links">
-    <a asp-page="Groups" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
-        💳 @L["Expenses.Groups"]
-    </a>
     <a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
         🔁 @L["Expenses.Recurring"]
     </a>
     <a asp-page="Activity" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
         🕒 @L["Expenses.Activity"]
     </a>
+    <a asp-page="Import" asp-route-householdId="@Model.HouseholdId" class="expenses-secondary-link">
+        ⇪ @L["Expenses.ImportLink"]
+    </a>
 </div>
 
+<div class="expenses-month-header">@L["Expenses.GroupsHeading"]</div>
 <div hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Expenses/stream"
      sse-swap="expenses-list"
      hx-swap="morph:innerHTML"
      hx-disinherit="hx-swap">
-    @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Entries))
+    @await Html.PartialAsync("_GroupCards", new GroupCardsViewModel(Model.HouseholdId, Model.Home.Groups))
+    @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, null, Model.CurrentUserId, Model.Entries, Model.Home.HasOlder))
 </div>
+<div id="expenses-older"></div>
+@await Html.PartialAsync("~/Pages/Expenses/_ShowOlderButton.cshtml", new ShowOlderButtonViewModel(Model.Home.FirstOlderCursor, Model.Home.HasOlder))
+<a asp-page="NewGroup" asp-route-householdId="@Model.HouseholdId" class="expenses-new-group">
+    + @L["Expenses.NewGroup"]
+</a>
 
 <div class="expenses-fab">
     <a asp-page="Record" asp-route-householdId="@Model.HouseholdId" class="expenses-fab-btn">

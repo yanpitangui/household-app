@@ -69,6 +69,7 @@
   <data name="Action.Open"><value>Open</value></data>
   <data name="Action.Edit"><value>Edit</value></data>
   <data name="Action.Dismiss"><value>Dismiss</value></data>
+  <data name="Action.Undo"><value>Undo</value></data>
 
   <!-- Push notifications -->
   <data name="Push.EnablePrompt"><value>Get notified when someone adds or changes an expense.</value></data>
@@ -95,7 +96,7 @@
   <data name="Confirm.DeleteTask"><value>Delete this task?</value></data>
   <data name="Confirm.DeleteList"><value>Delete this list?</value></data>
   <data name="Confirm.DeleteRecipe"><value>Delete this recipe?</value></data>
-  <data name="Confirm.DeleteGroup"><value>Delete group &apos;{0}&apos;? Cannot delete groups with active expenses.</value></data>
+  <data name="Confirm.DeleteGroup"><value>Delete group &apos;{0}&apos;? Its expenses and payments leave the balances. You can undo it from Activity.</value></data>
   <data name="Confirm.DeactivateExpense"><value>Deactivate this recurring expense?</value></data>
   <data name="Confirm.DeactivateTask"><value>Deactivate this recurring task?</value></data>
   <data name="Confirm.RemoveItem"><value>Remove item?</value></data>
@@ -108,7 +109,6 @@
   <data name="Flash.ExpenseUpdated"><value>Expense updated.</value></data>
   <data name="Flash.SettlementRecorded"><value>Settlement recorded.</value></data>
   <data name="Flash.GroupCreated"><value>Group created.</value></data>
-  <data name="Flash.GroupDeleted"><value>Group deleted.</value></data>
   <data name="Flash.RecurringExpenseCreated"><value>Recurring expense created.</value></data>
   <data name="Flash.RecurringExpenseUpdated"><value>Recurring expense updated.</value></data>
   <data name="Flash.RecurringExpenseDeactivated"><value>Recurring expense deactivated.</value></data>
@@ -203,7 +203,6 @@
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Record</value></data>
   <data name="Expenses.SettleUp"><value>Settle Up</value></data>
-  <data name="Expenses.Groups"><value>Groups</value></data>
   <data name="Expenses.Recurring"><value>Recurring</value></data>
   <data name="Expenses.Activity"><value>Activity</value></data>
   <data name="Expenses.Activity.Title"><value>Recent activity</value></data>
@@ -215,6 +214,10 @@
   <data name="Expenses.Activity.Settlement"><value>{0} recorded a payment from {1} to {2}.</value></data>
   <data name="Expenses.Activity.YouAreOwed"><value>You got back {0}</value></data>
   <data name="Expenses.Activity.YouOwe"><value>You owe {0}</value></data>
+  <data name="Expenses.Activity.HouseholdSettlement"><value>{0} recorded a payment of {3} from {1} to {2} across {4}.</value></data>
+  <data name="Expenses.Activity.GroupDeleted"><value>{0} deleted group &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.GroupRestored"><value>{0} restored group &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.Restore"><value>Restore</value></data>
   <data name="Expenses.Balances"><value>BALANCES</value></data>
   <data name="Expenses.IsOwed"><value>is owed</value></data>
   <data name="Expenses.Owes"><value>owes</value></data>
@@ -257,6 +260,9 @@
   <data name="Expenses.Breakdown.WhoPaid"><value>Who paid</value></data>
   <data name="Expenses.Breakdown.HowSplit"><value>Split</value></data>
   <data name="Expenses.Breakdown.PaidSingular"><value>paid</value></data>
+  <data name="Expenses.Breakdown.RecordedAt"><value>Added {0}</value></data>
+  <data name="Expenses.Timeline.ShowOlder"><value>Show earlier entries</value></data>
+  <data name="Expenses.Timeline.AllSettled"><value>All settled up ✓</value></data>
   <data name="Expenses.Breakdown.PaidPlural"><value>paid</value></data>
   <data name="Expenses.Breakdown.VoidConfirm"><value>Void this expense?</value></data>
 
@@ -286,6 +292,8 @@
   <data name="Expenses.Payment.PaidYou"><value>{0} paid you</value></data>
   <data name="Expenses.Payment.Paid"><value>{0} paid {1}</value></data>
   <data name="Expenses.Payment.Label"><value>Payment</value></data>
+  <data name="Expenses.Payment.HouseholdSettle"><value>household settle</value></data>
+  <data name="Expenses.Payment.MovedOut"><value>{0} moved to other groups</value></data>
   <data name="Expenses.YouLent"><value>you lent</value></data>
   <data name="Expenses.YouBorrowed"><value>you owe</value></data>
   <data name="Expenses.AddExpense"><value>Add expense</value></data>
@@ -353,6 +361,8 @@
   <data name="Expenses.ImportLine"><value>line {0}</value></data>
   <data name="Expenses.ImportSubmit"><value>Import</value></data>
   <data name="Flash.ImportCompleted"><value>Imported {0} entries.</value></data>
+  <data name="Flash.GroupDeletedNamed"><value>Group &apos;{0}&apos; deleted.</value></data>
+  <data name="Flash.GroupRestored"><value>Group restored.</value></data>
   <data name="Import.Error.NoFile"><value>Choose a CSV file.</value></data>
   <data name="Import.Error.FileTooLarge"><value>The file is larger than 1 MB.</value></data>
   <data name="Import.Error.Empty"><value>The file is empty.</value></data>
@@ -382,4 +392,27 @@
   <data name="Expenses.ImportMatches"><value>Matches</value></data>
   <data name="Expenses.ImportDiffers"><value>Differs</value></data>
   <data name="Expenses.ImportMoreErrors"><value>…and {0} more</value></data>
+  <data name="Expenses.YourBalanceIn"><value>Your balance in {0}</value></data>
+  <data name="Expenses.Group.None"><value>No groups yet. Create one to start recording expenses.</value></data>
+  <data name="Expenses.Group.Last"><value>last: {0} · {1}</value></data>
+  <data name="Expenses.Group.NoExpenses"><value>no expenses yet</value></data>
+  <data name="Expenses.Group.SettledUp"><value>settled up</value></data>
+  <data name="Expenses.Group.YouAreOwed"><value>you&apos;re owed</value></data>
+  <data name="Expenses.Group.YouOwe"><value>you owe</value></data>
+  <data name="Expenses.Group.More"><value>More actions</value></data>
+  <data name="Expenses.Group.Delete"><value>Delete group</value></data>
+  <data name="Expenses.Group.AddTo"><value>Add to {0}</value></data>
+  <data name="Expenses.Group.Gone"><value>This group was deleted.</value></data>
+<data name="Expenses.Group.NotFound"><value>Group not found.</value></data>
+  <data name="Expenses.Record.NoGroups"><value>Create a group first.</value></data>
+  <data name="Expenses.Settle.Breakdown"><value>Where this payment goes</value></data>
+  <data name="Expenses.Settle.Leg"><value>{0} → {1}</value></data>
+  <data name="Expenses.Settle.Offset"><value>offset, no cash moves</value></data>
+  <data name="Expenses.Settle.AllSettled"><value>After this: all groups settled ✓</value></data>
+  <data name="Expenses.Settle.StillOwes"><value>After this: {0} still owes {1} {2}</value></data>
+  <data name="Expenses.Settle.SamePerson"><value>Payer and recipient must be different.</value></data>
+  <data name="Expenses.Settle.Error.NothingOwed"><value>There is nothing to settle between {0} and {1}.</value></data>
+  <data name="Expenses.Settle.Error.WrongDirection"><value>{1} owes {0}, not the other way around. Swap payer and recipient.</value></data>
+  <data name="Expenses.Settle.Error.AmountNotPositive"><value>Enter an amount to see where it goes.</value></data>
+  <data name="Expenses.Settle.Error.ExceedsOwed"><value>More than the {2} {0} owes {1}. To pay extra, settle inside a group.</value></data>
 </root>

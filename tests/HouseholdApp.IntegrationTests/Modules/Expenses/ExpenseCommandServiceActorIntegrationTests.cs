@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
@@ -18,13 +19,14 @@ public sealed class ExpenseCommandServiceActorIntegrationTests(PostgresFixture d
         new ThrowingRecurringExpenseRepository(),
         new ThrowingRecurringJobScheduler(),
         new ThrowingUnitOfWork(),
-        new FakeTimeProvider());
+        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
 
     [Test]
     public async Task VoidExpenseAsync_stamps_PerformedByUserId_from_ICurrentUser()
     {
         var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
+        await ExpenseTestData.SeedGroupAsync(Store, householdId, groupId);
         var payerId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
 
@@ -34,7 +36,7 @@ public sealed class ExpenseCommandServiceActorIntegrationTests(PostgresFixture d
         var expenseId = await sut.RecordExpenseAsync(
             householdId, groupId, "Groceries", DateTimeOffset.UtcNow,
             [new FundingSourceDto(payerId, 500)], [new AllocationDto(payerId, 500)]);
-        await sut.VoidExpenseAsync(expenseId, "mistake");
+        await sut.VoidExpenseAsync(householdId, expenseId, "mistake");
 
         await using var qs = Store.QuerySession();
         var readModel = await qs.LoadAsync<ExpenseReadModel>(expenseId);
@@ -48,6 +50,7 @@ public sealed class ExpenseCommandServiceActorIntegrationTests(PostgresFixture d
     {
         var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
+        await ExpenseTestData.SeedGroupAsync(Store, householdId, groupId);
         var payerId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
 
@@ -58,7 +61,7 @@ public sealed class ExpenseCommandServiceActorIntegrationTests(PostgresFixture d
             householdId, groupId, "Groceries", DateTimeOffset.UtcNow,
             [new FundingSourceDto(payerId, 500)], [new AllocationDto(payerId, 500)]);
         var newId = await sut.EditExpenseAsync(
-            expenseId, "Groceries (edited)", DateTimeOffset.UtcNow,
+            householdId, expenseId, "Groceries (edited)", DateTimeOffset.UtcNow,
             [new FundingSourceDto(payerId, 600)], [new AllocationDto(payerId, 600)]);
 
         await using var qs = Store.QuerySession();

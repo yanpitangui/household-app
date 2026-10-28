@@ -39,18 +39,26 @@ public sealed class ExpensePushNotificationHandler(
         }, ct);
     }
 
-    public Task HandleAsync(SettlementRecorded evt, CancellationToken ct = default) =>
-        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
+    public Task HandleAsync(SettlementRecorded evt, CancellationToken ct = default)
     {
-        var ids = new[] { evt.PerformedByUserId, evt.PayerId, evt.RecipientId };
-        var profiles = (await userQuery.GetByIdsAsync(ids, ct)).ToDictionary(p => p.Id);
-        var actorName = profiles.GetValueOrDefault(evt.PerformedByUserId)?.DisplayName ?? "Someone";
-        var payerName = profiles.GetValueOrDefault(evt.PayerId)?.DisplayName ?? "Someone";
-        var recipientName = profiles.GetValueOrDefault(evt.RecipientId)?.DisplayName ?? "Someone";
-        var title = $"{actorName} recorded a settlement";
-        var body = $"{payerName} paid {recipientName} R$ {FormatCents(evt.Cents)}";
-        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, title, body, ct);
-    }, ct);
+        // A household settle notifies once, from its lead leg, with the cash actually paid.
+        if (dispatchScope.SuppressNotifications || evt.IsOffset) return Task.CompletedTask;
+        if (evt.HouseholdSettlementId is { } householdSettlementId && evt.SettlementId != householdSettlementId)
+            return Task.CompletedTask;
+        var cents = evt.HouseholdSettlementCents ?? evt.Cents;
+
+        return SafeAsync(async () =>
+        {
+            var ids = new[] { evt.PerformedByUserId, evt.PayerId, evt.RecipientId };
+            var profiles = (await userQuery.GetByIdsAsync(ids, ct)).ToDictionary(p => p.Id);
+            var actorName = profiles.GetValueOrDefault(evt.PerformedByUserId)?.DisplayName ?? "Someone";
+            var payerName = profiles.GetValueOrDefault(evt.PayerId)?.DisplayName ?? "Someone";
+            var recipientName = profiles.GetValueOrDefault(evt.RecipientId)?.DisplayName ?? "Someone";
+            var title = $"{actorName} recorded a settlement";
+            var body = $"{payerName} paid {recipientName} R$ {FormatCents(cents)}";
+            await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, title, body, ct);
+        }, ct);
+    }
 
     private async Task NotifyOthersAsync(Guid householdId, Guid actorId, string title, string body, CancellationToken ct)
     {

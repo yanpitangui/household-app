@@ -14,6 +14,7 @@ public static class ExpenseStreamEndpoints
     {
         app.MapGet("/h/{householdId:guid}/Expenses/stream",
             async (Guid householdId,
+                   Guid? group,
                    ICurrentUser currentUser,
                    IHouseholdGuard guard,
                    IExpenseQueries expenseQueries,
@@ -41,14 +42,44 @@ public static class ExpenseStreamEndpoints
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
                 ctx.Response.Headers["X-Accel-Buffering"] = "no";
 
+                // The home renders group cards plus the consolidated timeline; a group page passes ?group= and renders that group's timeline.
                 async Task<string> RenderAsync(CancellationToken innerCt)
                 {
-                    var summary = await expenseQueries.GetExpensesSummaryAsync(householdId, currentUser.Id, ct: innerCt);
-                    var listVm = new ExpensesListViewModel(householdId, currentUser.Id, ExpenseTimeline.Merge(summary.Expenses, summary.Settlements));
-                    var listHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml", listVm);
-                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml", new BalanceCardViewModel(householdId, summary.Balances, OutOfBand: true));
-                    return listHtml + balanceHtml;
+                    if (group is { } groupId)
+                    {
+                        var page = await expenseQueries.GetGroupPageAsync(householdId, groupId, currentUser.Id, innerCt);
+                        if (page is null)
+                            return await viewRender.RenderPartialAsync("~/Pages/Expenses/_GroupGone.cshtml", householdId);
+
+                        var listVm = new ExpensesListViewModel(
+                            householdId, groupId, currentUser.Id, ExpenseTimeline.Merge(page.Expenses, page.Settlements),
+                            page.HasOlder);
+                        var listHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml", listVm);
+                        var groupBalanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml",
+                            new BalanceCardViewModel(householdId, page.Balances, OutOfBand: true, groupId, page.Name));
+                        var groupOlderHtml = await RenderOlderResetAsync(page.HasOlder, page.FirstOlderCursor);
+                        return listHtml + groupBalanceHtml + groupOlderHtml;
+                    }
+
+                    var home = await expenseQueries.GetExpensesHomeAsync(householdId, currentUser.Id, innerCt);
+                    var cardsHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_GroupCards.cshtml",
+                        new GroupCardsViewModel(householdId, home.Groups));
+                    var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml",
+                        new BalanceCardViewModel(householdId, home.Balances, OutOfBand: true));
+                    var homeListHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml",
+                        new ExpensesListViewModel(
+                            householdId, null, currentUser.Id,
+                            ExpenseTimeline.Merge(home.Expenses, home.Settlements), home.HasOlder));
+                    var homeOlderHtml = await RenderOlderResetAsync(home.HasOlder, home.FirstOlderCursor);
+                    return cardsHtml + homeListHtml + balanceHtml + homeOlderHtml;
                 }
+
+                // Every push re-renders Recent, so already-loaded older pages are cleared and the button restarts
+                // from the fresh cursor; both live outside the SSE container and swap out of band.
+                async Task<string> RenderOlderResetAsync(bool hasOlder, string? cursor) =>
+                    "<div id=\"expenses-older\" hx-swap-oob=\"morph\"></div>"
+                    + await viewRender.RenderPartialAsync("~/Pages/Expenses/_ShowOlderButton.cshtml",
+                        new ShowOlderButtonViewModel(cursor, hasOlder, OobSwap: "morph"));
 
                 try
                 {

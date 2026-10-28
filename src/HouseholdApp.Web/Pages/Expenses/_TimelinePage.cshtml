@@ -1,0 +1,3 @@
+@model HouseholdApp.Web.Pages.Expenses.TimelinePageViewModel
+@await Html.PartialAsync("~/Pages/Expenses/_ExpenseTimelineRows.cshtml", Model.List)
+@await Html.PartialAsync("~/Pages/Expenses/_ShowOlderButton.cshtml", new ShowOlderButtonViewModel(Model.NextCursor, Visible: Model.NextCursor is not null, OobSwap: "outerHTML"))

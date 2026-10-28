@@ -27,6 +27,8 @@ public static class ExpensesModule
             opts.Events.AddEventType<ExpenseRecorded>();
             opts.Events.AddEventType<ExpenseVoided>();
             opts.Events.AddEventType<SettlementRecorded>();
+            opts.Events.AddEventType<ExpenseGroupDeleted>();
+            opts.Events.AddEventType<ExpenseGroupRestored>();
 
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
@@ -34,7 +36,10 @@ public static class ExpensesModule
             opts.Projections.Add<SettlementReadModelProjection>(ProjectionLifecycle.Inline);
 
             opts.AutoCreateSchemaObjects = AutoCreate.All;
-        }).BuildSessionsWith<ExpenseSessionFactory>(ServiceLifetime.Scoped);
+        })
+        .BuildSessionsWith<ExpenseSessionFactory>(ServiceLifetime.Scoped)
+        // Schema objects are created at startup so concurrent first requests never race on lazy DDL.
+        .ApplyAllDatabaseChangesOnStartup();
 
         services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();

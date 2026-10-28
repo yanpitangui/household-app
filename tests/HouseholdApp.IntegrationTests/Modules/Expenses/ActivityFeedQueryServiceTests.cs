@@ -114,4 +114,35 @@ public sealed class ActivityFeedQueryServiceTests(PostgresFixture db)
         await Assert.That(secondPage.Items[0].Description).IsEqualTo("Item 2");
         await Assert.That(secondPage.NextCursor).IsNull();
     }
+
+    [Test]
+    public async Task Entries_of_a_deleted_group_are_hidden_except_the_deletion_which_can_be_restored()
+    {
+        var householdId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        await InsertUserAsync(actorId, "Alice");
+        var t = DateTimeOffset.UtcNow;
+
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "Trip", DeletedAt = t });
+            s.Store(new ActivityEntry { Id = Guid.NewGuid(), HouseholdId = householdId, OccurredAt = t.AddMinutes(-2),
+                ActorUserId = actorId, Kind = ActivityKind.Added, Description = "Hotel", GroupId = groupId });
+            s.Store(new ActivityEntry { Id = Guid.NewGuid(), HouseholdId = householdId, OccurredAt = t.AddMinutes(-1),
+                ActorUserId = actorId, Kind = ActivityKind.HouseholdSettlement, Description = "", SettlementCents = 70,
+                GroupNames = ["Trip", "Home"] });
+            s.Store(new ActivityEntry { Id = Guid.NewGuid(), HouseholdId = householdId, OccurredAt = t,
+                ActorUserId = actorId, Kind = ActivityKind.GroupDeleted, Description = "", GroupId = groupId, GroupName = "Trip" });
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var page = await BuildSut(qs).GetActivityFeedAsync(householdId, actorId, null, 20);
+
+        await Assert.That(page.Items.Select(i => i.Kind))
+            .IsEquivalentTo(new[] { ActivityKind.GroupDeleted, ActivityKind.HouseholdSettlement });
+        await Assert.That(page.Items[0].CanRestore).IsTrue();
+        await Assert.That(page.Items[1].GroupNames).IsEquivalentTo(new[] { "Trip", "Home" });
+    }
 }

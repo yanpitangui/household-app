@@ -1,0 +1,39 @@
+@model HouseholdApp.Web.Pages.Expenses.SettleBreakdownViewModel
+@using System.Globalization
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
+    var preview = Model.Preview;
+}
+
+<div class="settle-breakdown-title">@L["Expenses.Settle.Breakdown"]</div>
+@if (Model.ErrorText is not null)
+{
+    <div class="settle-breakdown-error">@Model.ErrorText</div>
+}
+else
+{
+    var cash = preview.Legs.Where(l => !l.IsOffset).Sum(l => l.Cents) - preview.Legs.Where(l => l.IsOffset).Sum(l => l.Cents);
+    var remaining = preview.OwedCents - cash;
+    foreach (var leg in preview.Legs)
+    {
+        <div class="settle-breakdown-row" id="leg-@leg.GroupId.ToString("N")">
+            <span class="expense-group-chip">@leg.GroupName</span>
+            <span class="settle-breakdown-what">
+                @(leg.IsOffset
+                    ? L["Expenses.Settle.Leg", Model.RecipientName, Model.PayerName]
+                    : L["Expenses.Settle.Leg", Model.PayerName, Model.RecipientName])
+                @if (leg.IsOffset)
+                {
+                    <small>@L["Expenses.Settle.Offset"]</small>
+                }
+            </span>
+            <span class="settle-breakdown-amount @(leg.IsOffset ? "offset" : "")">@Money(leg.Cents)</span>
+        </div>
+    }
+    <div class="settle-breakdown-summary">
+        @(remaining == 0
+            ? L["Expenses.Settle.AllSettled"]
+            : L["Expenses.Settle.StillOwes", Model.PayerName, Model.RecipientName, Money(remaining)])
+    </div>
+}

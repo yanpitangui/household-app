@@ -1279,6 +1279,8 @@ textarea.form-control { resize: vertical; }
     flex-shrink: 0;
 }
 
+.expense-breakdown-recorded { font-size: 11px; color: var(--text-secondary); margin: 6px 0 2px; }
+
 .expense-breakdown-footer {
     margin-top: 10px;
     padding-top: 8px;
@@ -1706,6 +1708,9 @@ textarea.form-control { resize: vertical; }
     animation: toast-in 0.25s ease forwards;
 }
 
+/* Bootstrap hides .toast:not(.show); flash toasts are always shown, so restore flex at equal specificity. */
+.toast:not(.show) { display: flex; }
+
 .toast::before {
     content: '';
     position: absolute;
@@ -2115,3 +2120,79 @@ textarea.form-control { resize: vertical; }
     border-radius: 12px;
     font-size: 13px;
 }
+
+/* Group cards on the Expenses home */
+.expenses-group-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--card-bg); border: 1px solid var(--border-color);
+    border-radius: var(--radius-item);
+    color: var(--text-primary); text-decoration: none;
+    transition: background 0.15s;
+}
+.expenses-group-card:hover { background: var(--card-bg-hover); color: var(--text-primary); }
+.expenses-group-card-icon { background: rgba(59,130,246,0.12); width: 32px; height: 32px; border-radius: 9px; font-size: 15px; flex-shrink: 0; }
+.expenses-group-card-balance { margin-left: auto; text-align: right; font-size: 11px; white-space: nowrap; }
+.expenses-group-card-balance strong { display: block; font-size: 13px; }
+.expenses-group-card-balance.owed { color: var(--accent-tasks); }
+.expenses-group-card-balance.owe { color: #f87171; }
+.expenses-group-card-balance.zero { color: var(--text-muted); }
+.expenses-new-group {
+    display: block; text-align: center; padding: 10px;
+    border: 1px dashed var(--border-hover); border-radius: var(--radius-item);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+}
+.expenses-new-group:hover { color: var(--text-primary); }
+.timeline-show-older {
+    display: block; width: 100%; margin: 12px 0; padding: 10px; background: transparent;
+    border: 1px dashed var(--border-hover); border-radius: var(--radius-item);
+    color: var(--text-secondary); font-size: 13px; cursor: pointer;
+}
+.timeline-show-older:hover { color: var(--text-primary); }
+.page-heading-actions { display: flex; align-items: center; gap: 12px; }
+.page-menu { position: relative; }
+.page-menu summary {
+    list-style: none; cursor: pointer; width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-body); font-size: 18px; color: var(--text-secondary);
+    border: 1px solid var(--border-hover);
+}
+.page-menu summary::-webkit-details-marker { display: none; }
+.page-menu-items {
+    position: absolute; right: 0; top: 38px; z-index: 20; min-width: 180px;
+    background: var(--card-bg); border: 1px solid var(--border-hover);
+    border-radius: var(--radius-item); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); padding: 4px;
+}
+.page-menu-item {
+    display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent;
+    border: 0; border-radius: var(--radius-item); font-size: 14px; cursor: pointer;
+    font-family: var(--font-body);
+}
+.page-menu-item.danger { color: #d64545; }
+
+/* Household settle legs inside a group */
+.payment-row-transfer { background: transparent; border-style: dashed; }
+.payment-row-tag {
+    font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 100px;
+    background: rgba(59,130,246,0.12); color: #93c5fd;
+}
+
+/* Settle page breakdown */
+.settle-breakdown { margin: 4px 0 16px; padding-top: 10px; border-top: 1px dashed var(--border-hover); }
+.settle-breakdown-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin-bottom: 6px; }
+.settle-breakdown-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--card-bg-hover); }
+.settle-breakdown-what { flex: 1; }
+.settle-breakdown-what small { display: block; color: var(--text-secondary); font-size: 11px; }
+.settle-breakdown-amount { font-weight: 700; color: #f87171; white-space: nowrap; }
+.settle-breakdown-amount.offset { color: var(--accent-tasks); }
+.settle-breakdown-summary { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.settle-breakdown-error { font-size: 12px; color: #f87171; }
+
+/* Activity restore + sticky undo toast */
+.activity-restore { margin-top: 6px; }
+.activity-restore-btn, .toast-action-btn {
+    font-size: 12px; font-weight: 600; color: #93c5fd;
+    background: transparent; border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 100px; padding: 2px 12px;
+}
+.toast-action { margin-left: auto; }
