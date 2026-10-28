@@ -38,7 +38,7 @@ public static class ExpensesPageHelpers
     public static async Task<Guid> CreateGroupAsync(this IPage page, string appUrl, Guid householdId, string name)
     {
         await page.GotoAsync($"{appUrl}/h/{householdId}/expenses/groups/new");
-        await page.FillAsync("input[name='NewName']", name);
+        await page.FillAsync("input[name='Form.Name']", name);
         await page.ClickAsync("button:has-text('+ Create')");
         await page.WaitForURLAsync(url => IsGroupPage(url));
         return Guid.Parse(new Uri(page.Url).Segments[^1]);

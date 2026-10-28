@@ -415,4 +415,11 @@
   <data name="Expenses.Settle.Error.WrongDirection"><value>{1} owes {0}, not the other way around. Swap payer and recipient.</value></data>
   <data name="Expenses.Settle.Error.AmountNotPositive"><value>Enter an amount to see where it goes.</value></data>
   <data name="Expenses.Settle.Error.ExceedsOwed"><value>More than the {2} {0} owes {1}. To pay extra, settle inside a group.</value></data>
+  <data name="Expenses.Group.Edit"><value>Edit group</value></data>
+  <data name="Expenses.GroupIcon"><value>Icon</value></data>
+  <data name="Expenses.GroupIcon.Other"><value>Other emoji</value></data>
+  <data name="Expenses.GroupIcon.OtherPlaceholder"><value>Paste or type one emoji</value></data>
+  <data name="Expenses.GroupIcon.Invalid"><value>Use a single emoji.</value></data>
+  <data name="Expenses.Activity.GroupRenamed"><value>{0} renamed group &apos;{1}&apos; to &apos;{2}&apos;.</value></data>
+  <data name="Flash.GroupUpdated"><value>Group updated.</value></data>
 </root>

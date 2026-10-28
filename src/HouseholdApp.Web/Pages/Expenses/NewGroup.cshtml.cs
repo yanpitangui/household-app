@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Shared.Web;
@@ -15,20 +15,21 @@ public class NewExpenseGroupModel(
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
 
-    [BindProperty, Required]
-    public string NewName { get; set; } = "";
-
     [BindProperty]
-    public string? NewDescription { get; set; }
+    public GroupFormInput Form { get; set; } = new();
 
+    [RequireManage]
     public void OnGet() { }
 
     [RequireManage]
     public async Task<IActionResult> OnPostAsync()
     {
+        if (!GroupIcons.IsValid(Form.ResolvedIcon))
+            ModelState.AddModelError("Form.IconOther", Loc["Expenses.GroupIcon.Invalid"].Value);
         if (!ModelState.IsValid) return Page();
 
-        var groupId = await expenseCommands.CreateExpenseGroupAsync(HouseholdId, NewName, NewDescription);
+        var groupId = await expenseCommands.CreateExpenseGroupAsync(
+            HouseholdId, Form.Name, Form.Description, Form.ResolvedIcon);
         TempData["Success"] = Loc["Flash.GroupCreated"].Value;
         return RedirectToPage("Group", new { householdId = HouseholdId, groupId });
     }

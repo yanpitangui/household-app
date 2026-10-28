@@ -1,5 +1,6 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
@@ -97,5 +98,120 @@ public sealed class ActivityEntryProjectionIntegrationTests(PostgresFixture db)
 
         var deleted = entries.Single(e => e.Kind == ActivityKind.GroupDeleted);
         await Assert.That(deleted.GroupName).IsEqualTo("Trip");
+    }
+
+    [Test]
+    public async Task Renaming_a_group_logs_it_and_shows_the_new_name_on_older_entries()
+    {
+        var householdId = Guid.NewGuid();
+        Guid ana = Guid.NewGuid(), leo = Guid.NewGuid();
+        Guid trip, home;
+        await using (var s = Store.LightweightSession())
+        {
+            var sut = BuildSut(s, ana);
+            trip = await sut.CreateExpenseGroupAsync(householdId, "Trip", null, "✈️");
+            home = await sut.CreateExpenseGroupAsync(householdId, "Home", null);
+        }
+        await using (var s = Store.LightweightSession())
+        {
+            var sut = BuildSut(s, ana);
+            await sut.RecordExpenseAsync(householdId, trip, "Hotel", DateTimeOffset.UtcNow,
+                [new FundingSourceDto(ana, 200)], [new AllocationDto(ana, 100), new AllocationDto(leo, 100)]);
+            await sut.RecordExpenseAsync(householdId, home, "Groceries", DateTimeOffset.UtcNow,
+                [new FundingSourceDto(leo, 60)], [new AllocationDto(ana, 30), new AllocationDto(leo, 30)]);
+        }
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, leo).RecordHouseholdSettlementAsync(householdId, leo, ana, 70, DateTimeOffset.UtcNow);
+
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan 2027", null, "🗾");
+
+        await using var qs = Store.QuerySession();
+        var entries = await qs.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId).ToListAsync();
+        await Assert.That(entries.Single(e => e.Description == "Hotel").GroupName).IsEqualTo("Japan 2027");
+        await Assert.That(entries.Single(e => e.Description == "Groceries").GroupName).IsEqualTo("Home");
+        var settle = entries.Single(e => e.Kind == ActivityKind.HouseholdSettlement);
+        await Assert.That(settle.GroupNames[settle.GroupIds.IndexOf(trip)]).IsEqualTo("Japan 2027");
+        await Assert.That(settle.GroupNames[settle.GroupIds.IndexOf(home)]).IsEqualTo("Home");
+        var renamed = entries.Single(e => e.Kind == ActivityKind.GroupRenamed);
+        await Assert.That((renamed.RenamedFrom, renamed.RenamedTo)).IsEqualTo(("Trip", "Japan 2027"));
+    }
+
+    [Test]
+    public async Task Rebuilding_the_projection_keeps_renamed_group_names_and_rename_entries()
+    {
+        var householdId = Guid.NewGuid();
+        Guid ana = Guid.NewGuid(), leo = Guid.NewGuid();
+        Guid trip, home;
+        await using (var s = Store.LightweightSession())
+        {
+            var sut = BuildSut(s, ana);
+            trip = await sut.CreateExpenseGroupAsync(householdId, "Trip", null, "✈️");
+            home = await sut.CreateExpenseGroupAsync(householdId, "Home", null);
+        }
+        await using (var s = Store.LightweightSession())
+        {
+            var sut = BuildSut(s, ana);
+            await sut.RecordExpenseAsync(householdId, trip, "Hotel", DateTimeOffset.UtcNow,
+                [new FundingSourceDto(ana, 200)], [new AllocationDto(ana, 100), new AllocationDto(leo, 100)]);
+            await sut.RecordExpenseAsync(householdId, home, "Groceries", DateTimeOffset.UtcNow,
+                [new FundingSourceDto(leo, 60)], [new AllocationDto(ana, 30), new AllocationDto(leo, 30)]);
+        }
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, leo).RecordHouseholdSettlementAsync(householdId, leo, ana, 70, DateTimeOffset.UtcNow);
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan", null, "🗾");
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan 2027", null, "🗾");
+
+        using (var daemon = await Store.BuildProjectionDaemonAsync())
+            await daemon.RebuildProjectionAsync<ActivityEntryProjection>(CancellationToken.None);
+
+        await using var qs = Store.QuerySession();
+        var entries = await qs.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId).ToListAsync();
+        await Assert.That(entries.Single(e => e.Description == "Hotel").GroupName).IsEqualTo("Japan 2027");
+        await Assert.That(entries.Single(e => e.Description == "Groceries").GroupName).IsEqualTo("Home");
+        var settle = entries.Single(e => e.Kind == ActivityKind.HouseholdSettlement);
+        await Assert.That(settle.GroupNames.Count).IsEqualTo(settle.GroupIds.Count);
+        await Assert.That(settle.GroupNames[settle.GroupIds.IndexOf(trip)]).IsEqualTo("Japan 2027");
+        await Assert.That(settle.GroupNames[settle.GroupIds.IndexOf(home)]).IsEqualTo("Home");
+        var renames = entries.Where(e => e.Kind == ActivityKind.GroupRenamed).Select(e => (e.RenamedFrom, e.RenamedTo));
+        await Assert.That(renames).IsEquivalentTo(new[] { ("Trip", "Japan"), ("Japan", "Japan 2027") });
+    }
+
+    [Test]
+    public async Task Icon_or_description_changes_add_no_activity()
+    {
+        var householdId = Guid.NewGuid();
+        var ana = Guid.NewGuid();
+        Guid trip;
+        await using (var s = Store.LightweightSession())
+            trip = await BuildSut(s, ana).CreateExpenseGroupAsync(householdId, "Trip", null, "✈️");
+
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Trip", "Summer", "🏖️");
+
+        await using var qs = Store.QuerySession();
+        await Assert.That(await qs.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId).CountAsync()).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_second_rename_keeps_the_first_rename_entry_as_written()
+    {
+        var householdId = Guid.NewGuid();
+        var ana = Guid.NewGuid();
+        Guid trip;
+        await using (var s = Store.LightweightSession())
+            trip = await BuildSut(s, ana).CreateExpenseGroupAsync(householdId, "Trip", null);
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan", null, GroupIcons.Default);
+        await using (var s = Store.LightweightSession())
+            await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan 2027", null, GroupIcons.Default);
+
+        await using var qs = Store.QuerySession();
+        var renames = await qs.Query<ActivityEntry>()
+            .Where(a => a.HouseholdId == householdId && a.Kind == ActivityKind.GroupRenamed).ToListAsync();
+        await Assert.That(renames.Select(r => (r.RenamedFrom, r.RenamedTo)))
+            .IsEquivalentTo(new[] { ("Trip", "Japan"), ("Japan", "Japan 2027") });
     }
 }

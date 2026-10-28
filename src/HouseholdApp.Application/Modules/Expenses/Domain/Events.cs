@@ -71,3 +71,16 @@ public sealed record ExpenseGroupRestored(
     Guid HouseholdId,
     string GroupName,
     Guid PerformedByUserId) : IDomainEvent;
+
+public sealed record ExpenseGroupUpdated(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid GroupId,
+    Guid HouseholdId,
+    string OldName,
+    string NewName,
+    string? OldDescription,
+    string? NewDescription,
+    string OldIcon,
+    string NewIcon,
+    Guid PerformedByUserId) : IDomainEvent;

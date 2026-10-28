@@ -2,10 +2,11 @@ using HouseholdApp.Application.Modules.Expenses.Domain;
 using JasperFx.Events;
 using Marten;
 using Marten.Events.Projections;
+using Marten.Patching;
 
 namespace HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 
-public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored }
+public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored, GroupRenamed }
 
 public sealed class ActivityEntry
 {
@@ -18,6 +19,9 @@ public sealed class ActivityEntry
     public string? GroupName { get; set; }
     public Guid? GroupId { get; set; }
     public List<string> GroupNames { get; set; } = [];
+    public List<Guid> GroupIds { get; set; } = []; // parallel to GroupNames, so a rename can find its name
+    public string? RenamedFrom { get; set; }
+    public string? RenamedTo { get; set; }
     public long? SettlementCents { get; set; }
     public Guid? SettlementPayerId { get; set; }
     public Guid? SettlementRecipientId { get; set; }
@@ -29,7 +33,8 @@ public sealed class ActivityEntry
 // and HouseholdLedgerProjection (MultiStreamProjection — one document per household aggregated
 // across streams). Every ExpenseRecorded/ExpenseVoided/SettlementRecorded/ExpenseGroupDeleted/
 // ExpenseGroupRestored event here produces its own permanent ActivityEntry row (a household settlement
-// produces one, from its lead leg).
+// produces one, from its lead leg). An ExpenseGroupUpdated that changes the name produces a GroupRenamed
+// row and refreshes the group name on the older rows.
 //
 // ApplyAsync is overridden directly (JasperFxEventProjectionBase<,>.ApplyAsync: "Override this for
 // explicit projection logic") and dispatches by event payload type to the unit-testable static Map*
@@ -61,12 +66,18 @@ public sealed partial class ActivityEntryProjection : EventProjection
                 var groups = ids.Count == 0
                     ? []
                     : await operations.LoadManyAsync<ExpenseGroupDocument>(cancellation, ids);
-                var names = ids.Select(id => groups.FirstOrDefault(g => g.Id == id)?.Name).OfType<string>().ToList();
-                operations.Store(MapHouseholdSettlement(e.Id, leg, names));
+                var named = ids.Select(id => groups.FirstOrDefault(g => g.Id == id)).OfType<ExpenseGroupDocument>()
+                    .Select(g => (g.Id, g.Name)).ToList();
+                operations.Store(MapHouseholdSettlement(e.Id, leg, named));
                 break;
 
             case SettlementRecorded settlement:
                 operations.Store(MapSettlement(e.Id, settlement));
+                break;
+
+            case ExpenseGroupUpdated updated when updated.OldName != updated.NewName:
+                operations.Store(MapGroupRenamed(e.Id, updated));
+                await ApplyRenameAsync(operations, updated, cancellation);
                 break;
 
             case ExpenseGroupDeleted deleted:
@@ -78,6 +89,26 @@ public sealed partial class ActivityEntryProjection : EventProjection
                 operations.Store(MapGroupLifecycle(e.Id, ActivityKind.GroupRestored, restored.OccurredAt,
                     restored.GroupId, restored.HouseholdId, restored.GroupName, restored.PerformedByUserId));
                 break;
+        }
+    }
+
+    // Older entries read the group's current name. Single-group entries are patched in the database, so a rebuild
+    // also reaches entries stored earlier in the same batch; household settlements list several groups and are
+    // rewritten one by one.
+    private static async Task ApplyRenameAsync(
+        IDocumentOperations operations, ExpenseGroupUpdated updated, CancellationToken cancellation)
+    {
+        operations.Patch<ActivityEntry>(a => a.GroupId == updated.GroupId && a.GroupName != null)
+            .Set(a => a.GroupName, updated.NewName);
+
+        var settlements = await operations.Query<ActivityEntry>()
+            .Where(a => a.HouseholdId == updated.HouseholdId && a.Kind == ActivityKind.HouseholdSettlement
+                && a.GroupIds.Contains(updated.GroupId))
+            .ToListAsync(cancellation);
+        foreach (var entry in settlements)
+        {
+            entry.GroupNames[entry.GroupIds.IndexOf(updated.GroupId)] = updated.NewName;
+            operations.Store(entry);
         }
     }
 
@@ -137,7 +168,8 @@ public sealed partial class ActivityEntryProjection : EventProjection
         ViewerDeltaCents = []
     };
 
-    public static ActivityEntry MapHouseholdSettlement(Guid eventId, SettlementRecorded e, List<string> groupNames) => new()
+    public static ActivityEntry MapHouseholdSettlement(
+        Guid eventId, SettlementRecorded e, IReadOnlyList<(Guid Id, string Name)> groups) => new()
     {
         Id = eventId,
         HouseholdId = e.HouseholdId,
@@ -145,10 +177,26 @@ public sealed partial class ActivityEntryProjection : EventProjection
         ActorUserId = e.PerformedByUserId,
         Kind = ActivityKind.HouseholdSettlement,
         Description = "",
-        GroupNames = groupNames,
+        GroupIds = groups.Select(g => g.Id).ToList(),
+        GroupNames = groups.Select(g => g.Name).ToList(),
         SettlementCents = e.HouseholdSettlementCents ?? e.Cents,
         SettlementPayerId = e.PayerId,
         SettlementRecipientId = e.RecipientId,
+        ViewerDeltaCents = []
+    };
+
+    public static ActivityEntry MapGroupRenamed(Guid eventId, ExpenseGroupUpdated e) => new()
+    {
+        Id = eventId,
+        HouseholdId = e.HouseholdId,
+        OccurredAt = e.OccurredAt,
+        ActorUserId = e.PerformedByUserId,
+        Kind = ActivityKind.GroupRenamed,
+        Description = "",
+        GroupId = e.GroupId,
+        GroupName = e.NewName,
+        RenamedFrom = e.OldName,
+        RenamedTo = e.NewName,
         ViewerDeltaCents = []
     };
 

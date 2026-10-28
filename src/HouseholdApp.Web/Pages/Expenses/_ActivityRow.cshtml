@@ -16,6 +16,7 @@
             string.Join(", ", Model.GroupNames ?? [])),
         ActivityKind.GroupDeleted => string.Format(L["Expenses.Activity.GroupDeleted"].Value, Model.ActorDisplayName, Model.GroupName),
         ActivityKind.GroupRestored => string.Format(L["Expenses.Activity.GroupRestored"].Value, Model.ActorDisplayName, Model.GroupName),
+        ActivityKind.GroupRenamed => string.Format(L["Expenses.Activity.GroupRenamed"].Value, Model.ActorDisplayName, Model.RenamedFrom, Model.RenamedTo),
         _ => Model.Description
     };
 }
