@@ -25,6 +25,7 @@ using HouseholdApp.Web.Tasks;
 using HouseholdApp.Web.Recipes;
 using HouseholdApp.Web.Expenses;
 using HouseholdApp.Web.Notifications;
+using JasperFx;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -57,7 +58,8 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/NotFound");
     options.Conventions.AllowAnonymousToPage("/SetCulture");
-}).AddViewLocalization();
+}).AddViewLocalization()
+    .AddMvcOptions(o => o.ModelBinderProviders.Insert(0, new InvariantDecimalModelBinderProvider()));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IViewRenderService, ViewRenderService>();
@@ -310,4 +312,5 @@ app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
     return Results.Challenge(props, [OpenIdConnectDefaults.AuthenticationScheme]);
 });
 
-app.Run();
+// With no arguments this starts the web app; with a command (e.g. "projections") it runs it and exits.
+return await app.RunJasperFxCommands(args);

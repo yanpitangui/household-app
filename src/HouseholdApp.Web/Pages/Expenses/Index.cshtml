@@ -13,7 +13,7 @@
     <span>@L["Nav.Expenses"]</span>
 </div>
 
-@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.Balances, OutOfBand: false))
+@await Html.PartialAsync("_BalanceCard", new BalanceCardViewModel(Model.HouseholdId, Model.Balances, OutOfBand: false))
 
 <a asp-page="Settle" asp-route-householdId="@Model.HouseholdId" class="expenses-settle-btn">
     ✓ @L["Expenses.SettleUp"]
@@ -33,7 +33,7 @@
 <div hx-ext="sse"
      sse-connect="/h/@Model.HouseholdId/Expenses/stream"
      sse-swap="expenses-list">
-    @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Expenses))
+    @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Entries))
 </div>
 
 <div class="expenses-fab">

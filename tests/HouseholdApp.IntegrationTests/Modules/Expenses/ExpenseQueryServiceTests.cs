@@ -310,4 +310,115 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await Assert.That(groups[0].Name).IsEqualTo("Apple Groceries");
         await Assert.That(groups[1].Name).IsEqualTo("Zebra Trip");
     }
+
+    private async Task SettleAsync(Guid householdId, Guid payerId, Guid recipientId, long cents,
+        DateTimeOffset date, Guid? groupId = null)
+    {
+        var settlementId = Guid.NewGuid();
+        await using var s = Store.LightweightSession();
+        s.Events.Append(settlementId, new SettlementRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, settlementId, householdId,
+            payerId, recipientId, cents, date, payerId, groupId));
+        await s.SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task GetExpensesSummaryAsync_returns_settlements_with_names_and_group()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        Guid payer = Guid.NewGuid(), recipient = Guid.NewGuid();
+        await InsertUsersAsync(payer, recipient);
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "apartamento" });
+            await s.SaveChangesAsync();
+        }
+        var date = new DateTimeOffset(2026, 10, 20, 0, 0, 0, TimeSpan.Zero);
+        await SettleAsync(householdId, payer, recipient, 50000, date, groupId);
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payer);
+
+        var only = summary.Settlements.Single();
+        await Assert.That(only.Payer.UserId).IsEqualTo(payer);
+        await Assert.That(only.Payer.DisplayName).IsEqualTo($"User {payer}");
+        await Assert.That(only.Recipient.UserId).IsEqualTo(recipient);
+        await Assert.That(only.Cents).IsEqualTo(50000L);
+        await Assert.That(only.Date).IsEqualTo(date);
+        await Assert.That(only.GroupName).IsEqualTo("apartamento");
+    }
+
+    [Test]
+    public async Task GetExpensesSummaryAsync_group_filter_excludes_other_and_ungrouped_settlements()
+    {
+        var householdId = Guid.NewGuid();
+        Guid groupA = Guid.NewGuid(), groupB = Guid.NewGuid();
+        Guid payer = Guid.NewGuid(), recipient = Guid.NewGuid();
+        await InsertUsersAsync(payer, recipient);
+        await SettleAsync(householdId, payer, recipient, 100, DateTimeOffset.UtcNow, groupA);
+        await SettleAsync(householdId, payer, recipient, 200, DateTimeOffset.UtcNow, groupB);
+        await SettleAsync(householdId, payer, recipient, 300, DateTimeOffset.UtcNow);
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, payer, groupId: groupA);
+
+        await Assert.That(summary.Settlements.Single().Cents).IsEqualTo(100L);
+    }
+
+    [Test]
+    public async Task GetExpensesSummaryAsync_sets_group_name_on_expenses()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var expenseId = Guid.NewGuid();
+        await InsertUsersAsync(userId);
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "despesas-variaveis" });
+            s.Events.Append(expenseId, new ExpenseRecorded(
+                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId,
+                "Mercado", DateTimeOffset.UtcNow,
+                [new FundingSource(userId, 100)], [new Allocation(userId, 100)], userId));
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, userId);
+
+        await Assert.That(summary.Expenses.Single().GroupName).IsEqualTo("despesas-variaveis");
+    }
+
+    [Test]
+    public async Task GetExpensesSummaryAsync_leaves_group_name_null_for_unknown_group()
+    {
+        var householdId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        await InsertUsersAsync(userId);
+        await RecordAsync(householdId, userId, 100, userId);
+
+        await using var qs = Store.QuerySession();
+        var summary = await BuildSut(qs).GetExpensesSummaryAsync(householdId, userId);
+
+        await Assert.That(summary.Expenses.Single().GroupName).IsNull();
+    }
+
+    [Test]
+    public async Task GetBalancesAsync_nets_settlements_from_the_viewers_side()
+    {
+        var householdId = Guid.NewGuid();
+        Guid payerId = Guid.NewGuid(), debtorId = Guid.NewGuid();
+        await InsertUsersAsync(payerId, debtorId);
+        await RecordAsync(householdId, payerId, 1000, payerId, debtorId);
+        await SettleAsync(householdId, debtorId, payerId, 200, DateTimeOffset.UtcNow);
+
+        await using var qs = Store.QuerySession();
+        var balances = await BuildSut(qs).GetBalancesAsync(householdId, debtorId);
+
+        var only = balances.Single();
+        await Assert.That(only.UserId).IsEqualTo(payerId);
+        await Assert.That(only.Cents).IsEqualTo(-300L);
+        await Assert.That(only.DisplayName).IsEqualTo($"User {payerId}");
+    }
 }

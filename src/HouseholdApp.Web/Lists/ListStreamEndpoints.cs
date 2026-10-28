@@ -32,40 +32,43 @@ public static class ListStreamEndpoints
                 var redisChannel = RedisChannel.Literal($"list:{listId}");
                 var subject = new Subject<Unit>();
 
-                await sub.SubscribeAsync(redisChannel, (_, _) => subject.OnNext(Unit.Default));
+                // Held by reference so the finally block unsubscribes only this stream and other tabs
+                // on the same channel keep receiving updates.
+                Action<RedisChannel, RedisValue> onMessage = (_, _) => subject.OnNext(Unit.Default);
 
                 ctx.Response.Headers["Content-Type"] = "text/event-stream";
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
                 ctx.Response.Headers["X-Accel-Buffering"] = "no";
 
-                var list = await listQueries.GetAsync(listId, ct);
-                if (list is not null)
-                {
-                    var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", list);
-                    var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", list);
-                    await WriteSseAsync(ctx.Response, html + badgeHtml, ct);
-                }
-
-                using var _ = subject
-                    .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
-                    .SubscribeAwait(async (__, innerCt) =>
-                    {
-                        var current = await listQueries.GetAsync(listId, innerCt);
-                        if (current is null) return;
-                        var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", current);
-                        var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", current);
-                        await WriteSseAsync(ctx.Response, html + badgeHtml, innerCt);
-                    }, AwaitOperation.Sequential);
-
                 try
                 {
+                    await sub.SubscribeAsync(redisChannel, onMessage);
+                    var list = await listQueries.GetAsync(listId, ct);
+                    if (list is not null)
+                    {
+                        var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", list);
+                        var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", list);
+                        await WriteSseAsync(ctx.Response, html + badgeHtml, ct);
+                    }
+
+                    using var _ = subject
+                        .Debounce(TimeSpan.FromMilliseconds(10), timeProvider)
+                        .SubscribeAwait(async (__, innerCt) =>
+                        {
+                            var current = await listQueries.GetAsync(listId, innerCt);
+                            if (current is null) return;
+                            var html = await viewRender.RenderPartialAsync("~/Pages/Lists/_ItemsList.cshtml", current);
+                            var badgeHtml = await viewRender.RenderPartialAsync("~/Pages/Lists/_ListTotalBadge.cshtml", current);
+                            await WriteSseAsync(ctx.Response, html + badgeHtml, innerCt);
+                        }, AwaitOperation.Sequential);
+
                     await Task.Delay(Timeout.Infinite, ct);
                 }
                 catch (OperationCanceledException) { }
                 finally
                 {
                     subject.OnCompleted();
-                    await sub.UnsubscribeAsync(redisChannel);
+                    await sub.UnsubscribeAsync(redisChannel, onMessage);
                 }
             }).RequireAuthorization();
 

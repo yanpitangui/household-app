@@ -1151,6 +1151,32 @@ textarea.form-control { resize: vertical; }
     color: #93c5fd;
 }
 
+.expense-group-chip {
+    display: inline-flex; align-items: center;
+    font-size: 10px; font-weight: 600;
+    padding: 1px 7px; border-radius: 100px;
+    background: rgba(184,168,152,0.12);
+    border: 1px solid rgba(184,168,152,0.18);
+    color: var(--text-secondary);
+}
+
+.payment-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; margin-bottom: 8px;
+    background: #121a14;
+    border: 1px solid rgba(16,185,129,0.22);
+    border-radius: var(--radius-item);
+}
+.payment-row-icon {
+    background: rgba(16,185,129,0.14);
+    width: 30px; height: 30px; border-radius: 8px; font-size: 14px; flex-shrink: 0;
+}
+.payment-row-badge {
+    background: rgba(16,185,129,0.12);
+    color: var(--accent-tasks);
+    font-size: 12px; font-weight: 700;
+}
+
 .payer-init {
     width: 14px; height: 14px;
     border-radius: 50%;
@@ -1298,9 +1324,15 @@ textarea.form-control { resize: vertical; }
 .expenses-person-row {
     display: flex; align-items: center; gap: 10px;
 }
-.expenses-person-name { flex: 1; font-size: 13px; color: var(--text-secondary); }
-.expenses-person-amount { font-size: 13px; font-weight: 600; }
-.expenses-person-label { font-size: 10px; color: var(--text-muted); text-align: right; }
+.expenses-person-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--text-secondary); }
+.expenses-person-amount { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.expenses-settle-with {
+    font-size: 11px; font-weight: 600; color: #93c5fd;
+    border: 1px solid rgba(59,130,246,0.35); border-radius: 100px;
+    padding: 3px 9px; text-decoration: none; flex-shrink: 0;
+}
+.expenses-settle-with:hover,
+.expenses-settle-with:focus-visible { background: rgba(59,130,246,0.12); }
 
 /* Action row */
 .expenses-settle-btn {

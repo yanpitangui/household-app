@@ -7,5 +7,6 @@ namespace HouseholdApp.Web.Pages.Expenses;
 /// htmx-boosted navigation) is part of the page rather than an out-of-band swap.
 /// </summary>
 public sealed record BalanceCardViewModel(
+    Guid HouseholdId,
     IReadOnlyList<MemberBalance> Balances,
     bool OutOfBand);
