@@ -75,17 +75,20 @@ public class ListsTests(PlaywrightFixture pw)
         var firstSuggestion = page.Locator("#item-suggestions .suggestion-item").First;
         await firstSuggestion.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
         var suggestedName = await firstSuggestion.Locator("strong").InnerTextAsync();
-        await firstSuggestion.ClickAsync();
 
-        // Read all three values in one atomic JS call. selectCatalogItem fills them
-        // synchronously then auto-submits via HTMX (which resets the form on after-request).
-        // A single EvaluateAsync round-trip beats the network response; three separate
-        // Playwright calls do not.
-        var values = await page.EvaluateAsync<string[]>(@"() => [
-            document.getElementById('item-name-input').value,
-            document.getElementById('catalog-item-id').value,
-            document.getElementById('category-select-desktop').value
-        ]");
+        // selectCatalogItem fills the fields and auto-submits; the form resets after the request. Recording the
+        // fields at htmx:beforeRequest captures exactly what was submitted, whatever the network timing.
+        await page.EvaluateAsync(@"() => document.body.addEventListener('htmx:beforeRequest', e => {
+            if (e.detail.elt.id !== 'add-item-form') return;
+            window.__submittedItem = [
+                document.getElementById('item-name-input').value,
+                document.getElementById('catalog-item-id').value,
+                document.getElementById('category-select-desktop').value
+            ];
+        })");
+        await firstSuggestion.ClickAsync();
+        await page.WaitForFunctionAsync("() => window.__submittedItem !== undefined");
+        var values = await page.EvaluateAsync<string[]>("() => window.__submittedItem");
 
         await Assert.That(values[0]).IsEqualTo(suggestedName);
         await Assert.That(values[1]).IsNotEmpty();

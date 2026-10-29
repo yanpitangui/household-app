@@ -140,16 +140,19 @@ public sealed class ActivityEntryProjectionIntegrationTests(PostgresFixture db)
     [Test]
     public async Task Rebuilding_the_projection_keeps_renamed_group_names_and_rename_entries()
     {
+        // Own schema so the rebuild, which clears the activity table, never runs under the other tests.
+        var store = ExpenseDocumentStore.For(db.ConnectionString, "expenses_activity_projection_rebuild_test");
+
         var householdId = Guid.NewGuid();
         Guid ana = Guid.NewGuid(), leo = Guid.NewGuid();
         Guid trip, home;
-        await using (var s = Store.LightweightSession())
+        await using (var s = store.LightweightSession())
         {
             var sut = BuildSut(s, ana);
             trip = await sut.CreateExpenseGroupAsync(householdId, "Trip", null, "✈️");
             home = await sut.CreateExpenseGroupAsync(householdId, "Home", null);
         }
-        await using (var s = Store.LightweightSession())
+        await using (var s = store.LightweightSession())
         {
             var sut = BuildSut(s, ana);
             await sut.RecordExpenseAsync(householdId, trip, "Hotel", DateTimeOffset.UtcNow,
@@ -157,17 +160,17 @@ public sealed class ActivityEntryProjectionIntegrationTests(PostgresFixture db)
             await sut.RecordExpenseAsync(householdId, home, "Groceries", DateTimeOffset.UtcNow,
                 [new FundingSourceDto(leo, 60)], [new AllocationDto(ana, 30), new AllocationDto(leo, 30)]);
         }
-        await using (var s = Store.LightweightSession())
+        await using (var s = store.LightweightSession())
             await BuildSut(s, leo).RecordHouseholdSettlementAsync(householdId, leo, ana, 70, DateTimeOffset.UtcNow);
-        await using (var s = Store.LightweightSession())
+        await using (var s = store.LightweightSession())
             await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan", null, "🗾");
-        await using (var s = Store.LightweightSession())
+        await using (var s = store.LightweightSession())
             await BuildSut(s, ana).UpdateExpenseGroupAsync(householdId, trip, "Japan 2027", null, "🗾");
 
-        using (var daemon = await Store.BuildProjectionDaemonAsync())
+        using (var daemon = await store.BuildProjectionDaemonAsync())
             await daemon.RebuildProjectionAsync<ActivityEntryProjection>(CancellationToken.None);
 
-        await using var qs = Store.QuerySession();
+        await using var qs = store.QuerySession();
         var entries = await qs.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId).ToListAsync();
         await Assert.That(entries.Single(e => e.Description == "Hotel").GroupName).IsEqualTo("Japan 2027");
         await Assert.That(entries.Single(e => e.Description == "Groceries").GroupName).IsEqualTo("Home");
