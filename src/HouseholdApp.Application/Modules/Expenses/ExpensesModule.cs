@@ -11,7 +11,6 @@ using JasperFx;
 using JasperFx.Events.Projections;
 using Marten;
 using Marten.Events.Projections;
-using TickerQ.DependencyInjection;
 
 namespace HouseholdApp.Application.Modules.Expenses;
 
@@ -58,7 +57,6 @@ public static class ExpensesModule
         services.AddScoped<IExpenseImport, ExpenseImportService>();
         services.AddScoped<IExpenseQueries, ExpenseQueryService>();
         services.AddScoped<IActivityFeedQueries, ActivityFeedQueryService>();
-        services.AddScoped<IRecurringJobScheduler, TickerQJobScheduler>();
         services.AddEventHandler<HouseholdCreated, DefaultExpenseGroupHandler>();
         services.AddEventHandler<ExpenseRecorded, ExpensePushNotificationHandler>();
         services.AddEventHandler<ExpenseVoided, ExpensePushNotificationHandler>();
@@ -67,7 +65,7 @@ public static class ExpensesModule
         services.AddEventHandler<InstallmentPlanPaidEarly, ExpensePushNotificationHandler>();
         services.AddEventHandler<InstallmentPlanCancelled, ExpensePushNotificationHandler>();
 
-        services.MapTicker<RecurringExpenseJobs, Guid>();
+        services.AddRecurringJob<RecurringExpenseJobs>(RecurringExpenseJobs.Name);
         services.AddScheduledJob<InstallmentPlanSweepJob>(InstallmentPlanSweepJob.Name, InstallmentPlanSweepJob.Cron);
 
         return services;

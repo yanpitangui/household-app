@@ -89,25 +89,16 @@ public sealed class TaskCommandService(
         Guid? defaultAssignedTo, string cronExpression, CancellationToken ct = default)
     {
         var schedule = CronExpression.Parse(cronExpression);
+        // The cron is typed by the user, so it is checked against the scheduler before anything is saved.
+        scheduler.Validate(cronExpression);
         var nextRun = schedule.GetNextOccurrence(time.GetUtcNow(), TimeZoneInfo.Utc);
         var recurring = RecurringTask.Create(householdId, title, description, defaultAssignedTo, cronExpression, nextRun);
 
-        var schedulerJobId = await scheduler.ScheduleCronAsync(
-            RecurringTaskJobs.FunctionName, cronExpression, recurring.Id, ct);
-        recurring.SetSchedulerJobId(schedulerJobId);
+        await uow.BeginTransactionAsync(ct);
+        await repo.SaveRecurringTaskAsync(recurring, ct);
+        await uow.CommitAsync(ct);
 
-        try
-        {
-            await uow.BeginTransactionAsync(ct);
-            await repo.SaveRecurringTaskAsync(recurring, ct);
-            await uow.CommitAsync(ct);
-        }
-        catch
-        {
-            await scheduler.UnscheduleCronAsync(schedulerJobId, ct);
-            throw;
-        }
-
+        await scheduler.ScheduleAsync(RecurringTaskJobs.Name, recurring.Id, cronExpression, ct);
         return recurring.Id;
     }
 
@@ -119,10 +110,8 @@ public sealed class TaskCommandService(
 
         recurring.Deactivate();
         await repo.SaveRecurringTaskAsync(recurring, ct);
-
-        if (recurring.SchedulerJobId.HasValue)
-            await scheduler.UnscheduleCronAsync(recurring.SchedulerJobId.Value, ct);
-
         await uow.CommitAsync(ct);
+
+        await scheduler.UnscheduleAsync(RecurringTaskJobs.Name, recurringTaskId, ct);
     }
 }

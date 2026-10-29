@@ -1,13 +1,16 @@
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
-using TickerQ.Utilities.Base;
-using TickerQ.Utilities.Interfaces;
+using HouseholdApp.Application.Shared.Scheduler;
 
 namespace HouseholdApp.Application.Modules.Tasks.Infrastructure.Jobs;
 
-public sealed class RecurringTaskJobs(ITaskCommands taskCommands) : ITickerFunction<Guid>
+/// <summary>Creates the Task of a RecurringTask each time its cron fires.</summary>
+public sealed class RecurringTaskJobs(ITaskCommands taskCommands, ITaskRepository repository) : IRecurringJob
 {
-    public const string FunctionName = nameof(RecurringTaskJobs);
+    public const string Name = "RecurringTask";
 
-    public Task ExecuteAsync(TickerFunctionContext<Guid> context, CancellationToken ct) =>
-        taskCommands.SpawnRecurringTaskAsync(context.Request, ct);
+    public Task RunAsync(Guid entityId, CancellationToken ct) =>
+        taskCommands.SpawnRecurringTaskAsync(entityId, ct);
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetActiveSchedulesAsync(CancellationToken ct) =>
+        repository.GetActiveRecurringSchedulesAsync(ct);
 }

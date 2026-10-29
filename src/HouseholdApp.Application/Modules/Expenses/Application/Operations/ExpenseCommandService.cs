@@ -224,21 +224,11 @@ public sealed class ExpenseCommandService(
             ToDomain(defaultFundingSources), ToDomain(defaultAllocations),
             frequency, startAt);
 
-        var schedulerJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
-        recurring.SetSchedulerJobId(schedulerJobId);
+        await uow.BeginTransactionAsync(ct);
+        await recurringRepo.SaveAsync(recurring, ct);
+        await uow.CommitAsync(ct);
 
-        try
-        {
-            await uow.BeginTransactionAsync(ct);
-            await recurringRepo.SaveAsync(recurring, ct);
-            await uow.CommitAsync(ct);
-        }
-        catch
-        {
-            await scheduler.UnscheduleCronAsync(schedulerJobId, ct);
-            throw;
-        }
-
+        await ScheduleAsync(recurring, ct);
         return recurring.Id;
     }
 
@@ -252,27 +242,17 @@ public sealed class ExpenseCommandService(
         var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct)
             ?? throw new InvalidOperationException("Recurring expense not found.");
 
-        if (recurring.SchedulerJobId.HasValue)
-            await scheduler.UnscheduleCronAsync(recurring.SchedulerJobId.Value, ct);
-
         recurring.Update(
             frequency, startAt, description,
             ToDomain(defaultFundingSources), ToDomain(defaultAllocations));
 
-        var newJobId = await ScheduleAsync(recurring.CronExpression, recurring.Id, ct);
-        recurring.SetSchedulerJobId(newJobId);
+        await uow.BeginTransactionAsync(ct);
+        await recurringRepo.SaveAsync(recurring, ct);
+        await uow.CommitAsync(ct);
 
-        try
-        {
-            await uow.BeginTransactionAsync(ct);
-            await recurringRepo.SaveAsync(recurring, ct);
-            await uow.CommitAsync(ct);
-        }
-        catch
-        {
-            await scheduler.UnscheduleCronAsync(newJobId, ct);
-            throw;
-        }
+        // A deactivated template keeps its edits without a schedule.
+        if (recurring.IsActive)
+            await ScheduleAsync(recurring, ct);
     }
 
     private static List<FundingSource> ToDomain(IReadOnlyList<FundingSourceDto> dtos) =>
@@ -281,8 +261,9 @@ public sealed class ExpenseCommandService(
     private static List<Allocation> ToDomain(IReadOnlyList<AllocationDto> dtos) =>
         dtos.Select(a => new Allocation(a.UserId, a.Cents)).ToList();
 
-    private Task<Guid> ScheduleAsync(string cronExpression, Guid entityId, CancellationToken ct) =>
-        scheduler.ScheduleCronAsync(RecurringExpenseJobs.FunctionName, cronExpression, entityId, ct);
+    // The schedule follows the committed template; scheduling again replaces the template's previous cron.
+    private Task ScheduleAsync(RecurringExpense recurring, CancellationToken ct) =>
+        scheduler.ScheduleAsync(RecurringExpenseJobs.Name, recurring.Id, recurring.CronExpression, ct);
 
     public async Task SpawnRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default)
     {
@@ -311,10 +292,8 @@ public sealed class ExpenseCommandService(
 
         recurring.Deactivate();
         await recurringRepo.SaveAsync(recurring, ct);
-
-        if (recurring.SchedulerJobId.HasValue)
-            await scheduler.UnscheduleCronAsync(recurring.SchedulerJobId.Value, ct);
-
         await uow.CommitAsync(ct);
+
+        await scheduler.UnscheduleAsync(RecurringExpenseJobs.Name, recurringExpenseId, ct);
     }
 }

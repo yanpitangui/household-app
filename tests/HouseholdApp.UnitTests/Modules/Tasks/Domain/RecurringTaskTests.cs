@@ -35,25 +35,6 @@ public sealed class RecurringTaskTests
     }
 
     [Test]
-    public async Task Create_scheduler_job_id_is_null_by_default()
-    {
-        var task = Valid();
-
-        await Assert.That(task.SchedulerJobId).IsNull();
-    }
-
-    [Test]
-    public async Task SetSchedulerJobId_stores_id()
-    {
-        var task = Valid();
-        var jobId = Guid.NewGuid();
-
-        task.SetSchedulerJobId(jobId);
-
-        await Assert.That(task.SchedulerJobId).IsEqualTo(jobId);
-    }
-
-    [Test]
     public async Task Deactivate_sets_is_active_false()
     {
         var task = Valid();
@@ -77,16 +58,14 @@ public sealed class RecurringTaskTests
     public async Task Rehydrate_roundtrips_all_properties()
     {
         var id = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
         var nextRun = DateTimeOffset.UtcNow.AddHours(1);
 
         var task = RecurringTask.Rehydrate(
-            id, HouseholdId, "Clean", "Desc", UserId, "0 9 * * *", false, nextRun, jobId);
+            id, HouseholdId, "Clean", "Desc", UserId, "0 9 * * *", false, nextRun);
 
         await Assert.That(task.Id).IsEqualTo(id);
         await Assert.That(task.HouseholdId).IsEqualTo(HouseholdId);
         await Assert.That(task.IsActive).IsFalse();
-        await Assert.That(task.SchedulerJobId).IsEqualTo(jobId);
         await Assert.That(task.NextRunAt).IsEqualTo(nextRun);
     }
 }

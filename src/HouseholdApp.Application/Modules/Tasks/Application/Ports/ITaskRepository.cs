@@ -8,5 +8,8 @@ public interface ITaskRepository
     Task<HouseholdTask?> GetTaskAsync(Guid taskId, CancellationToken ct = default);
     Task SaveRecurringTaskAsync(RecurringTask task, CancellationToken ct = default);
     Task<RecurringTask?> GetRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default);
+
+    /// <summary>Cron of every active RecurringTask, by id.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetActiveRecurringSchedulesAsync(CancellationToken ct = default);
     Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default);
 }

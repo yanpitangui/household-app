@@ -17,13 +17,15 @@ public sealed class ThrowingRecurringExpenseRepository : IRecurringExpenseReposi
 {
     public Task<RecurringExpense?> GetAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
     public Task SaveAsync(RecurringExpense expense, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<IReadOnlyDictionary<Guid, string>> GetActiveSchedulesAsync(CancellationToken ct = default) => throw new NotSupportedException();
 }
 
 public sealed class ThrowingRecurringJobScheduler : IRecurringJobScheduler
 {
-    public Task<Guid> ScheduleCronAsync(string functionName, string cronExpression, Guid entityId, CancellationToken ct = default) =>
+    public Task ScheduleAsync(string jobName, Guid entityId, string cronExpression, CancellationToken ct = default) =>
         throw new NotSupportedException();
-    public Task UnscheduleCronAsync(Guid schedulerJobId, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task UnscheduleAsync(string jobName, Guid entityId, CancellationToken ct = default) => throw new NotSupportedException();
+    public void Validate(string cronExpression) => throw new NotSupportedException();
 }
 
 public sealed class ThrowingUnitOfWork : IUnitOfWork

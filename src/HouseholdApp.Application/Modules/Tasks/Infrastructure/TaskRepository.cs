@@ -46,17 +46,16 @@ internal sealed class TaskRepository(IUnitOfWork uow) : ITaskRepository
         var conn = await uow.GetConnectionAsync(ct);
         await conn.ExecuteAsync(
             """
-            INSERT INTO tasks.recurring_tasks (id, household_id, title, description, default_assigned_to, cron_expression, is_active, next_run_at, scheduler_job_id)
-            VALUES (@Id, @HouseholdId, @Title, @Description, @DefaultAssignedTo, @CronExpression, @IsActive, @NextRunAt, @SchedulerJobId)
+            INSERT INTO tasks.recurring_tasks (id, household_id, title, description, default_assigned_to, cron_expression, is_active, next_run_at)
+            VALUES (@Id, @HouseholdId, @Title, @Description, @DefaultAssignedTo, @CronExpression, @IsActive, @NextRunAt)
             ON CONFLICT (id) DO UPDATE
-                SET is_active        = EXCLUDED.is_active,
-                    next_run_at      = EXCLUDED.next_run_at,
-                    scheduler_job_id = EXCLUDED.scheduler_job_id
+                SET is_active   = EXCLUDED.is_active,
+                    next_run_at = EXCLUDED.next_run_at
             """,
             new
             {
                 task.Id, task.HouseholdId, task.Title, task.Description,
-                task.DefaultAssignedTo, task.CronExpression, task.IsActive, task.NextRunAt, task.SchedulerJobId
+                task.DefaultAssignedTo, task.CronExpression, task.IsActive, task.NextRunAt
             },
             uow.CurrentTransaction);
     }
@@ -65,9 +64,18 @@ internal sealed class TaskRepository(IUnitOfWork uow) : ITaskRepository
     {
         var conn = await uow.GetConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<RecurringTask>(
-            "SELECT id, household_id, title, description, default_assigned_to, cron_expression, is_active, next_run_at, scheduler_job_id FROM tasks.recurring_tasks WHERE id = @recurringTaskId",
+            "SELECT id, household_id, title, description, default_assigned_to, cron_expression, is_active, next_run_at FROM tasks.recurring_tasks WHERE id = @recurringTaskId",
             new { recurringTaskId },
             uow.CurrentTransaction);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetActiveRecurringSchedulesAsync(CancellationToken ct = default)
+    {
+        var conn = await uow.GetConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(Guid Id, string CronExpression)>(
+            "SELECT id, cron_expression FROM tasks.recurring_tasks WHERE is_active",
+            transaction: uow.CurrentTransaction);
+        return rows.ToDictionary(r => r.Id, r => r.CronExpression);
     }
 
     public async Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default)

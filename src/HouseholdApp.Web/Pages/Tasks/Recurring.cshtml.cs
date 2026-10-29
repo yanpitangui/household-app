@@ -44,8 +44,17 @@ public class RecurringTasksModel(
             return Page();
         }
 
-        await taskCommands.CreateRecurringTaskAsync(
-            HouseholdId, NewTitle, NewDescription, NewAssignedTo, NewCronExpression);
+        try
+        {
+            await taskCommands.CreateRecurringTaskAsync(
+                HouseholdId, NewTitle, NewDescription, NewAssignedTo, NewCronExpression);
+        }
+        catch (FormatException)
+        {
+            ModelState.AddModelError(nameof(NewCronExpression), Loc["Tasks.CronInvalid"].Value);
+            await Load();
+            return Page();
+        }
 
         TempData["Success"] = Loc["Flash.RecurringTaskCreated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });

@@ -13,7 +13,6 @@ public sealed class RecurringExpense
     public DateTimeOffset StartAt { get; private set; }
     public bool IsActive { get; private set; }
     public DateTimeOffset? NextRunAt { get; private set; }
-    public Guid? SchedulerJobId { get; private set; }
 
     private RecurringExpense() { }
 
@@ -59,7 +58,7 @@ public sealed class RecurringExpense
     public static RecurringExpense Rehydrate(
         Guid id, Guid householdId, Guid expenseGroupId, string description,
         RecurrenceFrequency frequency, DateTimeOffset startAt,
-        bool isActive, Guid? schedulerJobId,
+        bool isActive,
         IReadOnlyList<FundingSource> defaultFundingSources,
         IReadOnlyList<Allocation> defaultAllocations) =>
         new()
@@ -72,7 +71,6 @@ public sealed class RecurringExpense
             StartAt = startAt,
             CronExpression = ComputeCron(frequency, startAt),
             IsActive = isActive,
-            SchedulerJobId = schedulerJobId,
             DefaultFundingSources = defaultFundingSources,
             DefaultAllocations = defaultAllocations
         };
@@ -91,6 +89,5 @@ public sealed class RecurringExpense
     }
 
     public void UpdateNextRun(DateTimeOffset next) => NextRunAt = next;
-    public void SetSchedulerJobId(Guid id) => SchedulerJobId = id;
     public void Deactivate() => IsActive = false;
 }

@@ -20,6 +20,7 @@ using HouseholdApp.Application.Modules.Recipes.Domain;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
+using HouseholdApp.Application.Shared.Scheduler;
 using HouseholdApp.Web.Lists;
 using HouseholdApp.Web.Tasks;
 using HouseholdApp.Web.Recipes;
@@ -36,10 +37,9 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Quartz;
+using Quartz.Diagnostics;
 using StackExchange.Redis;
-using TickerQ.Caching.StackExchangeRedis.DependencyInjection;
-using TickerQ.Dashboard.DependencyInjection;
-using TickerQ.DependencyInjection;
 using Valtuutus.Core.Configuration;
 using Valtuutus.Data.Caching;
 using Valtuutus.Data.Postgres;
@@ -97,6 +97,7 @@ builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client 
 var connStr = builder.Configuration.GetConnectionString("householdapp")
     ?? throw new InvalidOperationException("Missing connection string 'householdapp'");
 builder.Services.AddExpensesModule(connStr);
+builder.Services.AddScheduler(connStr);
 builder.Services.AddEventHandler<ExpenseRecorded, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<ExpenseVoided, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<SettlementRecorded, ExpenseRealtimeNotifier>();
@@ -143,12 +144,13 @@ builder.Services.AddOpenTelemetry()
             o.IncludeMemoryLevel = true;
             o.IncludeDistributedLevel = true;
             o.IncludeBackplane = true;
-        }))
-    .WithMetrics(metrics => metrics.AddFusionCacheInstrumentation());
+        })
+        .AddSource(QuartzInstrumentation.ActivitySourceName))
+    .WithMetrics(metrics => metrics
+        .AddFusionCacheInstrumentation()
+        .AddMeter(QuartzInstrumentation.MeterName));
 
-builder.Services.AddTickerQ(options => options
-    .AddStackExchangeRedis(redis => redis.ConnectionMultiplexer = redisMultiplexer)
-    .AddDashboard(dashboard => dashboard.WithHostAuthentication("TickerQAdmin")));
+builder.Services.AddQuartzDashboard(options => options.AuthorizationPolicy = SchedulerAdminPolicy);
 
 builder.Services.AddAuthentication(options =>
     {
@@ -224,7 +226,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("TickerQAdmin", policy =>
+    options.AddPolicy(SchedulerAdminPolicy, policy =>
         policy.RequireAuthenticatedUser()
               .RequireAssertion(ctx =>
               {
@@ -304,7 +306,7 @@ app.UseRequestLocalization(options =>
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseTickerQ();
+app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
@@ -313,6 +315,7 @@ app.MapTaskStream();
 app.MapRecipeStream();
 app.MapExpenseStream();
 app.MapPushSubscriptions();
+app.MapQuartzDashboard().RequireAuthorization(SchedulerAdminPolicy);
 app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 {
     var props = new AuthenticationProperties { RedirectUri = returnUrl ?? "/" };
@@ -321,3 +324,9 @@ app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 
 // With no arguments this starts the web app; with a command (e.g. "projections") it runs it and exits.
 return await app.RunJasperFxCommands(args);
+
+public partial class Program
+{
+    /// <summary>Admins listed in the <c>Admins</c> config (emails) reach the scheduler dashboard at <c>/quartz</c>.</summary>
+    private const string SchedulerAdminPolicy = "SchedulerAdmin";
+}

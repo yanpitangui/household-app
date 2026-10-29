@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
@@ -34,9 +35,6 @@ public sealed class ExpenseCommandServiceRecurringTests
 
     public ExpenseCommandServiceRecurringTests()
     {
-        _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Guid.NewGuid());
-
         _currentUser.Id.Returns(UserId);
         _session.LoadAsync<ExpenseGroupDocument>(GroupId, Arg.Any<CancellationToken>())
             .Returns(new ExpenseGroupDocument { Id = GroupId, HouseholdId = HouseholdId, Name = "Home" });
@@ -59,7 +57,7 @@ public sealed class ExpenseCommandServiceRecurringTests
                 Guid.NewGuid(), GroupId, "Monthly rent", RecurrenceFrequency.Monthly, BaseTime.AddDays(1), DefaultFunding, DefaultAllocs))
             .Throws<InvalidOperationException>();
 
-        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleCronAsync(default!, default!, default, default);
+        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
     }
 
     [Test]
@@ -71,60 +69,55 @@ public sealed class ExpenseCommandServiceRecurringTests
         await _sut.CreateRecurringExpenseAsync(
             HouseholdId, GroupId, "Weekly shop", RecurrenceFrequency.Weekly, startAt, DefaultFunding, DefaultAllocs);
 
-        await _scheduler.Received(1).ScheduleCronAsync(
-            Arg.Any<string>(), expectedCron, Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _scheduler.Received(1).ScheduleAsync(
+            RecurringExpenseJobs.Name, Arg.Any<Guid>(), expectedCron, Arg.Any<CancellationToken>());
     }
 
     [Test]
     public async Task CreateRecurringExpenseAsync_monthly_cron_uses_day_of_month()
     {
         var startAt = new DateTimeOffset(2026, 6, 16, 14, 0, 0, TimeSpan.Zero);
-        var expectedCron = "0 14 16 * *";
 
         await _sut.CreateRecurringExpenseAsync(
             HouseholdId, GroupId, "Rent", RecurrenceFrequency.Monthly, startAt, DefaultFunding, DefaultAllocs);
 
-        await _scheduler.Received(1).ScheduleCronAsync(
-            Arg.Any<string>(), expectedCron, Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _scheduler.Received(1).ScheduleAsync(
+            RecurringExpenseJobs.Name, Arg.Any<Guid>(), "0 14 16 * *", Arg.Any<CancellationToken>());
     }
 
     [Test]
     public async Task CreateRecurringExpenseAsync_annually_cron_uses_day_and_month()
     {
         var startAt = new DateTimeOffset(2026, 6, 16, 8, 0, 0, TimeSpan.Zero);
-        var expectedCron = "0 8 16 6 *";
 
         await _sut.CreateRecurringExpenseAsync(
             HouseholdId, GroupId, "Annual fee", RecurrenceFrequency.Annually, startAt, DefaultFunding, DefaultAllocs);
 
-        await _scheduler.Received(1).ScheduleCronAsync(
-            Arg.Any<string>(), expectedCron, Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _scheduler.Received(1).ScheduleAsync(
+            RecurringExpenseJobs.Name, Arg.Any<Guid>(), "0 8 16 6 *", Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task CreateRecurringExpenseAsync_saves_recurring_expense_with_scheduler_job_id()
+    public async Task CreateRecurringExpenseAsync_schedules_the_saved_template_after_commit()
     {
-        var jobId = Guid.NewGuid();
-        _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(jobId);
-
         RecurringExpense? saved = null;
         _recurringRepo.When(r => r.SaveAsync(Arg.Any<RecurringExpense>(), Arg.Any<CancellationToken>()))
             .Do(ci => saved = ci.Arg<RecurringExpense>());
 
-        await _sut.CreateRecurringExpenseAsync(
+        var id = await _sut.CreateRecurringExpenseAsync(
             HouseholdId, GroupId, "Monthly rent", RecurrenceFrequency.Monthly, BaseTime.AddDays(15), DefaultFunding, DefaultAllocs);
 
-        await Assert.That(saved).IsNotNull();
-        await Assert.That(saved!.SchedulerJobId).IsEqualTo(jobId);
+        await Assert.That(saved!.Id).IsEqualTo(id);
+        Received.InOrder(() =>
+        {
+            _uow.CommitAsync(Arg.Any<CancellationToken>());
+            _scheduler.ScheduleAsync(RecurringExpenseJobs.Name, id, saved.CronExpression, Arg.Any<CancellationToken>());
+        });
     }
 
     [Test]
-    public async Task CreateRecurringExpenseAsync_unschedules_job_when_db_save_fails()
+    public async Task CreateRecurringExpenseAsync_does_not_schedule_when_db_save_fails()
     {
-        var jobId = Guid.NewGuid();
-        _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(jobId);
         _uow.CommitAsync(Arg.Any<CancellationToken>())
             .Returns<Task>(_ => Task.FromException(new InvalidOperationException("DB error")));
 
@@ -132,46 +125,54 @@ public sealed class ExpenseCommandServiceRecurringTests
                 HouseholdId, GroupId, "Monthly rent", RecurrenceFrequency.Monthly, BaseTime.AddDays(15), DefaultFunding, DefaultAllocs))
             .Throws<InvalidOperationException>();
 
-        await _scheduler.Received(1).UnscheduleCronAsync(jobId, Arg.Any<CancellationToken>());
+        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
     }
 
     [Test]
-    public async Task UpdateRecurringExpenseAsync_unschedules_old_job_and_schedules_new()
+    public async Task UpdateRecurringExpenseAsync_reschedules_the_template_with_its_new_cron()
     {
-        var oldJobId = Guid.NewGuid();
-        var newJobId = Guid.NewGuid();
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            true, oldJobId,
+            true,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
-        _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(newJobId);
 
         await _sut.UpdateRecurringExpenseAsync(
-            recurring.Id, "Rent updated", RecurrenceFrequency.Annually, BaseTime.AddYears(1),
+            recurring.Id, "Rent updated", RecurrenceFrequency.Annually, new DateTimeOffset(2027, 6, 16, 8, 0, 0, TimeSpan.Zero),
             DefaultFunding, DefaultAllocs);
 
-        await _scheduler.Received(1).UnscheduleCronAsync(oldJobId, Arg.Any<CancellationToken>());
-        await _scheduler.Received(1).ScheduleCronAsync(
-            Arg.Any<string>(), Arg.Any<string>(), recurring.Id, Arg.Any<CancellationToken>());
-        await Assert.That(recurring.SchedulerJobId).IsEqualTo(newJobId);
+        await _scheduler.Received(1).ScheduleAsync(
+            RecurringExpenseJobs.Name, recurring.Id, "0 8 16 6 *", Arg.Any<CancellationToken>());
+        await _scheduler.DidNotReceiveWithAnyArgs().UnscheduleAsync(default!, default, default);
     }
 
     [Test]
-    public async Task UpdateRecurringExpenseAsync_unschedules_new_job_when_db_fails()
+    public async Task UpdateRecurringExpenseAsync_saves_an_inactive_template_without_scheduling_it()
     {
-        var oldJobId = Guid.NewGuid();
-        var newJobId = Guid.NewGuid();
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            true, oldJobId,
+            false,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
-        _scheduler.ScheduleCronAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(newJobId);
+
+        await _sut.UpdateRecurringExpenseAsync(
+            recurring.Id, "Rent updated", RecurrenceFrequency.Monthly, BaseTime, DefaultFunding, DefaultAllocs);
+
+        await _recurringRepo.Received(1).SaveAsync(recurring, Arg.Any<CancellationToken>());
+        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
+    }
+
+    [Test]
+    public async Task UpdateRecurringExpenseAsync_keeps_the_old_schedule_when_db_fails()
+    {
+        var recurring = RecurringExpense.Rehydrate(
+            Guid.NewGuid(), HouseholdId, GroupId, "Rent",
+            RecurrenceFrequency.Monthly, BaseTime,
+            true,
+            [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
+        _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
         _uow.CommitAsync(Arg.Any<CancellationToken>())
             .Returns<Task>(_ => Task.FromException(new InvalidOperationException("DB error")));
 
@@ -180,7 +181,7 @@ public sealed class ExpenseCommandServiceRecurringTests
                 DefaultFunding, DefaultAllocs))
             .Throws<InvalidOperationException>();
 
-        await _scheduler.Received(1).UnscheduleCronAsync(newJobId, Arg.Any<CancellationToken>());
+        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
     }
 
     [Test]
@@ -208,34 +209,40 @@ public sealed class ExpenseCommandServiceRecurringTests
     }
 
     [Test]
-    public async Task DeactivateRecurringExpenseAsync_unschedules_when_scheduler_job_exists()
+    public async Task DeactivateRecurringExpenseAsync_unschedules_after_commit()
     {
-        var jobId = Guid.NewGuid();
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            true, jobId,
+            true,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
 
         await _sut.DeactivateRecurringExpenseAsync(recurring.Id);
 
-        await _scheduler.Received(1).UnscheduleCronAsync(jobId, Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _uow.CommitAsync(Arg.Any<CancellationToken>());
+            _scheduler.UnscheduleAsync(RecurringExpenseJobs.Name, recurring.Id, Arg.Any<CancellationToken>());
+        });
     }
 
     [Test]
-    public async Task DeactivateRecurringExpenseAsync_skips_unschedule_when_no_scheduler_job()
+    public async Task DeactivateRecurringExpenseAsync_keeps_the_schedule_when_db_fails()
     {
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            true, null,
+            true,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
+        _uow.CommitAsync(Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => Task.FromException(new InvalidOperationException("DB error")));
 
-        await _sut.DeactivateRecurringExpenseAsync(recurring.Id);
+        await Assert.That(async () => await _sut.DeactivateRecurringExpenseAsync(recurring.Id))
+            .Throws<InvalidOperationException>();
 
-        await _scheduler.DidNotReceive().UnscheduleCronAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _scheduler.DidNotReceiveWithAnyArgs().UnscheduleAsync(default!, default, default);
     }
 
     [Test]
@@ -255,7 +262,7 @@ public sealed class ExpenseCommandServiceRecurringTests
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            false, null,
+            false,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
 
@@ -270,7 +277,7 @@ public sealed class ExpenseCommandServiceRecurringTests
         var recurring = RecurringExpense.Rehydrate(
             Guid.NewGuid(), HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            true, null,
+            true,
             [new FundingSource(UserId, 100_00)], [new Allocation(UserId, 100_00)]);
         _recurringRepo.GetAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
 

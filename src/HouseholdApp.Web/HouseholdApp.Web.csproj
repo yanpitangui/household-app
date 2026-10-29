@@ -14,7 +14,7 @@
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="R3" />
     <PackageReference Include="StackExchange.Redis" />
-    <PackageReference Include="TickerQ.Dashboard" />
+    <PackageReference Include="Quartz.Dashboard" />
     <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" />
     <PackageReference Include="ZiggyCreatures.FusionCache.OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" />

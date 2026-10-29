@@ -170,6 +170,7 @@
   <data name="Tasks.NewRecurring"><value>Nova tarefa recorrente</value></data>
   <data name="Tasks.RecurringTitle"><value>Tarefas recorrentes</value></data>
   <data name="Tasks.CronExpression"><value>Expressão cron</value></data>
+  <data name="Tasks.CronInvalid"><value>Use um cron de 5 campos: minuto hora dia-do-mês mês dia-da-semana (ex.: 0 9 * * 1).</value></data>
   <data name="Tasks.DescriptionOptional"><value>Descrição (opcional)</value></data>
   <data name="Tasks.Active"><value>Ativa</value></data>
   <data name="Tasks.Inactive"><value>Inativa</value></data>
