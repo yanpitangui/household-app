@@ -42,6 +42,17 @@ public sealed class ActivityEntry
 // published type, which lets Marten create its table at startup and clear it on rebuild.
 public sealed partial class ActivityEntryProjection : EventProjection
 {
+    // The allow list keeps a rebuild to these events, so rows of event types a deployment removed stay unread.
+    public ActivityEntryProjection()
+    {
+        IncludeType<ExpenseRecorded>();
+        IncludeType<ExpenseVoided>();
+        IncludeType<SettlementRecorded>();
+        IncludeType<ExpenseGroupUpdated>();
+        IncludeType<ExpenseGroupDeleted>();
+        IncludeType<ExpenseGroupRestored>();
+    }
+
     public override async ValueTask ApplyAsync(IDocumentOperations operations, IEvent e, CancellationToken cancellation)
     {
         switch (e.Data)
