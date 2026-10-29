@@ -47,6 +47,8 @@
     <script src="~/lib/htmx/htmx.min.js"></script>
     <script src="~/lib/htmx-ext-sse/sse.js"></script>
     <script src="~/lib/idiomorph/idiomorph-ext.min.js"></script>
+    @* Bootstrap lives in <head> so it runs once per full load: hx-boost re-runs <body> scripts, and a second copy registers its own data-api handlers that toggle every dropdown shut again. *@
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 @{
     var householdId = Context.GetRouteValue("householdId")?.ToString()
@@ -226,7 +228,6 @@
     </div>
 </dialog>
 
-<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
 <script>
     if (typeof initAppSelects === 'function') initAppSelects();

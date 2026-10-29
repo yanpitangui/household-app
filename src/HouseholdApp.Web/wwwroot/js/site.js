@@ -2,12 +2,19 @@ window.householdApp ??= {};
 window.householdApp.appSelectId ??= 0;
 
 // SSE lists are morphed in place, so classes the client toggles for view state (an expanded expense
-// row, hidden done items) are carried onto the incoming markup and survive server re-renders.
+// row, hidden done items) are carried onto the incoming markup and survive server re-renders. An open
+// Bootstrap dropdown carries its show state and Popper position too, so a live update leaves it open.
 Idiomorph.defaults.callbacks.beforeNodeMorphed = function (oldNode, newNode) {
     if (oldNode instanceof Element && newNode instanceof Element) {
         ['expanded', 'done-hidden', 'show-all'].forEach(function (cls) {
             if (oldNode.classList.contains(cls)) newNode.classList.add(cls);
         });
+        if (oldNode.matches('.dropdown-menu.show, [data-bs-toggle="dropdown"].show')) {
+            newNode.classList.add('show');
+            ['style', 'aria-expanded', 'data-popper-placement', 'data-bs-popper'].forEach(function (attr) {
+                if (oldNode.hasAttribute(attr)) newNode.setAttribute(attr, oldNode.getAttribute(attr));
+            });
+        }
     }
     return true;
 };
