@@ -13,8 +13,8 @@
     <PackageReference Include="Marten" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Scrutor" />
-    <PackageReference Include="TickerQ" />
-    <PackageReference Include="TickerQ.Caching.StackExchangeRedis" />
+    <PackageReference Include="Quartz" />
+    <PackageReference Include="Quartz.Weasel.PostgreSQL" />
     <PackageReference Include="Valtuutus.Data.Caching" />
     <PackageReference Include="Valtuutus.Data.Postgres" />
     <PackageReference Include="Valtuutus.Lang.SourceGen" />
@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HouseholdApp.UnitTests" />
+    <InternalsVisibleTo Include="HouseholdApp.IntegrationTests" />
   </ItemGroup>
 
 </Project>

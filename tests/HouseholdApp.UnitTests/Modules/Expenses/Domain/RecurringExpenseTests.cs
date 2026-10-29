@@ -118,17 +118,6 @@ public sealed class RecurringExpenseTests
     }
 
     [Test]
-    public async Task SetSchedulerJobId_stores_id()
-    {
-        var recurring = Valid();
-        var jobId = Guid.NewGuid();
-
-        recurring.SetSchedulerJobId(jobId);
-
-        await Assert.That(recurring.SchedulerJobId).IsEqualTo(jobId);
-    }
-
-    [Test]
     public async Task Update_recomputes_cron_and_updates_all_fields()
     {
         var recurring = Valid(RecurrenceFrequency.Monthly, BaseTime);
@@ -150,12 +139,11 @@ public sealed class RecurringExpenseTests
     public async Task Rehydrate_roundtrips_all_properties()
     {
         var id = Guid.NewGuid();
-        var schedulerJobId = Guid.NewGuid();
 
         var recurring = RecurringExpense.Rehydrate(
             id, HouseholdId, GroupId, "Rent",
             RecurrenceFrequency.Monthly, BaseTime,
-            false, schedulerJobId,
+            false,
             [new FundingSource(UserId, 5000)],
             [new Allocation(UserId, 5000)]);
 
@@ -164,7 +152,6 @@ public sealed class RecurringExpenseTests
         await Assert.That(recurring.Frequency).IsEqualTo(RecurrenceFrequency.Monthly);
         await Assert.That(recurring.StartAt).IsEqualTo(BaseTime);
         await Assert.That(recurring.IsActive).IsFalse();
-        await Assert.That(recurring.SchedulerJobId).IsEqualTo(schedulerJobId);
         await Assert.That(recurring.DefaultFundingSources[0].Cents).IsEqualTo(5000L);
     }
 }

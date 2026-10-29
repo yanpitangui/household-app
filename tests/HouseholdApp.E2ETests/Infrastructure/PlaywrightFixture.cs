@@ -87,13 +87,15 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
 
     public async Task<IBrowserContext> NewAuthenticatedContextAsync(E2EUser user = E2EUser.Owner)
     {
+        // Saved when the test disposes the context; FailureVideos keeps only the failing tests' videos. Playwright takes a
+        // video size only together with a video directory, which exists only when E2E_VIDEO_DIR is set.
+        var videoDir = FailureVideos.DirectoryForCurrentTest();
         return await _browser!.NewContextAsync(new BrowserNewContextOptions
         {
             StorageStatePath = _storageStatePaths[user],
             IgnoreHTTPSErrors = true,
-            // Saved when the test disposes the context; FailureVideos keeps only the failing tests' videos.
-            RecordVideoDir = FailureVideos.DirectoryForCurrentTest(),
-            RecordVideoSize = new RecordVideoSize { Width = 640, Height = 480 },
+            RecordVideoDir = videoDir,
+            RecordVideoSize = videoDir is null ? null : new RecordVideoSize { Width = 640, Height = 480 },
         });
     }
 

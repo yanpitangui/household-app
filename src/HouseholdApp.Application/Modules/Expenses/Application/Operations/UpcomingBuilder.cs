@@ -1,7 +1,7 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
-using NCrontab;
+using Cronos;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
@@ -44,9 +44,9 @@ public static class UpcomingBuilder
         foreach (var template in templates)
         {
             // A row with an unreadable cron is skipped so one bad template never breaks the Expenses page.
-            if (CrontabSchedule.TryParse(template.CronExpression) is not { } schedule) continue;
+            if (!CronExpression.TryParse(template.CronExpression, out var schedule)) continue;
             var dates = schedule
-                .GetNextOccurrences(now.UtcDateTime, end.ToDateTime(TimeOnly.MinValue))
+                .GetOccurrences(now.UtcDateTime, end.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), fromInclusive: false)
                 .Select(DateOnly.FromDateTime)
                 .ToList();
             if (dates.Count == 0) continue;

@@ -10,7 +10,6 @@ public sealed class RecurringTask
     public string CronExpression { get; private set; } = default!;
     public bool IsActive { get; private set; }
     public DateTimeOffset? NextRunAt { get; private set; }
-    public Guid? SchedulerJobId { get; private set; }
 
     private RecurringTask() { }
 
@@ -31,7 +30,7 @@ public sealed class RecurringTask
     public static RecurringTask Rehydrate(
         Guid id, Guid householdId, string title, string? description,
         Guid? defaultAssignedTo, string cronExpression,
-        bool isActive, DateTimeOffset? nextRunAt, Guid? schedulerJobId) => new()
+        bool isActive, DateTimeOffset? nextRunAt) => new()
     {
         Id = id,
         HouseholdId = householdId,
@@ -40,8 +39,7 @@ public sealed class RecurringTask
         DefaultAssignedTo = defaultAssignedTo,
         CronExpression = cronExpression,
         IsActive = isActive,
-        NextRunAt = nextRunAt,
-        SchedulerJobId = schedulerJobId
+        NextRunAt = nextRunAt
     };
 
     public HouseholdTask Spawn(DateTimeOffset now) =>
@@ -49,5 +47,4 @@ public sealed class RecurringTask
 
     public void UpdateNextRun(DateTimeOffset nextRunAt) => NextRunAt = nextRunAt;
     public void Deactivate() => IsActive = false;
-    public void SetSchedulerJobId(Guid id) => SchedulerJobId = id;
 }

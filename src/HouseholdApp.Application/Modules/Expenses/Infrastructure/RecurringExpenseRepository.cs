@@ -14,7 +14,7 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
         var row = await conn.QuerySingleOrDefaultAsync<RecurringExpenseRow>(
             """
             SELECT id, household_id, expense_group_id, description,
-                   recurrence_frequency, start_at, is_active, scheduler_job_id,
+                   recurrence_frequency, start_at, is_active,
                    funding_sources, allocations
             FROM expenses.recurring_expenses WHERE id = @id
             """,
@@ -31,18 +31,17 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
             INSERT INTO expenses.recurring_expenses
                 (id, household_id, expense_group_id, description,
                  recurrence_frequency, start_at, cron_expression,
-                 is_active, scheduler_job_id, funding_sources, allocations)
+                 is_active, funding_sources, allocations)
             VALUES
                 (@Id, @HouseholdId, @ExpenseGroupId, @Description,
                  @RecurrenceFrequency, @StartAt, @CronExpression,
-                 @IsActive, @SchedulerJobId, @FundingSources::jsonb, @Allocations::jsonb)
+                 @IsActive, @FundingSources::jsonb, @Allocations::jsonb)
             ON CONFLICT (id) DO UPDATE
                 SET description          = EXCLUDED.description,
                     recurrence_frequency = EXCLUDED.recurrence_frequency,
                     start_at             = EXCLUDED.start_at,
                     cron_expression      = EXCLUDED.cron_expression,
                     is_active            = EXCLUDED.is_active,
-                    scheduler_job_id     = EXCLUDED.scheduler_job_id,
                     funding_sources      = EXCLUDED.funding_sources,
                     allocations          = EXCLUDED.allocations
             """,
@@ -56,17 +55,25 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
                 expense.StartAt,
                 expense.CronExpression,
                 expense.IsActive,
-                expense.SchedulerJobId,
                 FundingSources = JsonSerializer.Serialize(expense.DefaultFundingSources),
                 Allocations    = JsonSerializer.Serialize(expense.DefaultAllocations)
             },
             uow.CurrentTransaction);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetActiveSchedulesAsync(CancellationToken ct = default)
+    {
+        var conn = await uow.GetConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(Guid Id, string CronExpression)>(
+            "SELECT id, cron_expression FROM expenses.recurring_expenses WHERE is_active",
+            transaction: uow.CurrentTransaction);
+        return rows.ToDictionary(r => r.Id, r => r.CronExpression);
+    }
+
     private sealed record RecurringExpenseRow(
         Guid Id, Guid HouseholdId, Guid ExpenseGroupId,
         string Description, string RecurrenceFrequency, DateTimeOffset StartAt,
-        bool IsActive, Guid? SchedulerJobId, string FundingSources, string Allocations)
+        bool IsActive, string FundingSources, string Allocations)
     {
         public RecurringExpense ToDomain()
         {
@@ -74,7 +81,7 @@ internal sealed class RecurringExpenseRepository(IUnitOfWork uow) : IRecurringEx
             var sources   = JsonSerializer.Deserialize<List<FundingSource>>(FundingSources) ?? [];
             var allocs    = JsonSerializer.Deserialize<List<Allocation>>(Allocations) ?? [];
             return RecurringExpense.Rehydrate(Id, HouseholdId, ExpenseGroupId, Description,
-                frequency, StartAt, IsActive, SchedulerJobId, sources, allocs);
+                frequency, StartAt, IsActive, sources, allocs);
         }
     }
 }
