@@ -58,8 +58,10 @@ jobs:
       - name: Restore
         run: dotnet restore tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj
 
+      # Release so the web app Aspire launches (same configuration as the test build) runs optimized code
+      # on the small runner, where test execution dominates the job.
       - name: Test
-        run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore
+        run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore -c Release
         env:
           # Failing tests keep a video of each browser context here (passing tests' videos are deleted).
           E2E_VIDEO_DIR: ${{ github.workspace }}/e2e-videos
@@ -78,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-report
-          path: tests/HouseholdApp.E2ETests/bin/Debug/net11.0/TestResults/*.html
+          path: TestResults/*.html
           retention-days: 14
 
   docker:
