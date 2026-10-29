@@ -422,7 +422,6 @@
   <data name="Expenses.GroupIcon.Invalid"><value>Use a single emoji.</value></data>
   <data name="Expenses.Activity.GroupRenamed"><value>{0} renamed group &apos;{1}&apos; to &apos;{2}&apos;.</value></data>
   <data name="Flash.GroupUpdated"><value>Group updated.</value></data>
-  <data name="Expenses.Repeat"><value>Repeat</value></data>
   <data name="Expenses.Repeat.Once"><value>Once</value></data>
   <data name="Expenses.Repeat.Installments"><value>Installments</value></data>
   <data name="Expenses.Repeat.Recurring"><value>Recurring</value></data>
@@ -465,6 +464,7 @@
   <data name="Expenses.Plan.CancelTitle"><value>Cancel plan?</value></data>
   <data name="Expenses.Plan.CancelSub"><value>Installments {0} ({1}) won&apos;t be created.</value></data>
   <data name="Expenses.Plan.CancelVoid"><value>Also void the {0} installments already created ({1})</value></data>
+  <data name="Expenses.Plan.CancelVoidOne"><value>Also void what&apos;s already been created ({0})</value></data>
   <data name="Expenses.Plan.CancelHint"><value>For a full refund or a plan recorded by mistake.</value></data>
   <data name="Expenses.Plan.Keep"><value>Keep plan</value></data>
   <data name="Expenses.Plan.NotFound"><value>Installment plan not found.</value></data>
@@ -489,6 +489,14 @@
   <data name="Expenses.Activity.InstallmentAdded"><value>Installment {3}/{4} of &apos;{1}&apos; added in &apos;{2}&apos; · {5}</value></data>
   <data name="Expenses.Activity.PlanPaidEarly"><value>{0} paid &apos;{1}&apos; early · {2}–{3}/{3} · {4} (of {5})</value></data>
   <data name="Expenses.Activity.PlanCancelled"><value>{0} cancelled the plan &apos;{1}&apos;</value></data>
+  <data name="Expenses.Repeat.DownPayment"><value>Down payment</value></data>
+  <data name="Expenses.Repeat.DownPaymentHint"><value>Optional, paid on the purchase date</value></data>
+  <data name="Expenses.Repeat.PreviewDown"><value>{0} down + {1}× {2} · {3} → {4}</value></data>
+  <data name="Expenses.Repeat.SummaryDown"><value>{0} down + {1}× {2}</value></data>
+  <data name="Expenses.Plan.DownTag"><value>down</value></data>
+  <data name="Expenses.Plan.DownPayment"><value>Down payment</value></data>
+  <data name="Expenses.Activity.PlanCreatedDown"><value>{0} created the plan &apos;{1}&apos; in &apos;{2}&apos; · {5} down + {3}× {4}</value></data>
+  <data name="Expenses.Activity.DownPaymentAdded"><value>Down payment of &apos;{1}&apos; added in &apos;{2}&apos; · {3}</value></data>
   <data name="Expenses.Activity.PlanCancelledVoided"><value>{0} cancelled the plan &apos;{1}&apos; · voided {2} installments</value></data>
   <data name="Expenses.Activity.PlanEdited"><value>{0} edited the plan &apos;{1}&apos;</value></data>
   <data name="Expenses.Plan.Busy"><value>This plan is being changed right now. Try again in a moment.</value></data>

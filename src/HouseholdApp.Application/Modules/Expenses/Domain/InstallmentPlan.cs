@@ -16,32 +16,43 @@ public sealed class InstallmentPlan : AggregateRoot
     public string Description { get; private set; } = default!;
     public Guid PayerId { get; private set; }
     public long TotalCents { get; private set; }
+    public long DownPaymentCents { get; private set; }
     public int Count { get; private set; }
     public DateOnly PurchaseDate { get; private set; }
     public DateOnly FirstDate { get; private set; }
     public IReadOnlyList<SplitSegment> Segments { get; private set; } = [];
     public InstallmentPlanStatus Status { get; private set; }
 
+    public InstallmentTerms Terms => new(TotalCents, Count, DownPaymentCents, PurchaseDate, FirstDate);
+
     private InstallmentPlan() { }
 
     public static InstallmentPlan Create(
         Guid householdId, Guid expenseGroupId, string description, Guid payerId,
-        long totalCents, int count, DateOnly purchaseDate, DateOnly firstDate,
+        long totalCents, long downPaymentCents, int count, DateOnly purchaseDate, DateOnly firstDate,
         IReadOnlyList<Allocation> allocations, DateOnly today, DateTimeOffset now, Guid performedByUserId,
         Guid? id = null)
     {
         if (count is < InstallmentSchedule.MinCount or > InstallmentSchedule.MaxCount)
             throw new InvalidOperationException(
                 $"Installment count must be between {InstallmentSchedule.MinCount} and {InstallmentSchedule.MaxCount}.");
-        if (totalCents < count)
+        if (downPaymentCents < 0)
+            throw new InvalidOperationException("The down payment can't be negative.");
+        if (downPaymentCents >= totalCents)
+            throw new InvalidOperationException("The down payment must be less than the total.");
+        if (downPaymentCents > 0 && firstDate < purchaseDate)
+            throw new InvalidOperationException(
+                "The first installment can't come before the purchase date when there is a down payment.");
+        if (totalCents - downPaymentCents < count)
             throw new InvalidOperationException("Each installment must be at least one cent.");
-        ValidateSegment(totalCents, count, new SplitSegment(1, allocations));
+        var terms = new InstallmentTerms(totalCents, count, downPaymentCents, purchaseDate, firstDate);
+        ValidateSegment(terms, new SplitSegment(terms.FirstNumber, allocations));
 
         var planId = id ?? Guid.CreateVersion7();
-        var catchUp = Enumerable.Range(1, count).Count(n => InstallmentSchedule.DueDate(firstDate, n) <= today);
+        var catchUp = terms.Numbers.Count(n => terms.DueDate(n) <= today);
         var created = new InstallmentPlanCreated(
             Guid.CreateVersion7(), now, planId, householdId, expenseGroupId, description, payerId,
-            totalCents, count, purchaseDate, firstDate, allocations, catchUp, performedByUserId);
+            totalCents, downPaymentCents, count, purchaseDate, firstDate, allocations, catchUp, performedByUserId);
 
         var plan = Create(created);
         plan.Raise(created);
@@ -49,16 +60,17 @@ public sealed class InstallmentPlan : AggregateRoot
     }
 
     public IEnumerable<int> DueNumbers(DateOnly today) =>
-        Enumerable.Range(1, Count).Where(n => InstallmentSchedule.DueDate(FirstDate, n) <= today);
+        Terms.Numbers.Where(n => Terms.DueDate(n) <= today);
 
     public Expense BuildInstallment(int number, DateTimeOffset now, bool coveredByPlanEvent)
     {
-        var due = InstallmentSchedule.DueDate(FirstDate, number);
+        var terms = Terms;
+        var due = terms.DueDate(number);
         return Expense.Record(
             HouseholdId, ExpenseGroupId, Description,
             new DateTimeOffset(due, TimeOnly.MinValue, TimeSpan.Zero),
-            [new FundingSource(PayerId, InstallmentSchedule.Amount(TotalCents, Count, number))],
-            InstallmentSchedule.Allocations(TotalCents, Count, Segments, number),
+            [new FundingSource(PayerId, terms.Amount(number))],
+            terms.Allocations(Segments, number),
             now, PayerId,
             id: InstallmentSchedule.InstallmentExpenseId(Id, number),
             installment: new InstallmentLink(Id, number, Count),
@@ -71,10 +83,11 @@ public sealed class InstallmentPlan : AggregateRoot
         DateTimeOffset now, Guid performedByUserId)
     {
         EnsureActive();
-        if (fromNumber < 1) throw new InvalidOperationException("Installment numbers start at 1.");
+        if (fromNumber < Terms.FirstNumber)
+            throw new InvalidOperationException($"Installment numbers start at {Terms.FirstNumber}.");
         if (fromNumber > Count) throw new InvalidOperationException("The plan has no installments left to change.");
         var segment = new SplitSegment(fromNumber, allocations);
-        ValidateSegment(TotalCents, Count, segment);
+        ValidateSegment(Terms, segment);
 
         var updated = new InstallmentPlanUpdated(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, description, payerId, segment,
@@ -89,9 +102,10 @@ public sealed class InstallmentPlan : AggregateRoot
         Guid performedByUserId)
     {
         EnsureActive();
-        if (fromNumber < 1) throw new InvalidOperationException("Installment numbers start at 1.");
+        if (fromNumber < Terms.FirstNumber)
+            throw new InvalidOperationException($"Installment numbers start at {Terms.FirstNumber}.");
         if (fromNumber > Count) throw new InvalidOperationException("The plan has no installments left to pay.");
-        var remaining = InstallmentSchedule.AmountRange(TotalCents, Count, fromNumber, Count);
+        var remaining = Terms.AmountRange(fromNumber, Count);
         if (payoffCents <= 0 || payoffCents > remaining)
             throw new InvalidOperationException("The payoff must be more than zero and at most the remaining amount.");
 
@@ -137,10 +151,11 @@ public sealed class InstallmentPlan : AggregateRoot
         Description = e.Description,
         PayerId = e.PayerId,
         TotalCents = e.TotalCents,
+        DownPaymentCents = e.DownPaymentCents,
         Count = e.Count,
         PurchaseDate = e.PurchaseDate,
         FirstDate = e.FirstDate,
-        Segments = [new SplitSegment(1, e.Allocations)],
+        Segments = [new SplitSegment(InstallmentTerms.FirstNumberFor(e.DownPaymentCents), e.Allocations)],
         Status = InstallmentPlanStatus.Active
     };
 
@@ -156,7 +171,7 @@ public sealed class InstallmentPlan : AggregateRoot
     public void Apply(InstallmentPlanCompleted e) => Status = InstallmentPlanStatus.Completed;
 
     private IReadOnlyList<Allocation> RemainingShares(int fromNumber) =>
-        InstallmentSchedule.RemainingShares(TotalCents, Count, Segments, fromNumber);
+        Terms.RemainingShares(Segments, fromNumber);
 
     private void EnsureActive()
     {
@@ -164,18 +179,18 @@ public sealed class InstallmentPlan : AggregateRoot
             throw new InvalidOperationException("This installment plan has ended.");
     }
 
-    private static void ValidateSegment(long totalCents, int count, SplitSegment segment)
+    private static void ValidateSegment(InstallmentTerms terms, SplitSegment segment)
     {
         var allocations = segment.Allocations;
         if (allocations.Count == 0 || allocations.Any(a => a.Cents < 0))
             throw new InvalidOperationException("Split the installments between at least one member.");
         if (allocations.Select(a => a.UserId).Distinct().Count() != allocations.Count)
             throw new InvalidOperationException("Each member can appear only once in the split.");
-        var expected = InstallmentSchedule.AmountRange(totalCents, count, segment.FromNumber, count);
+        var expected = terms.AmountRange(segment.FromNumber, terms.Count);
         if (allocations.Sum(a => a.Cents) != expected)
             throw new InvalidOperationException(
                 $"Sum of allocations ({allocations.Sum(a => a.Cents)}) must equal the installments it covers ({expected}).");
-        if (!InstallmentSchedule.EveryShareCoversACent(totalCents, count, segment))
+        if (!terms.EveryShareCoversACent(segment))
             throw new InvalidOperationException("Each member's share must be at least one cent per installment.");
     }
 }

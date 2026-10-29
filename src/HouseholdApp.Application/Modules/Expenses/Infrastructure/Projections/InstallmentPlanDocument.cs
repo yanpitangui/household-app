@@ -12,6 +12,7 @@ public sealed class InstallmentPlanDocument
     public string Description { get; set; } = default!;
     public Guid PayerId { get; set; }
     public long TotalCents { get; set; }
+    public long DownPaymentCents { get; set; }
     public int Count { get; set; }
     public DateOnly PurchaseDate { get; set; }
     public DateOnly FirstDate { get; set; }
@@ -21,6 +22,9 @@ public sealed class InstallmentPlanDocument
     public DateTimeOffset? EndedAt { get; set; }
     public Guid? PayoffExpenseId { get; set; }
     public long? PayoffCents { get; set; }
+
+    // A method so that the stored JSON holds only the plan's own fields.
+    public InstallmentTerms ToTerms() => new(TotalCents, Count, DownPaymentCents, PurchaseDate, FirstDate);
 }
 
 public partial class InstallmentPlanProjection : SingleStreamProjection<InstallmentPlanDocument, Guid>
@@ -33,10 +37,11 @@ public partial class InstallmentPlanProjection : SingleStreamProjection<Installm
         doc.Description = e.Description;
         doc.PayerId = e.PayerId;
         doc.TotalCents = e.TotalCents;
+        doc.DownPaymentCents = e.DownPaymentCents;
         doc.Count = e.Count;
         doc.PurchaseDate = e.PurchaseDate;
         doc.FirstDate = e.FirstDate;
-        doc.Segments = [new SplitSegment(1, e.Allocations)];
+        doc.Segments = [new SplitSegment(InstallmentTerms.FirstNumberFor(e.DownPaymentCents), e.Allocations)];
         doc.Status = InstallmentPlanStatus.Active;
         doc.CreatedAt = e.OccurredAt;
     }

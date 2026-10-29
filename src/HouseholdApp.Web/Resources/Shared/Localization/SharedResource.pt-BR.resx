@@ -422,7 +422,6 @@
   <data name="Expenses.GroupIcon.Invalid"><value>Use um único emoji.</value></data>
   <data name="Expenses.Activity.GroupRenamed"><value>{0} renomeou o grupo &apos;{1}&apos; para &apos;{2}&apos;.</value></data>
   <data name="Flash.GroupUpdated"><value>Grupo atualizado.</value></data>
-  <data name="Expenses.Repeat"><value>Repetir</value></data>
   <data name="Expenses.Repeat.Once"><value>Uma vez</value></data>
   <data name="Expenses.Repeat.Installments"><value>Parcelado</value></data>
   <data name="Expenses.Repeat.Recurring"><value>Recorrente</value></data>
@@ -465,6 +464,7 @@
   <data name="Expenses.Plan.CancelTitle"><value>Cancelar parcelamento?</value></data>
   <data name="Expenses.Plan.CancelSub"><value>As parcelas {0} ({1}) não serão lançadas.</value></data>
   <data name="Expenses.Plan.CancelVoid"><value>Também anular as {0} parcelas já lançadas ({1})</value></data>
+  <data name="Expenses.Plan.CancelVoidOne"><value>Também anular o que já foi lançado ({0})</value></data>
   <data name="Expenses.Plan.CancelHint"><value>Para estorno total ou parcelamento registrado por engano.</value></data>
   <data name="Expenses.Plan.Keep"><value>Manter parcelamento</value></data>
   <data name="Expenses.Plan.NotFound"><value>Parcelamento não encontrado.</value></data>
@@ -489,6 +489,14 @@
   <data name="Expenses.Activity.InstallmentAdded"><value>Parcela {3}/{4} de &apos;{1}&apos; lançada em &apos;{2}&apos; · {5}</value></data>
   <data name="Expenses.Activity.PlanPaidEarly"><value>{0} antecipou &apos;{1}&apos; · {2}–{3}/{3} · {4} (de {5})</value></data>
   <data name="Expenses.Activity.PlanCancelled"><value>{0} cancelou o parcelamento &apos;{1}&apos;</value></data>
+  <data name="Expenses.Repeat.DownPayment"><value>Entrada</value></data>
+  <data name="Expenses.Repeat.DownPaymentHint"><value>Opcional, paga na data da compra</value></data>
+  <data name="Expenses.Repeat.PreviewDown"><value>Entrada de {0} + {1}× de {2} · {3} → {4}</value></data>
+  <data name="Expenses.Repeat.SummaryDown"><value>Entrada de {0} + {1}× de {2}</value></data>
+  <data name="Expenses.Plan.DownTag"><value>entrada</value></data>
+  <data name="Expenses.Plan.DownPayment"><value>Entrada</value></data>
+  <data name="Expenses.Activity.PlanCreatedDown"><value>{0} criou o parcelamento &apos;{1}&apos; em &apos;{2}&apos; · entrada de {5} + {3}× de {4}</value></data>
+  <data name="Expenses.Activity.DownPaymentAdded"><value>Entrada de &apos;{1}&apos; lançada em &apos;{2}&apos; · {3}</value></data>
   <data name="Expenses.Activity.PlanCancelledVoided"><value>{0} cancelou o parcelamento &apos;{1}&apos; · anulou {2} parcelas</value></data>
   <data name="Expenses.Activity.PlanEdited"><value>{0} alterou o parcelamento &apos;{1}&apos;</value></data>
   <data name="Expenses.Plan.Busy"><value>Este parcelamento está sendo alterado agora. Tente de novo em instantes.</value></data>

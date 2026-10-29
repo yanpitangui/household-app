@@ -21,8 +21,14 @@ public sealed class ExpensePushNotificationHandler(
         var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
         if (evt.Installment is { } link && evt.CorrectedFromExpenseId is null)
         {
-            var installmentTitle = $"{actorName} added installment {link.Number}/{link.Count}";
-            var amount = $"{evt.Description} {link.Number}/{link.Count} — R$ {FormatCents(evt.FundingSources.Sum(f => f.Cents))}";
+            var paid = FormatCents(evt.FundingSources.Sum(f => f.Cents));
+            var isDown = link.Number == 0;
+            var installmentTitle = isDown
+                ? $"{actorName} added a down payment"
+                : $"{actorName} added installment {link.Number}/{link.Count}";
+            var amount = isDown
+                ? $"{evt.Description} — down payment R$ {paid}"
+                : $"{evt.Description} {link.Number}/{link.Count} — R$ {paid}";
             await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, installmentTitle,
                 member => amount + ShareSuffix(evt.Allocations, member, ""), PlanUrl(evt.HouseholdId, link.PlanId), ct);
             return;
@@ -76,8 +82,13 @@ public sealed class ExpensePushNotificationHandler(
         dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
     {
         var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
-        var first = InstallmentSchedule.Allocations(evt.TotalCents, evt.Count, [new SplitSegment(1, evt.Allocations)], 1);
-        var body = $"{evt.Description} — {evt.Count}× R$ {FormatCents(InstallmentSchedule.Amount(evt.TotalCents, evt.Count, 1))}";
+        var terms = new InstallmentTerms(
+            evt.TotalCents, evt.Count, evt.DownPaymentCents, evt.PurchaseDate, evt.FirstDate);
+        var first = terms.Allocations([new SplitSegment(terms.FirstNumber, evt.Allocations)], 1);
+        var installments = $"{evt.Count}× R$ {FormatCents(terms.Amount(1))}";
+        var body = terms.HasDownPayment
+            ? $"{evt.Description} — R$ {FormatCents(terms.DownPaymentCents)} down + {installments}"
+            : $"{evt.Description} — {installments}";
         await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} created an installment plan",
             member => body + ShareSuffix(first, member, "/month"), PlanUrl(evt.HouseholdId, evt.PlanId), ct);
     }, ct);

@@ -93,7 +93,7 @@
                         @e.Description
                         @if (e.Installment is { } link)
                         {
-                            <span class="installment-pill">@(link.IsPayoff ? $"{link.Number}–{link.ThroughNumber}/{link.Count}" : $"{link.Number}/{link.Count}")</span>
+                            <span class="installment-pill">@(link.IsPayoff ? $"{link.Number}–{link.ThroughNumber}/{link.Count}" : link.Number == 0 ? L["Expenses.Plan.DownTag"].Value : $"{link.Number}/{link.Count}")</span>
                         }
                     </div>
                     <div class="list-row-meta">

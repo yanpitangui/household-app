@@ -230,11 +230,37 @@ public sealed class ExpensePushNotificationHandlerTests
     public async Task Plan_created_push_includes_the_monthly_share()
     {
         await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
-            Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+            Guid.NewGuid(), "Car repair", _actorId, 150000, 0, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
             [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
 
         await _pushSender.Received(1).SendAsync(
             _otherId, "Alice created an installment plan", "Car repair — 5× R$ 300.00 · your share R$ 150.00/month",
+            $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Plan_created_push_with_a_down_payment_names_it_and_keeps_the_monthly_share()
+    {
+        await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Car repair", _actorId, 150000, 50000, 5, new DateOnly(2026, 10, 10), new DateOnly(2026, 11, 10),
+            [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice created an installment plan",
+            "Car repair — R$ 500.00 down + 5× R$ 200.00 · your share R$ 100.00/month",
+            $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Sweep_created_down_payment_push_says_down_payment()
+    {
+        await _sut.HandleAsync(new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            Guid.NewGuid(), "Car repair", DateTimeOffset.UtcNow, [new FundingSource(_actorId, 50000)],
+            [new Allocation(_actorId, 25000), new Allocation(_otherId, 25000)], _actorId,
+            Installment: new InstallmentLink(PlanId, 0, 5)));
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice added a down payment", "Car repair — down payment R$ 500.00 · your share R$ 250.00",
             $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
     }
 
@@ -266,7 +292,7 @@ public sealed class ExpensePushNotificationHandlerTests
         ]);
 
         await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
-            Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+            Guid.NewGuid(), "Car repair", _actorId, 150000, 0, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
             [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
 
         await _pushSender.Received(1).SendAsync(_otherId, Arg.Any<string>(),
@@ -281,7 +307,7 @@ public sealed class ExpensePushNotificationHandlerTests
         using (_dispatchScope.Suppress())
         {
             await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
-                Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+                Guid.NewGuid(), "Car repair", _actorId, 150000, 0, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
                 [new Allocation(_otherId, 150000)], 1, _actorId));
         }
 

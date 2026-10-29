@@ -38,6 +38,24 @@ public sealed class UpcomingBuilderTests
     }
 
     [Test]
+    public async Task A_future_dated_down_payment_is_listed_once_as_number_zero()
+    {
+        var plan = Plan(new DateOnly(2026, 11, 20));
+        plan.DownPaymentCents = 50000;
+        plan.Segments = [new SplitSegment(0, [new Allocation(Ana, 75000), new Allocation(Leo, 75000)])];
+        plan.PurchaseDate = new DateOnly(2026, 11, 5); // the down payment (Nov 5) is in the window, #1 on Nov 20 too
+
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int>())], [], Now, Leo);
+
+        var item = summary.Items.Single();
+        await Assert.That(item.Number).IsEqualTo(0);
+        await Assert.That(item.Occurrences).IsEqualTo(2);
+        await Assert.That(item.FirstDate).IsEqualTo(new DateOnly(2026, 11, 5));
+        await Assert.That(item.TotalCents).IsEqualTo(70000L); // 50000 down + 20000 for #1
+        await Assert.That(item.ViewerShareCents).IsEqualTo(35000L); // Leo: 25000 + 10000
+    }
+
+    [Test]
     public async Task A_past_due_installment_that_was_never_created_is_left_out()
     {
         var plan = Plan(new DateOnly(2026, 9, 10)); // #1 Sep 10 and #2 Oct 10 are past due, #3 Nov 10 is in the window

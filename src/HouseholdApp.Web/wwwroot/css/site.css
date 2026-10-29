@@ -2220,6 +2220,9 @@ a.page-menu-item { color: inherit; text-decoration: none; }
 .repeat-toggle { display: inline-flex; border: 1px solid var(--border-color); border-radius: 9px; overflow: hidden; }
 .repeat-toggle button { background: none; border: none; padding: 6px 10px; font-size: 12px; color: var(--text-secondary); }
 .repeat-toggle button.active { background: rgba(59,130,246,0.18); color: var(--text-primary); font-weight: 700; }
+.repeat-box { border: 1px dashed rgba(59,130,246,0.35); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: rgba(59,130,246,0.03); }
+.repeat-money { max-width: 130px; text-align: right; background: var(--card-bg); color: var(--text-primary); border-color: var(--border-color); }
+.repeat-hint { font-size: 11px; color: var(--text-muted); margin: -6px 0 12px; }
 .repeat-date { max-width: 170px; background: var(--card-bg); color: var(--text-primary); border-color: var(--border-color); }
 .repeat-preview { background: var(--app-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 .repeat-preview strong { color: var(--text-primary); }

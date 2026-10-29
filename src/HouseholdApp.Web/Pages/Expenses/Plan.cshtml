@@ -13,10 +13,12 @@
     var active = s.Status == InstallmentPlanStatus.Active;
     var latest = s.Slots.LastOrDefault(x => x.Status == InstallmentSlotStatus.Created)?.Number;
     var createdCount = s.Slots.Count(x => x.Status == InstallmentSlotStatus.Created);
-    var progress = s.Count == 0 ? 0 : (int)Math.Round(100.0 * s.Slots.Count(x => x.Status != InstallmentSlotStatus.Upcoming && x.Status != InstallmentSlotStatus.NotCreated) / s.Count);
+    var progress = s.Slots.Count == 0 ? 0 : (int)Math.Round(100.0 * s.Slots.Count(x => x.Status != InstallmentSlotStatus.Upcoming && x.Status != InstallmentSlotStatus.NotCreated) / s.Slots.Count);
     if (s.Status is InstallmentPlanStatus.PaidEarly or InstallmentPlanStatus.Completed) progress = 100;
     var range = $"{p.NextNumber}–{s.Count}";
-    var nextAmount = s.Slots[Math.Min(p.NextNumber, s.Count) - 1].Cents;
+    var nextAmount = s.Slots.FirstOrDefault(x => x.Number == Math.Clamp(p.NextNumber, 1, s.Count))?.Cents ?? 0;
+    // Installment 1's amount from the plan terms: the non-down total spread over the count, rounded up.
+    var installmentCents = s.Count == 0 ? 0 : (p.TotalCents - s.DownPaymentCents + s.Count - 1) / s.Count;
 }
 
 <div class="page-heading">
@@ -30,6 +32,10 @@
     <div class="plan-total">@Money(p.TotalCents) <small>@L["Expenses.Plan.Total"]</small></div>
     <div class="plan-progress"><i style="width:@progress%"></i></div>
     <div class="plan-kv">@L["Expenses.Plan.Totals", Money(s.CreatedCents), Money(s.RemainingCents)]</div>
+    @if (s.DownPaymentCents > 0)
+    {
+        <div class="plan-kv plan-summary-line">@L["Expenses.Repeat.SummaryDown", Money(s.DownPaymentCents), s.Count, Money(installmentCents)]</div>
+    }
     @if (s.Status == InstallmentPlanStatus.PaidEarly && p.PayoffCents is { } payoff)
     {
         <div class="plan-kv">@L["Expenses.Plan.Status.PaidEarly"] · @Money(payoff)</div>
@@ -101,7 +107,9 @@
             {
                 <label class="app-sheet-check">
                     <input type="checkbox" name="voidCreated" value="true" />
-                    <span>@L["Expenses.Plan.CancelVoid", createdCount, Money(s.CreatedCents)]<br />
+                    <span>@(createdCount == 1
+                        ? L["Expenses.Plan.CancelVoidOne", Money(s.CreatedCents)]
+                        : L["Expenses.Plan.CancelVoid", createdCount, Money(s.CreatedCents)])<br />
                         <small>@L["Expenses.Plan.CancelHint"]</small></span>
                 </label>
             }

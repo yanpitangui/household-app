@@ -198,7 +198,7 @@ public sealed class ActivityEntryProjectionTests
     public async Task Map_plan_created_carries_the_catch_up_delta()
     {
         var created = new InstallmentPlanCreated(Guid.NewGuid(), Now, PlanId, HouseholdId, GroupId, "Car repair",
-            ActorId, 150000, 5, new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 10),
+            ActorId, 150000, 0, 5, new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 10),
             [new Allocation(ActorId, 75000), new Allocation(OtherId, 75000)], CatchUpCount: 2, ActorId);
 
         var entry = ActivityEntryProjection.MapPlanCreated(Guid.NewGuid(), created, "Car");
@@ -208,6 +208,45 @@ public sealed class ActivityEntryProjectionTests
         await Assert.That(entry.AmountCents).IsEqualTo(30000L);
         await Assert.That(entry.ViewerDeltaCents[OtherId]).IsEqualTo(-30000L);
         await Assert.That(entry.ViewerDeltaCents[ActorId]).IsEqualTo(30000L);
+    }
+
+    [Test]
+    public async Task Map_plan_created_with_a_down_payment_carries_it_and_counts_it_in_the_catch_up_delta()
+    {
+        var created = new InstallmentPlanCreated(Guid.NewGuid(), Now, PlanId, HouseholdId, GroupId, "Car repair",
+            ActorId, 150000, 50000, 5, new DateOnly(2026, 10, 10), new DateOnly(2026, 11, 10),
+            [new Allocation(ActorId, 75000), new Allocation(OtherId, 75000)], CatchUpCount: 1, ActorId);
+
+        var entry = ActivityEntryProjection.MapPlanCreated(Guid.NewGuid(), created, "Car");
+
+        await Assert.That(entry.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(entry.AmountCents).IsEqualTo(20000L);
+        await Assert.That(entry.ViewerDeltaCents[OtherId]).IsEqualTo(-25000L); // the down payment, split evenly
+        await Assert.That(entry.ViewerDeltaCents[ActorId]).IsEqualTo(25000L);
+    }
+
+    [Test]
+    public async Task Map_plan_created_without_a_down_payment_leaves_it_null()
+    {
+        var created = new InstallmentPlanCreated(Guid.NewGuid(), Now, PlanId, HouseholdId, GroupId, "Car repair",
+            ActorId, 150000, 0, 5, new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 10),
+            [new Allocation(ActorId, 75000), new Allocation(OtherId, 75000)], CatchUpCount: 0, ActorId);
+
+        await Assert.That(ActivityEntryProjection.MapPlanCreated(Guid.NewGuid(), created, "Car").DownPaymentCents).IsNull();
+    }
+
+    [Test]
+    public async Task Map_sweep_created_down_payment_is_an_installment_added_row_numbered_zero()
+    {
+        var recorded = new ExpenseRecorded(Guid.NewGuid(), Now, ExpenseId, HouseholdId, GroupId, "Car repair", Now,
+            [new FundingSource(ActorId, 50000)], [new Allocation(ActorId, 25000), new Allocation(OtherId, 25000)],
+            ActorId, Installment: new InstallmentLink(PlanId, 0, 5));
+
+        var entry = ActivityEntryProjection.MapRecorded(Guid.NewGuid(), recorded, "Car");
+
+        await Assert.That(entry!.Kind).IsEqualTo(ActivityKind.InstallmentAdded);
+        await Assert.That(entry.InstallmentNumber).IsEqualTo(0);
+        await Assert.That(entry.AmountCents).IsEqualTo(50000L);
     }
 
     [Test]

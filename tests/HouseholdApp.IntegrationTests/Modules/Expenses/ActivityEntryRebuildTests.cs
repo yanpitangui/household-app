@@ -81,7 +81,7 @@ public sealed class ActivityEntryRebuildTests(PostgresFixture db)
         await using (var s = store.LightweightSession())
         {
             s.Events.StartStream(planId, new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, planId,
-                householdId, Guid.NewGuid(), "Car repair", ana, 20000, 2, new DateOnly(2026, 1, 1),
+                householdId, Guid.NewGuid(), "Car repair", ana, 20000, 0, 2, new DateOnly(2026, 1, 1),
                 new DateOnly(2026, 1, 1), [new Allocation(ana, 20000)], 0, ana));
             await s.SaveChangesAsync();
         }

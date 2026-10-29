@@ -10,8 +10,8 @@ public sealed class InstallmentPlanProjectionTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private readonly InstallmentPlanProjection _projection = new();
 
-    private static InstallmentPlanCreated Created() => new(
-        Guid.NewGuid(), Now, PlanId, Guid.NewGuid(), Guid.NewGuid(), "Car repair", Ana, 150000, 5,
+    private static InstallmentPlanCreated Created(long downPaymentCents = 0) => new(
+        Guid.NewGuid(), Now, PlanId, Guid.NewGuid(), Guid.NewGuid(), "Car repair", Ana, 150000, downPaymentCents, 5,
         new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 10), [new Allocation(Ana, 150000)], 1, Ana);
 
     [Test]
@@ -25,6 +25,17 @@ public sealed class InstallmentPlanProjectionTests
         await Assert.That(doc.Status).IsEqualTo(InstallmentPlanStatus.Active);
         await Assert.That(doc.Segments.Single().FromNumber).IsEqualTo(1);
         await Assert.That(doc.CreatedAt).IsEqualTo(Now);
+    }
+
+    [Test]
+    public async Task Created_copies_the_down_payment_and_starts_the_split_at_number_zero()
+    {
+        var doc = new InstallmentPlanDocument();
+        _projection.Apply(Created(downPaymentCents: 50000), doc);
+
+        await Assert.That(doc.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(doc.Segments.Single().FromNumber).IsEqualTo(0);
+        await Assert.That(doc.ToTerms().Numbers).IsEquivalentTo(new[] { 0, 1, 2, 3, 4, 5 });
     }
 
     [Test]

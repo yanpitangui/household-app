@@ -25,15 +25,16 @@ public static class UpcomingBuilder
 
         foreach (var (plan, created) in plans)
         {
-            var numbers = Enumerable.Range(1, plan.Count)
+            var terms = plan.ToTerms();
+            var numbers = terms.Numbers
                 .Where(n => !created.Contains(n))
-                .Select(n => (Number: n, Due: InstallmentSchedule.DueDate(plan.FirstDate, n)))
+                .Select(n => (Number: n, Due: terms.DueDate(n)))
                 .Where(x => x.Due >= today && x.Due < end)
                 .ToList();
             if (numbers.Count == 0) continue;
 
-            var total = numbers.Sum(x => InstallmentSchedule.Amount(plan.TotalCents, plan.Count, x.Number));
-            var share = numbers.Sum(x => InstallmentSchedule.Allocations(plan.TotalCents, plan.Count, plan.Segments, x.Number)
+            var total = numbers.Sum(x => terms.Amount(x.Number));
+            var share = numbers.Sum(x => terms.Allocations(plan.Segments, x.Number)
                 .FirstOrDefault(a => a.UserId == viewerId)?.Cents ?? 0);
             items.Add(new UpcomingItem(
                 UpcomingSource.Installment, plan.Id, plan.Description, plan.ExpenseGroupId, numbers[0].Due,

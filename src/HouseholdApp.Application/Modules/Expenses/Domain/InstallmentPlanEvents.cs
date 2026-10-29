@@ -13,6 +13,7 @@ public sealed record InstallmentPlanCreated(
     string Description,
     Guid PayerId,
     long TotalCents,
+    long DownPaymentCents,
     int Count,
     DateOnly PurchaseDate,
     DateOnly FirstDate,

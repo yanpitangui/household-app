@@ -12,10 +12,11 @@ public sealed class InstallmentPlanTests
     private static readonly DateOnly Today = new(2026, 11, 10);
 
     // R$ 1.500,00 in 5x, Ana pays, 50/50.
-    private static InstallmentPlan NewPlan(DateOnly? firstDate = null, long total = 150000, int count = 5) =>
+    private static InstallmentPlan NewPlan(
+        DateOnly? firstDate = null, long total = 150000, int count = 5, long down = 0, DateOnly? purchaseDate = null) =>
         InstallmentPlan.Create(
-            HouseholdId, GroupId, "Car repair", Ana, total, count,
-            purchaseDate: firstDate ?? Today, firstDate: firstDate ?? Today,
+            HouseholdId, GroupId, "Car repair", Ana, total, down, count,
+            purchaseDate: purchaseDate ?? firstDate ?? Today, firstDate: firstDate ?? Today,
             allocations: [new Allocation(Ana, total / 2), new Allocation(Leo, total - total / 2)],
             today: Today, now: Now, performedByUserId: Ana);
 
@@ -42,7 +43,7 @@ public sealed class InstallmentPlanTests
     public async Task Create_rejects_allocations_that_do_not_sum_to_the_total()
     {
         await Assert.That(() => InstallmentPlan.Create(
-            HouseholdId, GroupId, "X", Ana, 150000, 5, Today, Today,
+            HouseholdId, GroupId, "X", Ana, 150000, 0, 5, Today, Today,
             [new Allocation(Ana, 100)], Today, Now, Ana)).Throws<InvalidOperationException>();
     }
 
@@ -50,7 +51,7 @@ public sealed class InstallmentPlanTests
     public async Task Create_rejects_shares_smaller_than_a_cent_per_installment()
     {
         await Assert.That(() => InstallmentPlan.Create(
-            HouseholdId, GroupId, "X", Ana, 5, 5, Today, Today,
+            HouseholdId, GroupId, "X", Ana, 5, 0, 5, Today, Today,
             [new Allocation(Ana, 4), new Allocation(Leo, 1)], Today, Now, Ana)).Throws<InvalidOperationException>();
     }
 
@@ -211,5 +212,134 @@ public sealed class InstallmentPlanTests
         replayed.Apply(new InstallmentPlanCompleted(Guid.NewGuid(), Now, plan.Id, HouseholdId));
 
         await Assert.That(replayed.Status).IsEqualTo(InstallmentPlanStatus.Completed);
+    }
+
+    // R$ 1.500,00 = R$ 500,00 down (today) + 5x R$ 200,00 starting next month.
+    private static InstallmentPlan NewPlanWithDown() =>
+        NewPlan(firstDate: new DateOnly(2026, 12, 15), down: 50000, purchaseDate: Today);
+
+    [Test]
+    public async Task Create_with_a_down_payment_counts_it_in_the_catch_up_when_the_purchase_date_is_due()
+    {
+        var plan = NewPlanWithDown();
+
+        var created = (InstallmentPlanCreated)plan.DomainEvents.Single();
+        await Assert.That(created.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(created.CatchUpCount).IsEqualTo(1);
+        await Assert.That(plan.DueNumbers(Today)).IsEquivalentTo(new[] { 0 });
+        await Assert.That(plan.Segments.Single().FromNumber).IsEqualTo(0);
+        await Assert.That(plan.Terms.Numbers).IsEquivalentTo(new[] { 0, 1, 2, 3, 4, 5 });
+    }
+
+    [Test]
+    public async Task Create_with_a_future_purchase_date_leaves_the_down_payment_to_the_sweep()
+    {
+        var plan = NewPlan(firstDate: new DateOnly(2026, 12, 10), down: 50000, purchaseDate: new DateOnly(2026, 11, 20));
+
+        await Assert.That(((InstallmentPlanCreated)plan.DomainEvents.Single()).CatchUpCount).IsEqualTo(0);
+        await Assert.That(plan.DueNumbers(Today)).IsEmpty();
+        await Assert.That(plan.DueNumbers(new DateOnly(2026, 11, 20))).IsEquivalentTo(new[] { 0 });
+    }
+
+    [Test]
+    public async Task Create_rejects_a_first_installment_before_the_purchase_date_with_a_down_payment()
+    {
+        await Assert.That(() => NewPlan(
+                firstDate: new DateOnly(2026, 11, 10), down: 50000, purchaseDate: new DateOnly(2026, 11, 11)))
+            .Throws<InvalidOperationException>().WithMessageContaining("before the purchase date");
+        // Without a down payment the purchase date plays no part in the schedule.
+        await Assert.That(NewPlan(firstDate: new DateOnly(2026, 11, 10), purchaseDate: new DateOnly(2026, 11, 11)).Terms.Count)
+            .IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task Create_rejects_a_negative_down_payment_with_its_own_message()
+    {
+        await Assert.That(() => NewPlan(down: -1)).Throws<InvalidOperationException>()
+            .WithMessageContaining("can't be negative");
+    }
+
+    [Test]
+    public async Task Create_accepts_a_zero_down_payment_as_no_down_payment()
+    {
+        var plan = NewPlan(down: 0);
+
+        await Assert.That(plan.Terms.HasDownPayment).IsFalse();
+        await Assert.That(plan.Segments.Single().FromNumber).IsEqualTo(1);
+    }
+
+    [Test]
+    [Arguments(150000L)]
+    [Arguments(160000L)]
+    [Arguments(-1L)]
+    [Arguments(149996L)] // leaves 4 cents for 5 installments
+    public async Task Create_rejects_a_down_payment_that_leaves_less_than_a_cent_per_installment(long down)
+    {
+        await Assert.That(() => NewPlan(down: down)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Create_accepts_a_down_payment_leaving_exactly_a_cent_per_installment()
+    {
+        var plan = InstallmentPlan.Create(
+            HouseholdId, GroupId, "X", Ana, 1000, 995, 5, Today, Today,
+            [new Allocation(Ana, 1000)], Today, Now, Ana);
+
+        await Assert.That(plan.Terms.InstallmentsCents).IsEqualTo(5L);
+    }
+
+    [Test]
+    public async Task BuildInstallment_zero_is_the_down_payment_dated_the_purchase_date()
+    {
+        var plan = NewPlanWithDown();
+
+        var expense = plan.BuildInstallment(0, Now, coveredByPlanEvent: true);
+
+        var recorded = (ExpenseRecorded)expense.DomainEvents.Single();
+        await Assert.That(expense.Id).IsEqualTo(InstallmentSchedule.InstallmentExpenseId(plan.Id, 0));
+        await Assert.That(recorded.Date).IsEqualTo(new DateTimeOffset(2026, 11, 10, 0, 0, 0, TimeSpan.Zero));
+        await Assert.That(recorded.FundingSources.Single()).IsEqualTo(new FundingSource(Ana, 50000));
+        await Assert.That(recorded.Allocations.Sum(a => a.Cents)).IsEqualTo(50000L);
+        await Assert.That(recorded.Installment).IsEqualTo(new InstallmentLink(plan.Id, 0, 5));
+        await Assert.That(recorded.Installment!.IsPayoff).IsFalse();
+    }
+
+    [Test]
+    public async Task PayEarly_after_the_down_payment_and_first_installment_covers_the_rest_only()
+    {
+        var plan = NewPlanWithDown();
+        plan.ClearEvents();
+
+        var payoff = plan.PayEarly(2, 80000, "Car repair (paid early)", Today, Now, Ana);
+
+        var paid = (InstallmentPlanPaidEarly)plan.DomainEvents.Single();
+        await Assert.That(paid.RemainingCents).IsEqualTo(80000L); // 4 x R$ 200,00
+        await Assert.That(paid.FromNumber).IsEqualTo(2);
+        await Assert.That(payoff.DomainEvents.OfType<ExpenseRecorded>().Single().Installment!.Number).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Update_with_a_down_payment_accepts_zero_as_the_first_number()
+    {
+        var plan = NewPlanWithDown();
+        plan.ClearEvents();
+
+        plan.Update("Car repair", Ana, [new Allocation(Ana, 150000)], 0, Now, Ana);
+
+        await Assert.That(plan.Segments.Single().Allocations.Single().Cents).IsEqualTo(150000L);
+        await Assert.That(() => plan.Update("X", Ana, [new Allocation(Ana, 150000)], -1, Now, Ana))
+            .Throws<InvalidOperationException>().WithMessageContaining("start at 0");
+    }
+
+    [Test]
+    public async Task Replaying_a_plan_with_a_down_payment_restores_it()
+    {
+        var plan = NewPlanWithDown();
+
+        var replayed = InstallmentPlan.Create((InstallmentPlanCreated)plan.DomainEvents[0]);
+
+        await Assert.That(replayed.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(replayed.Terms).IsEqualTo(plan.Terms);
+        await Assert.That(replayed.Segments.Single().FromNumber).IsEqualTo(0);
     }
 }

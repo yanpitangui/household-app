@@ -4,7 +4,8 @@ public interface IInstallmentPlanCommands
 {
     /// <summary>Creates the plan and, in the same transaction, every installment already due (catch-up).</summary>
     Task<Guid> CreateAsync(
-        Guid householdId, Guid groupId, string description, Guid payerId, long totalCents, int count,
+        Guid householdId, Guid groupId, string description, Guid payerId, long totalCents, long downPaymentCents,
+        int count,
         DateOnly purchaseDate, DateOnly firstDate, IReadOnlyList<AllocationDto> allocations,
         CancellationToken ct = default);
 

@@ -24,14 +24,15 @@ public sealed record InstallmentSlot(int Number, DateOnly DueDate, long Cents, I
 /// <summary>Every installment of a plan with its status; Created/Remaining are the cents created and still to come.</summary>
 public sealed record InstallmentPlanSummary(
     Guid PlanId, string Description, int Count, InstallmentPlanStatus Status,
-    IReadOnlyList<InstallmentSlot> Slots, long CreatedCents, long RemainingCents);
+    IReadOnlyList<InstallmentSlot> Slots, long CreatedCents, long RemainingCents, long DownPaymentCents = 0);
 
 public sealed record InstallmentPlanPage(
     InstallmentPlanSummary Summary, Guid HouseholdId, Guid ExpenseGroupId, string GroupName, string GroupIcon,
     Guid PayerId, string PayerName, long TotalCents, DateOnly PurchaseDate, DateOnly FirstDate,
     IReadOnlyList<ExpenseListParticipantDto> SplitPerInstallment, long ViewerShareCents,
     int NextNumber, long? PayoffCents,
-    IReadOnlyList<ExpenseListParticipantDto> RemainingShares);
+    IReadOnlyList<ExpenseListParticipantDto> RemainingShares,
+    long DownPaymentCents = 0);
 
 public enum UpcomingSource { Installment, Recurring }
 

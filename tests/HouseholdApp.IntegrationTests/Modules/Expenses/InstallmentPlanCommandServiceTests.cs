@@ -39,12 +39,13 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
     }
 
     private async Task<Guid> CreatePlanAsync(
-        DateOnly firstDate, long total = 150000, int count = 5, DateTimeOffset? createdAt = null)
+        DateOnly firstDate, long total = 150000, int count = 5, DateTimeOffset? createdAt = null,
+        long down = 0, DateOnly? purchaseDate = null)
     {
         await ExpenseTestData.SeedGroupAsync(Store, _householdId, _groupId);
         await using var session = Store.LightweightSession();
         return await BuildSut(session, createdAt).CreateAsync(
-            _householdId, _groupId, "Car repair", _ana, total, count, firstDate, firstDate,
+            _householdId, _groupId, "Car repair", _ana, total, down, count, purchaseDate ?? firstDate, firstDate,
             [new AllocationDto(_ana, total / 2), new AllocationDto(_leo, total - total / 2)]);
     }
 
@@ -87,7 +88,7 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
 
         await using var session = Store.LightweightSession();
         await Assert.That(() => BuildSut(session).CreateAsync(
-            _householdId, _groupId, "X", _ana, 1000, 2, Today, Today, [new AllocationDto(_ana, 1000)]))
+            _householdId, _groupId, "X", _ana, 1000, 0, 2, Today, Today, [new AllocationDto(_ana, 1000)]))
             .Throws<InvalidOperationException>();
     }
 
@@ -248,6 +249,94 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
 
         await SweepAsync(new DateOnly(2027, 3, 10));
         await Assert.That((await InstallmentsAsync(planId)).Count).IsEqualTo(3); // #1, #2, payoff
+    }
+
+    private async Task<long> LeoOwesAnaAsync()
+    {
+        await using var qs = Store.QuerySession();
+        var ledger = await qs.LoadAsync<HouseholdLedger>(_householdId);
+        return ledger!.Pairs.Where(p => p.GroupId == _groupId).Sum(p => p.UserId1 == _ana ? p.Cents : -p.Cents);
+    }
+
+    [Test]
+    public async Task Create_with_a_down_payment_records_only_the_down_payment_when_the_first_installment_is_next_month()
+    {
+        var planId = await CreatePlanAsync(firstDate: new DateOnly(2026, 12, 10), down: 50000, purchaseDate: Today);
+
+        var installments = await InstallmentsAsync(planId);
+        var down = installments.Single();
+        await Assert.That(down.Installment).IsEqualTo(new InstallmentLink(planId, 0, 5));
+        await Assert.That(down.TotalCents).IsEqualTo(50000L);
+        await Assert.That(await LeoOwesAnaAsync()).IsEqualTo(25000L);
+    }
+
+    [Test]
+    public async Task Sweep_after_a_down_payment_creates_installment_one_and_pay_early_covers_the_rest()
+    {
+        var planId = await CreatePlanAsync(firstDate: new DateOnly(2026, 12, 10), down: 50000, purchaseDate: Today);
+
+        await SweepAsync(new DateOnly(2026, 12, 10));
+        var numbers = (await InstallmentsAsync(planId)).Select(e => e.Installment!.Number).Order().ToList();
+        await Assert.That(numbers).IsEquivalentTo(new[] { 0, 1 });
+
+        Guid payoffId;
+        await using (var session = Store.LightweightSession())
+            payoffId = await BuildSut(session).PayRemainingEarlyAsync(_householdId, planId, 80000, "Car repair (paid early)");
+
+        await using var qs = Store.QuerySession();
+        var payoff = await qs.LoadAsync<ExpenseReadModel>(payoffId);
+        await Assert.That(payoff!.Installment).IsEqualTo(new InstallmentLink(planId, 2, 5, 5));
+        await Assert.That(payoff.TotalCents).IsEqualTo(80000L);
+    }
+
+    [Test]
+    public async Task Pay_early_right_after_creating_with_only_the_down_payment_covers_installments_one_to_n()
+    {
+        var planId = await CreatePlanAsync(firstDate: new DateOnly(2026, 12, 10), down: 50000, purchaseDate: Today);
+
+        Guid payoffId;
+        await using (var session = Store.LightweightSession())
+            payoffId = await BuildSut(session).PayRemainingEarlyAsync(_householdId, planId, 100000, "Car repair (paid early)");
+
+        await using var qs = Store.QuerySession();
+        var payoff = await qs.LoadAsync<ExpenseReadModel>(payoffId);
+        await Assert.That(payoff!.Installment).IsEqualTo(new InstallmentLink(planId, 1, 5, 5));
+    }
+
+    [Test]
+    public async Task A_plan_with_a_down_payment_completes_once_numbers_zero_to_n_exist()
+    {
+        var planId = await CreatePlanAsync(
+            firstDate: new DateOnly(2026, 12, 10), total: 30000, count: 2, down: 10000, purchaseDate: Today);
+
+        await SweepAsync(new DateOnly(2026, 12, 10));
+        await using (var qs = Store.QuerySession())
+            await Assert.That((await qs.LoadAsync<InstallmentPlanDocument>(planId))!.Status)
+                .IsEqualTo(InstallmentPlanStatus.Active);
+
+        await SweepAsync(new DateOnly(2027, 1, 10));
+
+        await using var after = Store.QuerySession();
+        await Assert.That((await after.LoadAsync<InstallmentPlanDocument>(planId))!.Status)
+            .IsEqualTo(InstallmentPlanStatus.Completed);
+        var installments = await InstallmentsAsync(planId);
+        await Assert.That(installments.Select(e => e.Installment!.Number).Order()).IsEquivalentTo(new[] { 0, 1, 2 });
+        await Assert.That(installments.Sum(e => e.TotalCents)).IsEqualTo(30000L);
+        await Assert.That(await LeoOwesAnaAsync()).IsEqualTo(15000L);
+    }
+
+    [Test]
+    public async Task Create_completes_a_plan_with_a_down_payment_when_every_number_is_already_due()
+    {
+        var planId = await CreatePlanAsync(
+            firstDate: new DateOnly(2026, 10, 10), total: 30000, count: 2, down: 10000,
+            purchaseDate: new DateOnly(2026, 10, 10));
+
+        await using var qs = Store.QuerySession();
+        await Assert.That((await qs.LoadAsync<InstallmentPlanDocument>(planId))!.Status)
+            .IsEqualTo(InstallmentPlanStatus.Completed);
+        await Assert.That((await InstallmentsAsync(planId)).Count).IsEqualTo(3);
+        await Assert.That(await LeoOwesAnaAsync()).IsEqualTo(15000L);
     }
 
     [Test]

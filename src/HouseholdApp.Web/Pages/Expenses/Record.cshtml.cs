@@ -61,6 +61,10 @@ public class RecordExpenseModel(
     [BindProperty]
     public DateOnly? FirstInstallmentDate { get; set; }
 
+    /// <summary>Optional down payment (installment number 0) paid on the purchase date, in currency units.</summary>
+    [BindProperty, Range(0, double.MaxValue)]
+    public decimal DownPayment { get; set; }
+
     [BindProperty(SupportsGet = true)]
     public Guid? PlanId { get; set; }
 
@@ -183,14 +187,21 @@ public class RecordExpenseModel(
                 return Page();
             }
 
-            // Per-installment mode: the form holds one installment, so amount and shares scale by the count.
-            var multiplier = AmountIsPerInstallment ? InstallmentCount : 1;
+            // Total mode: the form amount is the plan total. Per-installment mode: the form holds one installment,
+            // so the total is amount x count plus the down payment.
+            var downCents = (long)Math.Round(DownPayment * 100, MidpointRounding.AwayFromZero);
+            var totalCents = AmountIsPerInstallment ? cents * InstallmentCount + downCents : cents;
+            var planAllocations = downCents > 0
+                ? InstallmentSchedule
+                    .Distribute(totalCents, allocations.Select(a => new Allocation(a.UserId, a.Cents)).ToList())
+                    .Select(a => new AllocationDto(a.UserId, a.Cents))
+                    .ToList()
+                : allocations.Select(a => a with { Cents = a.Cents * (AmountIsPerInstallment ? InstallmentCount : 1) }).ToList();
             try
             {
                 var planId = await planCommands.CreateAsync(
-                    HouseholdId, GroupId, Description, PayerId, cents * multiplier, InstallmentCount,
-                    Date, FirstInstallmentDate ?? Date,
-                    allocations.Select(a => a with { Cents = a.Cents * multiplier }).ToList());
+                    HouseholdId, GroupId, Description, PayerId, totalCents, downCents, InstallmentCount,
+                    Date, FirstInstallmentDate ?? Date, planAllocations);
                 TempData["Success"] = Loc["Flash.PlanCreated"].Value;
                 return RedirectToPage("Plan", new { householdId = HouseholdId, planId });
             }

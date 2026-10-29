@@ -40,6 +40,27 @@ public sealed class InstallmentPlanSummariesTests
     }
 
     [Test]
+    public async Task A_down_payment_is_slot_zero_counted_as_created_and_never_as_remaining()
+    {
+        var plan = Plan();
+        plan.TotalCents = 150000;
+        plan.DownPaymentCents = 50000;
+        plan.PurchaseDate = new DateOnly(2026, 10, 1);
+        var down = Installment(plan, 0);
+        down.TotalCents = 50000;
+
+        var summary = InstallmentPlanSummaries.Build(plan, [down]);
+
+        await Assert.That(summary.Slots.Count).IsEqualTo(6);
+        await Assert.That(summary.Slots[0].Number).IsEqualTo(0);
+        await Assert.That(summary.Slots[0].Status).IsEqualTo(InstallmentSlotStatus.Created);
+        await Assert.That(summary.Slots[0].DueDate).IsEqualTo(new DateOnly(2026, 10, 1));
+        await Assert.That(summary.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(summary.CreatedCents).IsEqualTo(50000L);
+        await Assert.That(summary.RemainingCents).IsEqualTo(100000L);
+    }
+
+    [Test]
     public async Task An_edited_installment_counts_once_as_created()
     {
         var plan = Plan();

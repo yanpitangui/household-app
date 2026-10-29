@@ -38,7 +38,8 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
     }
 
     private async Task<Guid> CreatePlanAsync(
-        DateOnly firstDate, Guid? groupId = null, string description = "Car repair", bool seedGroup = true)
+        DateOnly firstDate, Guid? groupId = null, string description = "Car repair", bool seedGroup = true,
+        long downPaymentCents = 0, DateOnly? purchaseDate = null)
     {
         var group = groupId ?? _groupId;
         await InsertUsersAsync(_ana, _leo);
@@ -47,7 +48,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
         var sut = new InstallmentPlanCommandService(
             session, new FakeCurrentUser(_ana), new FakeTimeProvider(Now), Substitute.For<IEventBus>(),
             Substitute.For<ISessionFactory>(), NullLogger<InstallmentPlanCommandService>.Instance);
-        return await sut.CreateAsync(_householdId, group, description, _ana, 150000, 5, firstDate, firstDate,
+        return await sut.CreateAsync(_householdId, group, description, _ana, 150000, downPaymentCents, 5, purchaseDate ?? firstDate, firstDate,
             [new AllocationDto(_ana, 75000), new AllocationDto(_leo, 75000)]);
     }
 
@@ -87,6 +88,41 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
         await Assert.That(page.RemainingShares.Single(r => r.UserId == _leo).Cents).IsEqualTo(45000L);
         await Assert.That(page.RemainingShares.Select(r => r.UserId).ToList())
             .IsEquivalentTo(page.RemainingShares.Select(r => r.UserId).OrderBy(x => x).ToList(), TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task Plan_page_with_a_created_down_payment_keeps_it_out_of_remaining_and_the_monthly_share()
+    {
+        var planId = await CreatePlanAsync(new DateOnly(2026, 12, 10), downPaymentCents: 50000,
+            purchaseDate: new DateOnly(2026, 11, 10));
+
+        await using var qs = Store.QuerySession();
+        var page = await Queries(qs).GetInstallmentPlanPageAsync(_householdId, planId, _leo);
+
+        await Assert.That(page!.DownPaymentCents).IsEqualTo(50000L);
+        await Assert.That(page.Summary.Slots[0].Number).IsEqualTo(0);
+        await Assert.That(page.Summary.Slots[0].Status).IsEqualTo(InstallmentSlotStatus.Created);
+        await Assert.That(page.Summary.CreatedCents).IsEqualTo(50000L);
+        await Assert.That(page.Summary.RemainingCents).IsEqualTo(100000L);
+        await Assert.That(page.NextNumber).IsEqualTo(1);
+        await Assert.That(page.ViewerShareCents).IsEqualTo(10000L);
+        await Assert.That(page.RemainingShares.Sum(r => r.Cents)).IsEqualTo(100000L);
+    }
+
+    [Test]
+    public async Task Plan_page_with_a_future_down_payment_shows_the_monthly_share_not_the_down_share()
+    {
+        var planId = await CreatePlanAsync(new DateOnly(2026, 12, 20), downPaymentCents: 50000,
+            purchaseDate: new DateOnly(2026, 11, 20));
+
+        await using var qs = Store.QuerySession();
+        var page = await Queries(qs).GetInstallmentPlanPageAsync(_householdId, planId, _leo);
+
+        await Assert.That(page!.Summary.Slots[0].Status).IsEqualTo(InstallmentSlotStatus.Upcoming);
+        await Assert.That(page.NextNumber).IsEqualTo(0);
+        await Assert.That(page.ViewerShareCents).IsEqualTo(10000L);
+        await Assert.That(page.Summary.RemainingCents).IsEqualTo(150000L);
+        await Assert.That(page.RemainingShares.Sum(s => s.Cents)).IsEqualTo(150000L);
     }
 
     [Test]

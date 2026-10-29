@@ -32,6 +32,7 @@ public sealed class ActivityEntry
     public int? InstallmentNumber { get; set; }
     public int? InstallmentCount { get; set; }
     public long? AmountCents { get; set; }
+    public long? DownPaymentCents { get; set; } // set on a created row whose plan has a down payment
     public long? ReferenceCents { get; set; }
     public int? VoidedCount { get; set; }
 }
@@ -274,21 +275,23 @@ public sealed partial class ActivityEntryProjection : EventProjection
     // The catch-up installments have no rows of their own, so the plan row carries their balance effect.
     public static ActivityEntry MapPlanCreated(Guid eventId, InstallmentPlanCreated e, string? groupName)
     {
-        var segments = new[] { new SplitSegment(1, e.Allocations) };
+        var terms = new InstallmentTerms(e.TotalCents, e.Count, e.DownPaymentCents, e.PurchaseDate, e.FirstDate);
+        var segments = new[] { new SplitSegment(terms.FirstNumber, e.Allocations) };
         var delta = new Dictionary<Guid, long>();
-        for (var n = 1; n <= e.CatchUpCount; n++)
+        foreach (var n in terms.Numbers.Take(e.CatchUpCount))
         {
-            var amount = InstallmentSchedule.Amount(e.TotalCents, e.Count, n);
+            var amount = terms.Amount(n);
             var net = LedgerMath.NetPerUser(
                 [new FundingSource(e.PayerId, amount)],
-                InstallmentSchedule.Allocations(e.TotalCents, e.Count, segments, n));
+                terms.Allocations(segments, n));
             foreach (var (user, cents) in net) delta[user] = delta.GetValueOrDefault(user) + cents;
         }
 
         var entry = PlanEntry(eventId, ActivityKind.InstallmentPlanCreated, e.OccurredAt, e.HouseholdId,
             e.ExpenseGroupId, groupName, e.PerformedByUserId, e.Description, e.PlanId, delta);
         entry.InstallmentCount = e.Count;
-        entry.AmountCents = InstallmentSchedule.Amount(e.TotalCents, e.Count, 1);
+        entry.AmountCents = terms.Amount(1);
+        entry.DownPaymentCents = terms.HasDownPayment ? terms.DownPaymentCents : null;
         return entry;
     }
 

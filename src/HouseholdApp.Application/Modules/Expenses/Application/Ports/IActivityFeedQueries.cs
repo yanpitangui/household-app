@@ -23,7 +23,8 @@ public sealed record ActivityFeedItem(
     int? InstallmentCount = null,
     long? AmountCents = null,
     long? ReferenceCents = null,
-    int? VoidedCount = null);
+    int? VoidedCount = null,
+    long? DownPaymentCents = null);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,

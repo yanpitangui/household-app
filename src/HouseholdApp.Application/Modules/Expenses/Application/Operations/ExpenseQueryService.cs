@@ -426,15 +426,16 @@ public sealed class ExpenseQueryService(
             .Where(e => e.InstallmentPlanId == planId).ToListAsync(ct);
         var summary = InstallmentPlanSummaries.Build(plan, installments.ToList());
 
-        // The split shown is the one the next installment will use (the last one once nothing remains).
+        // The split shown is the one the next monthly installment will use (the last one once nothing remains);
+        // the monthly share comes from installment 1 onward.
         var nextNumber = summary.Slots.FirstOrDefault(s => s.Status == InstallmentSlotStatus.Upcoming)?.Number
             ?? plan.Count + 1;
-        var shown = InstallmentSchedule.Allocations(
-            plan.TotalCents, plan.Count, plan.Segments, Math.Min(nextNumber, plan.Count));
+        var terms = plan.ToTerms();
+        var shown = terms.Allocations(plan.Segments, Math.Clamp(nextNumber, 1, plan.Count));
 
         // Each member's cents over the installments still to come, ordered by user id so that the Early Payoff
         // preview breaks rounding ties the same way InstallmentSchedule.Distribute does.
-        var remaining = InstallmentSchedule.RemainingShares(plan.TotalCents, plan.Count, plan.Segments, nextNumber)
+        var remaining = terms.RemainingShares(plan.Segments, nextNumber)
             .Select(a => (a.UserId, a.Cents))
             .ToList();
 
@@ -452,7 +453,8 @@ public sealed class ExpenseQueryService(
             nextNumber, plan.PayoffCents,
             remaining.Select(a => new ExpenseListParticipantDto(
                 a.UserId, profiles.GetValueOrDefault(a.UserId)?.DisplayName ?? "?", a.Cents,
-                profiles.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList());
+                profiles.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList(),
+            plan.DownPaymentCents);
     }
 
     public async Task<UpcomingSummary> GetUpcomingAsync(

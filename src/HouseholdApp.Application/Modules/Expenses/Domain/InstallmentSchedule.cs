@@ -12,26 +12,36 @@ public sealed record InstallmentLink(Guid PlanId, int Number, int Count, int? Th
     public bool IsPayoff => ThroughNumber is not null;
 }
 
-/// <summary>The arithmetic behind every Installment Plan operation, in whole cents.</summary>
-public static class InstallmentSchedule
+/// <summary>The fixed terms of an Installment Plan; the down payment, when present, is installment 0.</summary>
+public sealed record InstallmentTerms(
+    long TotalCents, int Count, long DownPaymentCents, DateOnly PurchaseDate, DateOnly FirstDate)
 {
-    public const int MinCount = 2;
-    public const int MaxCount = 48;
+    public bool HasDownPayment => DownPaymentCents > 0;
+    public int FirstNumber => FirstNumberFor(DownPaymentCents);
 
-    private static readonly Guid IdNamespace = Guid.Parse("6f1c2a3e-8a47-4d0b-9a61-2f3a8c9e0b17");
+    /// <summary>The first installment number of a plan: 0 with a down payment, else 1.</summary>
+    public static int FirstNumberFor(long downPaymentCents) => downPaymentCents > 0 ? 0 : 1;
+
+    public IEnumerable<int> Numbers => Enumerable.Range(FirstNumber, Count - FirstNumber + 1);
+    public long InstallmentsCents => TotalCents - DownPaymentCents;
 
     // DateOnly.AddMonths lands on the month's last day when the day is missing (31 Jan + 1 month = 28/29 Feb), and
     // every date is computed from the first one so a short month never shifts the ones after it.
-    public static DateOnly DueDate(DateOnly firstDate, int number) => firstDate.AddMonths(number - 1);
+    public DateOnly DueDate(int number) => number == 0 ? PurchaseDate : FirstDate.AddMonths(number - 1);
 
-    /// <summary>Equal split; the leftover cents go to the first installments (333,34 + 333,33 + 333,33).</summary>
-    public static long Amount(long totalCents, int count, int number) =>
-        totalCents / count + (number <= totalCents % count ? 1 : 0);
+    /// <summary>
+    /// The down payment for number 0; for the installments an equal split of what is left after it, with the
+    /// leftover cents going to the first installments (333,34 + 333,33 + 333,33).
+    /// </summary>
+    public long Amount(int number) =>
+        number == 0
+            ? DownPaymentCents
+            : InstallmentsCents / Count + (number <= InstallmentsCents % Count ? 1 : 0);
 
-    public static long AmountRange(long totalCents, int count, int from, int through)
+    public long AmountRange(int from, int through)
     {
         long sum = 0;
-        for (var n = from; n <= through; n++) sum += Amount(totalCents, count, n);
+        for (var n = from; n <= through; n++) sum += Amount(n);
         return sum;
     }
 
@@ -39,12 +49,11 @@ public static class InstallmentSchedule
     /// Each member's cents of installment <paramref name="number"/>: the difference between their cumulative shares
     /// through this installment and through the previous one, so each member's total over the segment is exact.
     /// </summary>
-    public static IReadOnlyList<Allocation> Allocations(
-        long totalCents, int count, IReadOnlyList<SplitSegment> segments, int number)
+    public IReadOnlyList<Allocation> Allocations(IReadOnlyList<SplitSegment> segments, int number)
     {
         var segment = segments.Last(s => s.FromNumber <= number);
-        var through = Cumulative(totalCents, count, segment, number);
-        var before = Cumulative(totalCents, count, segment, number - 1);
+        var through = Cumulative(segment, number);
+        var before = Cumulative(segment, number - 1);
         return through
             .Select(a => new Allocation(a.UserId, a.Cents - before.First(b => b.UserId == a.UserId).Cents))
             .Where(a => a.Cents > 0)
@@ -52,20 +61,47 @@ public static class InstallmentSchedule
     }
 
     /// <summary>
-    /// Each member's cents over installments fromNumber..count, ordered by user id so that callers break rounding
-    /// ties the same way <see cref="Distribute"/> does.
+    /// Each member's cents over installments fromNumber..Count, ordered by user id so that callers break rounding
+    /// ties the same way <see cref="InstallmentSchedule.Distribute"/> does.
     /// </summary>
-    public static IReadOnlyList<Allocation> RemainingShares(
-        long totalCents, int count, IReadOnlyList<SplitSegment> segments, int fromNumber)
+    public IReadOnlyList<Allocation> RemainingShares(IReadOnlyList<SplitSegment> segments, int fromNumber)
     {
-        if (fromNumber > count) return [];
-        return Enumerable.Range(fromNumber, count - fromNumber + 1)
-            .SelectMany(n => Allocations(totalCents, count, segments, n))
+        if (fromNumber > Count) return [];
+        return Enumerable.Range(fromNumber, Count - fromNumber + 1)
+            .SelectMany(n => Allocations(segments, n))
             .GroupBy(a => a.UserId)
             .Select(g => new Allocation(g.Key, g.Sum(a => a.Cents)))
             .OrderBy(a => a.UserId)
             .ToList();
     }
+
+    /// <summary>
+    /// True when every member with a share gets at least one exact cent of the smallest installment (number 1 and
+    /// up), which keeps every member's cumulative share from shrinking, so no installment gives anyone a negative
+    /// share. The down payment's cumulative share starts from zero, so any down payment size works.
+    /// </summary>
+    public bool EveryShareCoversACent(SplitSegment segment)
+    {
+        var weightTotal = segment.Allocations.Sum(a => a.Cents);
+        var smallest = InstallmentsCents / Count;
+        return segment.Allocations.Where(a => a.Cents > 0)
+            .All(a => (Int128)smallest * a.Cents >= weightTotal);
+    }
+
+    private IReadOnlyList<Allocation> Cumulative(SplitSegment segment, int through)
+    {
+        var target = through < segment.FromNumber ? 0 : AmountRange(segment.FromNumber, through);
+        return InstallmentSchedule.Distribute(target, segment.Allocations);
+    }
+}
+
+/// <summary>The pure helpers shared by every Installment Plan operation, in whole cents.</summary>
+public static class InstallmentSchedule
+{
+    public const int MinCount = 2;
+    public const int MaxCount = 48;
+
+    private static readonly Guid IdNamespace = Guid.Parse("6f1c2a3e-8a47-4d0b-9a61-2f3a8c9e0b17");
 
     /// <summary>Splits <paramref name="cents"/> in proportion to the weights, whole cents by largest remainder.</summary>
     public static IReadOnlyList<Allocation> Distribute(long cents, IReadOnlyList<Allocation> weights)
@@ -84,18 +120,6 @@ public static class InstallmentSchedule
     }
 
     /// <summary>
-    /// True when every member with a share gets at least one exact cent of the smallest installment, which keeps
-    /// every member's cumulative share from shrinking, so no installment gives anyone a negative share.
-    /// </summary>
-    public static bool EveryShareCoversACent(long totalCents, int count, SplitSegment segment)
-    {
-        var weightTotal = segment.Allocations.Sum(a => a.Cents);
-        var smallest = totalCents / count;
-        return segment.Allocations.Where(a => a.Cents > 0)
-            .All(a => (Int128)smallest * a.Cents >= weightTotal);
-    }
-
-    /// <summary>
     /// Stable Expense id for installment <paramref name="number"/> of a plan (UUID version 8, SHA-256 of the plan id and
     /// the number), so a rerun of the sweep finds the stream it already started.
     /// </summary>
@@ -110,11 +134,5 @@ public static class InstallmentSchedule
         hash[6] = (byte)((hash[6] & 0x0F) | 0x80);
         hash[8] = (byte)((hash[8] & 0x3F) | 0x80);
         return new Guid(hash[..16], bigEndian: true);
-    }
-
-    private static IReadOnlyList<Allocation> Cumulative(long totalCents, int count, SplitSegment segment, int through)
-    {
-        var target = through < segment.FromNumber ? 0 : AmountRange(totalCents, count, segment.FromNumber, through);
-        return Distribute(target, segment.Allocations);
     }
 }

@@ -22,21 +22,21 @@ public sealed class InstallmentPlanCommandService(
     ILogger<InstallmentPlanCommandService> logger) : IInstallmentPlanCommands
 {
     public async Task<Guid> CreateAsync(
-        Guid householdId, Guid groupId, string description, Guid payerId, long totalCents, int count,
-        DateOnly purchaseDate, DateOnly firstDate, IReadOnlyList<AllocationDto> allocations,
+        Guid householdId, Guid groupId, string description, Guid payerId, long totalCents, long downPaymentCents,
+        int count, DateOnly purchaseDate, DateOnly firstDate, IReadOnlyList<AllocationDto> allocations,
         CancellationToken ct = default)
     {
         await EnsureActiveOwnedGroupAsync(householdId, groupId, ct);
         var now = time.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var plan = InstallmentPlan.Create(
-            householdId, groupId, description, payerId, totalCents, count, purchaseDate, firstDate,
+            householdId, groupId, description, payerId, totalCents, downPaymentCents, count, purchaseDate, firstDate,
             ToDomain(allocations), today, now, currentUser.Id);
 
         var dueNumbers = plan.DueNumbers(today).ToList();
         var installments = dueNumbers.Select(n => plan.BuildInstallment(n, now, coveredByPlanEvent: true)).ToList();
         // Every installment already due: the plan is complete from the start, no sweep needed.
-        if (dueNumbers.Count == plan.Count) plan.Complete(now);
+        if (dueNumbers.Count == plan.Terms.Numbers.Count()) plan.Complete(now);
 
         session.Events.StartStream(plan.Id, plan.DomainEvents.ToArray());
         foreach (var installment in installments)
@@ -52,7 +52,7 @@ public sealed class InstallmentPlanCommandService(
     {
         var now = time.GetUtcNow();
         var (stream, plan) = await LoadPlanAsync(householdId, planId, ct);
-        var fromNumber = await NextNumberAsync(planId, ct);
+        var fromNumber = await NextNumberAsync(plan, ct);
         plan.Update(description, payerId, ToDomain(allocations), fromNumber, now, currentUser.Id);
         stream.AppendMany(plan.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
@@ -64,7 +64,7 @@ public sealed class InstallmentPlanCommandService(
         var now = time.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var (stream, plan) = await LoadPlanAsync(householdId, planId, ct);
-        var fromNumber = await NextNumberAsync(planId, ct);
+        var fromNumber = await NextNumberAsync(plan, ct);
         var payoff = plan.PayEarly(fromNumber, payoffCents, payoffDescription, today, now, currentUser.Id);
         session.Events.StartStream(payoff.Id, payoff.DomainEvents.ToArray());
         stream.AppendMany(plan.DomainEvents.ToArray());
@@ -153,7 +153,7 @@ public sealed class InstallmentPlanCommandService(
             planSession.Events.StartStream(installment.Id, installment.DomainEvents.ToArray());
         }
 
-        if (existing.Count + due.Count == plan.Count) plan.Complete(now);
+        if (existing.Count + due.Count == plan.Terms.Numbers.Count()) plan.Complete(now);
         if (plan.DomainEvents.Count > 0) stream.AppendMany(plan.DomainEvents.ToArray());
         if (due.Count == 0 && plan.DomainEvents.Count == 0) return;
 
@@ -172,11 +172,12 @@ public sealed class InstallmentPlanCommandService(
         return (stream, stream.Aggregate);
     }
 
-    // The number after the highest created one, so a payoff or an update never covers a number that already exists.
-    private async Task<int> NextNumberAsync(Guid planId, CancellationToken ct)
+    // The number after the highest created one (the plan's first number when none exists), so a payoff or an
+    // update never covers a number that already exists.
+    private async Task<int> NextNumberAsync(InstallmentPlan plan, CancellationToken ct)
     {
-        var existing = await CreatedNumbersAsync(session, planId, ct);
-        return existing.Count == 0 ? 1 : existing.Max() + 1;
+        var existing = await CreatedNumbersAsync(session, plan.Id, ct);
+        return existing.Count == 0 ? plan.Terms.FirstNumber : existing.Max() + 1;
     }
 
     // Installment numbers that have an Expense, voided or not; a voided installment is never created again.

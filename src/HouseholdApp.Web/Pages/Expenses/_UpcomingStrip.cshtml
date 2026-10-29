@@ -54,7 +54,7 @@
                             @i.Description
                             @if (i.Number is { } n)
                             {
-                                <span class="installment-pill">@n/@i.Count</span>
+                                <span class="installment-pill">@(n == 0 ? L["Expenses.Plan.DownTag"].Value : $"{n}/{i.Count}")</span>
                             }
                             @if (i.Occurrences > 1)
                             {
