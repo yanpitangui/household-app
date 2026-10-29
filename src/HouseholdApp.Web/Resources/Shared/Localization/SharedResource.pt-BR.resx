@@ -443,7 +443,7 @@
   <data name="Expenses.Plan.CreatedRange"><value>✓ {0}–{1} lançadas</value></data>
   <data name="Expenses.Plan.MoreUntil"><value>○ mais {0} até {1}</value></data>
   <data name="Expenses.Plan.Tag.This"><value>esta</value></data>
-  <data name="Expenses.Plan.Tag.Latest"><value>última</value></data>
+  <data name="Expenses.Plan.Tag.Latest"><value>mais recente</value></data>
   <data name="Expenses.Plan.Tag.Voided"><value>anulada</value></data>
   <data name="Expenses.Plan.Status.Active"><value>Ativo</value></data>
   <data name="Expenses.Plan.Status.Completed"><value>Concluído</value></data>
