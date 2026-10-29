@@ -21,6 +21,28 @@ public class ExpensesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Add_expense_button_floats_above_the_bottom_nav_on_a_long_page()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewTrackedPageAsync();
+        await page.CreateGroupAsync(pw.AppUrl, householdId, "Home");
+
+        // A short phone viewport makes the page scroll, so the button relies on sticking above the fixed nav.
+        await page.SetViewportSizeAsync(390, 480);
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
+
+        var button = page.Locator(".expenses-fab-btn");
+        var nav = page.Locator("nav.bottom-nav");
+        var buttonBox = await button.BoundingBoxAsync();
+        var navBox = await nav.BoundingBoxAsync();
+
+        await Assert.That(buttonBox).IsNotNull();
+        await Assert.That(buttonBox!.Y + buttonBox.Height).IsLessThanOrEqualTo(navBox!.Y);
+        await Assert.That(buttonBox.Y).IsGreaterThanOrEqualTo(0);
+    }
+
+    [Test]
     public async Task Balance_card_survives_link_navigation()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
