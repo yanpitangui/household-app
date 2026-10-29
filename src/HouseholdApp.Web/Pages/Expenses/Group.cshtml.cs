@@ -21,6 +21,7 @@ public class ExpenseGroupModel(
     public GroupPage Group { get; private set; } = default!;
     public bool CanManage { get; private set; }
     public IReadOnlyList<ExpenseTimelineEntry> Entries { get; private set; } = [];
+    public UpcomingSummary Upcoming { get; private set; } = UpcomingSummary.Empty;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -30,6 +31,7 @@ public class ExpenseGroupModel(
         Group = page;
         CanManage = await Guard.CanManageAsync(HouseholdId, CurrentUserId);
         Entries = ExpenseTimeline.Merge(page.Expenses, page.Settlements);
+        Upcoming = await expenseQueries.GetUpcomingAsync(HouseholdId, GroupId, CurrentUserId);
         return Page();
     }
 

@@ -3,6 +3,7 @@
 @using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections
 @{
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long? cents) => $"{currencySymbol} {((cents ?? 0) / 100m).ToString("F2")}";
     var settlementAmount = $"{currencySymbol} {((Model.SettlementCents ?? 0) / 100m).ToString("F2")}";
     var text = Model.Kind switch
     {
@@ -17,11 +18,38 @@
         ActivityKind.GroupDeleted => string.Format(L["Expenses.Activity.GroupDeleted"].Value, Model.ActorDisplayName, Model.GroupName),
         ActivityKind.GroupRestored => string.Format(L["Expenses.Activity.GroupRestored"].Value, Model.ActorDisplayName, Model.GroupName),
         ActivityKind.GroupRenamed => string.Format(L["Expenses.Activity.GroupRenamed"].Value, Model.ActorDisplayName, Model.RenamedFrom, Model.RenamedTo),
+        ActivityKind.InstallmentPlanCreated when Model.DownPaymentCents > 0 => string.Format(L["Expenses.Activity.PlanCreatedDown"].Value,
+            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentCount, Money(Model.AmountCents),
+            Money(Model.DownPaymentCents)),
+        ActivityKind.InstallmentPlanCreated => string.Format(L["Expenses.Activity.PlanCreated"].Value,
+            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentCount, Money(Model.AmountCents)),
+        ActivityKind.InstallmentAdded when Model.InstallmentNumber == 0 => string.Format(L["Expenses.Activity.DownPaymentAdded"].Value,
+            Model.ActorDisplayName, Model.Description, Model.GroupName, Money(Model.AmountCents)),
+        ActivityKind.InstallmentAdded => string.Format(L["Expenses.Activity.InstallmentAdded"].Value,
+            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentNumber, Model.InstallmentCount,
+            Money(Model.AmountCents)),
+        ActivityKind.InstallmentPlanPaidEarly => string.Format(L["Expenses.Activity.PlanPaidEarly"].Value,
+            Model.ActorDisplayName, Model.Description, Model.InstallmentNumber, Model.InstallmentCount,
+            Money(Model.AmountCents), Money(Model.ReferenceCents)),
+        ActivityKind.InstallmentPlanCancelled => Model.VoidedCount > 0
+            ? string.Format(L["Expenses.Activity.PlanCancelledVoided"].Value, Model.ActorDisplayName, Model.Description, Model.VoidedCount)
+            : string.Format(L["Expenses.Activity.PlanCancelled"].Value, Model.ActorDisplayName, Model.Description),
+        ActivityKind.InstallmentPlanEdited => string.Format(L["Expenses.Activity.PlanEdited"].Value,
+            Model.ActorDisplayName, Model.Description),
         _ => Model.Description
     };
 }
 <div class="activity-row" data-row>
-    <div class="activity-text"><strong>@text</strong></div>
+    <div class="activity-text">
+        @if (Model.InstallmentPlanId is { } planLink)
+        {
+            <a asp-page="/Expenses/Plan" asp-route-householdId="@ViewContext.RouteData.Values["householdId"]" asp-route-planId="@planLink" class="activity-plan-link"><strong>@text</strong></a>
+        }
+        else
+        {
+            <strong>@text</strong>
+        }
+    </div>
     @if (Model.CanRestore && Model.GroupId is { } restoreGroupId)
     {
         <form method="post" asp-page="/Expenses/Activity" asp-page-handler="Restore" asp-route-groupId="@restoreGroupId" class="activity-restore">

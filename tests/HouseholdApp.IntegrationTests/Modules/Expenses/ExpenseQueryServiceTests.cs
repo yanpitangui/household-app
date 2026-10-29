@@ -18,7 +18,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
-        new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()));
+        new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), TimeProvider.System);
 
     private async Task InsertUsersAsync(params Guid[] ids)
     {

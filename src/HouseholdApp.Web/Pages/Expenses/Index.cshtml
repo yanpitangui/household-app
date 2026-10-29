@@ -36,6 +36,7 @@
      hx-swap="morph:innerHTML"
      hx-disinherit="hx-swap">
     @await Html.PartialAsync("_GroupCards", new GroupCardsViewModel(Model.HouseholdId, Model.Home.Groups))
+    @await Html.PartialAsync("_UpcomingStrip", new UpcomingStripViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Upcoming))
     @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, null, Model.CurrentUserId, Model.Entries, Model.Home.HasOlder))
 </div>
 <div id="expenses-older"></div>

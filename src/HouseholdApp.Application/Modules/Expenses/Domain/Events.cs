@@ -21,7 +21,10 @@ public sealed record ExpenseRecorded(
     IReadOnlyList<Allocation> Allocations,
     Guid PerformedByUserId = default,
     Guid? RecurringExpenseId = null,
-    Guid? CorrectedFromExpenseId = null) : IDomainEvent;
+    Guid? CorrectedFromExpenseId = null,
+    InstallmentLink? Installment = null,
+    // True for Expenses a plan event already describes (catch-up, early payoff); the feed and pushes come from it.
+    bool CoveredByPlanEvent = false) : IDomainEvent;
 
 public sealed record ExpenseVoided(
     Guid EventId,
@@ -34,7 +37,10 @@ public sealed record ExpenseVoided(
     Guid PerformedByUserId = default,
     string Description = "",
     Guid? CorrectedByExpenseId = null,
-    Guid? ExpenseGroupId = null) : IDomainEvent;
+    Guid? ExpenseGroupId = null,
+    InstallmentLink? Installment = null,
+    // True for the voids of a plan cancel; the cancel event describes them.
+    bool CoveredByPlanEvent = false) : IDomainEvent;
 
 // PerformedByUserId/ExpenseGroupId default for the same legacy-deserialization reason as ExpenseRecorded above.
 // A household settle appends one leg per group, all sharing HouseholdSettlementId. Offset legs run recipient → payer

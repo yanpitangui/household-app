@@ -195,4 +195,35 @@ public sealed class ExpenseTests
         var voided = expense.DomainEvents.OfType<ExpenseVoided>().Single();
         await Assert.That(voided.ExpenseGroupId).IsEqualTo(groupId);
     }
+
+    [Test]
+    public async Task Record_carries_the_installment_link_and_void_repeats_it()
+    {
+        var link = new InstallmentLink(Guid.NewGuid(), 2, 5);
+        var expense = Expense.Record(HouseholdId, GroupId, "Car repair", Now,
+            [new FundingSource(UserId1, 300)], [new Allocation(UserId1, 300)], Now, UserId1,
+            installment: link, coveredByPlanEvent: true);
+
+        var recorded = (ExpenseRecorded)expense.DomainEvents[0];
+        await Assert.That(recorded.Installment).IsEqualTo(link);
+        await Assert.That(recorded.CoveredByPlanEvent).IsTrue();
+        await Assert.That(expense.Installment).IsEqualTo(link);
+
+        expense.Void("Plan cancelled", Now, UserId1, coveredByPlanEvent: true);
+        var voided = (ExpenseVoided)expense.DomainEvents[1];
+        await Assert.That(voided.Installment).IsEqualTo(link);
+        await Assert.That(voided.CoveredByPlanEvent).IsTrue();
+    }
+
+    [Test]
+    public async Task Create_from_event_restores_the_installment_link()
+    {
+        var link = new InstallmentLink(Guid.NewGuid(), 1, 3);
+        var original = Expense.Record(HouseholdId, GroupId, "X", Now,
+            [new FundingSource(UserId1, 300)], [new Allocation(UserId1, 300)], Now, UserId1, installment: link);
+
+        var replayed = Expense.Create((ExpenseRecorded)original.DomainEvents[0]);
+
+        await Assert.That(replayed.Installment).IsEqualTo(link);
+    }
 }

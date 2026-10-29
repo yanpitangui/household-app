@@ -10,6 +10,7 @@ namespace HouseholdApp.IntegrationTests.Modules.Expenses;
 
 // Own schema so the rebuild (which truncates the activity table) runs isolated from the shared expenses schema.
 [ClassDataSource<PostgresFixture>(Shared = SharedType.PerTestSession)]
+[NotInParallel(nameof(ActivityEntryRebuildTests))]
 public sealed class ActivityEntryRebuildTests(PostgresFixture db)
 {
     // Stands in for an event type a later deployment removed (e.g. ExpenseGroupCreated) whose rows stay in the store.
@@ -25,6 +26,11 @@ public sealed class ActivityEntryRebuildTests(PostgresFixture db)
         opts.Events.AddEventType<ExpenseGroupDeleted>();
         opts.Events.AddEventType<ExpenseGroupRestored>();
         opts.Events.AddEventType<ExpenseGroupUpdated>();
+        opts.Events.AddEventType<InstallmentPlanCreated>();
+        opts.Events.AddEventType<InstallmentPlanUpdated>();
+        opts.Events.AddEventType<InstallmentPlanPaidEarly>();
+        opts.Events.AddEventType<InstallmentPlanCancelled>();
+        opts.Events.AddEventType<InstallmentPlanCompleted>();
         if (knowsRemovedEvent) opts.Events.AddEventType<RemovedEvent>();
         opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);
         opts.AutoCreateSchemaObjects = AutoCreate.All;
@@ -63,5 +69,29 @@ public sealed class ActivityEntryRebuildTests(PostgresFixture db)
         var entries = await qs.Query<ActivityEntry>().Where(a => a.HouseholdId == householdId).ToListAsync();
         await Assert.That(entries.Count).IsEqualTo(1);
         await Assert.That(entries[0].SettlementCents).IsEqualTo(1234L);
+    }
+
+    [Test]
+    public async Task Rebuild_restores_installment_plan_rows()
+    {
+        var planId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+        var ana = Guid.NewGuid();
+        using var store = BuildStore(knowsRemovedEvent: false);
+        await using (var s = store.LightweightSession())
+        {
+            s.Events.StartStream(planId, new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, planId,
+                householdId, Guid.NewGuid(), "Car repair", ana, 20000, 0, 2, new DateOnly(2026, 1, 1),
+                new DateOnly(2026, 1, 1), [new Allocation(ana, 20000)], 0, ana));
+            await s.SaveChangesAsync();
+        }
+
+        using var daemon = await store.BuildProjectionDaemonAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await daemon.RebuildProjectionAsync<ActivityEntryProjection>(timeout.Token);
+
+        await using var qs = store.QuerySession();
+        var row = await qs.Query<ActivityEntry>().SingleAsync(a => a.InstallmentPlanId == planId);
+        await Assert.That(row.Kind).IsEqualTo(ActivityKind.InstallmentPlanCreated);
     }
 }

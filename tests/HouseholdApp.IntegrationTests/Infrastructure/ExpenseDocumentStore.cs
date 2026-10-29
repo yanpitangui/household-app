@@ -15,22 +15,29 @@ namespace HouseholdApp.IntegrationTests.Infrastructure;
 /// </summary>
 public static class ExpenseDocumentStore
 {
-    private static readonly ConcurrentDictionary<string, Lazy<IDocumentStore>> Stores = new();
+    private static readonly ConcurrentDictionary<(string, string), Lazy<IDocumentStore>> Stores = new();
 
-    public static IDocumentStore For(string connectionString) => Stores
-        .GetOrAdd(connectionString, cs => new Lazy<IDocumentStore>(() => DocumentStore.For(opts =>
+    public static IDocumentStore For(string connectionString, string schema = "expenses") => Stores
+        .GetOrAdd((connectionString, schema), key => new Lazy<IDocumentStore>(() => DocumentStore.For(opts =>
         {
-            opts.Connection(cs);
-            opts.DatabaseSchemaName = "expenses";
+            opts.Connection(key.Item1);
+            opts.DatabaseSchemaName = key.Item2;
             opts.Events.AddEventType<ExpenseRecorded>();
             opts.Events.AddEventType<ExpenseVoided>();
             opts.Events.AddEventType<SettlementRecorded>();
             opts.Events.AddEventType<ExpenseGroupDeleted>();
             opts.Events.AddEventType<ExpenseGroupRestored>();
+            opts.Events.AddEventType<ExpenseGroupUpdated>();
+            opts.Events.AddEventType<InstallmentPlanCreated>();
+            opts.Events.AddEventType<InstallmentPlanUpdated>();
+            opts.Events.AddEventType<InstallmentPlanPaidEarly>();
+            opts.Events.AddEventType<InstallmentPlanCancelled>();
+            opts.Events.AddEventType<InstallmentPlanCompleted>();
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<SettlementReadModelProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<InstallmentPlanProjection>(ProjectionLifecycle.Inline);
             opts.AutoCreateSchemaObjects = AutoCreate.All;
         })))
         .Value;

@@ -51,6 +51,7 @@ public static class ExpenseStreamEndpoints
                         if (page is null)
                             return await viewRender.RenderPartialAsync("~/Pages/Expenses/_GroupGone.cshtml", householdId);
 
+                        var upcomingHtml = await RenderUpcomingAsync(groupId, innerCt);
                         var listVm = new ExpensesListViewModel(
                             householdId, groupId, currentUser.Id, ExpenseTimeline.Merge(page.Expenses, page.Settlements),
                             page.HasOlder);
@@ -58,7 +59,7 @@ public static class ExpenseStreamEndpoints
                         var groupBalanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml",
                             new BalanceCardViewModel(householdId, page.Balances, OutOfBand: true, groupId, page.Name));
                         var groupOlderHtml = await RenderOlderResetAsync(page.HasOlder, page.FirstOlderCursor);
-                        return listHtml + groupBalanceHtml + groupOlderHtml;
+                        return upcomingHtml + listHtml + groupBalanceHtml + groupOlderHtml;
                     }
 
                     var home = await expenseQueries.GetExpensesHomeAsync(householdId, currentUser.Id, innerCt);
@@ -66,13 +67,19 @@ public static class ExpenseStreamEndpoints
                         new GroupCardsViewModel(householdId, home.Groups));
                     var balanceHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_BalanceCard.cshtml",
                         new BalanceCardViewModel(householdId, home.Balances, OutOfBand: true));
+                    var homeUpcomingHtml = await RenderUpcomingAsync(null, innerCt);
                     var homeListHtml = await viewRender.RenderPartialAsync("~/Pages/Expenses/_ExpensesList.cshtml",
                         new ExpensesListViewModel(
                             householdId, null, currentUser.Id,
                             ExpenseTimeline.Merge(home.Expenses, home.Settlements), home.HasOlder));
                     var homeOlderHtml = await RenderOlderResetAsync(home.HasOlder, home.FirstOlderCursor);
-                    return cardsHtml + homeListHtml + balanceHtml + homeOlderHtml;
+                    return cardsHtml + homeUpcomingHtml + homeListHtml + balanceHtml + homeOlderHtml;
                 }
+
+                async Task<string> RenderUpcomingAsync(Guid? groupId, CancellationToken innerCt) =>
+                    await viewRender.RenderPartialAsync("~/Pages/Expenses/_UpcomingStrip.cshtml",
+                        new UpcomingStripViewModel(householdId, currentUser.Id,
+                            await expenseQueries.GetUpcomingAsync(householdId, groupId, currentUser.Id, innerCt)));
 
                 // Every push re-renders Recent, so already-loaded older pages are cleared and the button restarts
                 // from the fresh cursor; both live outside the SSE container and swap out of band.

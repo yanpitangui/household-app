@@ -1,6 +1,7 @@
 @model HouseholdApp.Web.Pages.Expenses.ExpensesListViewModel
 @using System.Globalization
 @using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@using HouseholdApp.Web.Pages.Expenses
 @{
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     var grouped = Model.Entries.GroupBy(e => new { e.Date.Year, e.Date.Month });
@@ -88,7 +89,13 @@
                     💳
                 </div>
                 <div class="list-row-body">
-                    <div class="list-row-name">@e.Description</div>
+                    <div class="list-row-name">
+                        @e.Description
+                        @if (e.Installment is { } link)
+                        {
+                            <span class="installment-pill">@(link.IsPayoff ? $"{link.Number}–{link.ThroughNumber}/{link.Count}" : link.Number == 0 ? L["Expenses.Plan.DownTag"].Value : $"{link.Number}/{link.Count}")</span>
+                        }
+                    </div>
                     <div class="list-row-meta">
                         @if (e.GroupName is not null)
                         {
@@ -186,6 +193,13 @@
                         }
                     </div>
                 </div>
+                @if (e.Plan is { } plan)
+                {
+                    @await Html.PartialAsync("~/Pages/Expenses/_InstallmentPlanSection.cshtml",
+                        new InstallmentPlanSectionViewModel(Model.HouseholdId, plan,
+                            e.Installment is { IsPayoff: false } own ? own.Number : null,
+                            "Expenses.Plan.Tag.This", Compact: true, ShowFooter: true))
+                }
                 @if (e.RecordedAt is { } recordedAt)
                 {
                     <div class="expense-breakdown-recorded">@L["Expenses.Breakdown.RecordedAt", recordedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)]</div>
@@ -199,7 +213,11 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="expenseId" value="@e.Id" />
                         <button type="submit" class="btn btn-sm btn-outline-danger"
-                                data-confirm="@L["Expenses.Breakdown.VoidConfirm"]">
+                                data-confirm="@(e.Installment is { IsPayoff: false } vl
+                                    ? L["Expenses.Installment.VoidConfirm", vl.Number, vl.Count]
+                                    : e.Installment is { IsPayoff: true }
+                                        ? L["Expenses.Installment.PayoffVoidConfirm"]
+                                        : L["Expenses.Breakdown.VoidConfirm"])">
                             @L["Expenses.VoidEntry"]
                         </button>
                     </form>

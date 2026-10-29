@@ -17,6 +17,9 @@ public sealed class ExpenseReadModel
     public IReadOnlyList<Allocation> Allocations { get; set; } = [];
     public DateTimeOffset RecordedAt { get; set; }
     public Guid? CorrectedFromExpenseId { get; set; }
+    // Flat copy of Installment.PlanId so plan lookups use a plain indexed column.
+    public Guid? InstallmentPlanId { get; set; }
+    public InstallmentLink? Installment { get; set; }
 }
 
 public partial class ExpenseReadModelProjection : SingleStreamProjection<ExpenseReadModel, Guid>
@@ -33,6 +36,8 @@ public partial class ExpenseReadModelProjection : SingleStreamProjection<Expense
         model.Allocations = e.Allocations;
         model.RecordedAt = e.OccurredAt;
         model.CorrectedFromExpenseId = e.CorrectedFromExpenseId;
+        model.Installment = e.Installment;
+        model.InstallmentPlanId = e.Installment?.PlanId;
     }
 
     public void Apply(ExpenseVoided e, ExpenseReadModel model)

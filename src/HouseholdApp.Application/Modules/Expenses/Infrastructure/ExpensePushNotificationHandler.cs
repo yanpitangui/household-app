@@ -12,12 +12,28 @@ public sealed class ExpensePushNotificationHandler(
     IHouseholdQueries householdQueries,
     IUserQuery userQuery,
     EventDispatchScope dispatchScope)
-    : IEventHandler<ExpenseRecorded>, IEventHandler<ExpenseVoided>, IEventHandler<SettlementRecorded>
+    : IEventHandler<ExpenseRecorded>, IEventHandler<ExpenseVoided>, IEventHandler<SettlementRecorded>,
+      IEventHandler<InstallmentPlanCreated>, IEventHandler<InstallmentPlanPaidEarly>, IEventHandler<InstallmentPlanCancelled>
 {
     public Task HandleAsync(ExpenseRecorded evt, CancellationToken ct = default) =>
-        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
+        dispatchScope.SuppressNotifications || evt.CoveredByPlanEvent ? Task.CompletedTask : SafeAsync(async () =>
     {
         var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        if (evt.Installment is { } link && evt.CorrectedFromExpenseId is null)
+        {
+            var paid = FormatCents(evt.FundingSources.Sum(f => f.Cents));
+            var isDown = link.Number == 0;
+            var installmentTitle = isDown
+                ? $"{actorName} added a down payment"
+                : $"{actorName} added installment {link.Number}/{link.Count}";
+            var amount = isDown
+                ? $"{evt.Description} — down payment R$ {paid}"
+                : $"{evt.Description} {link.Number}/{link.Count} — R$ {paid}";
+            await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, installmentTitle,
+                member => amount + ShareSuffix(evt.Allocations, member, ""), PlanUrl(evt.HouseholdId, link.PlanId), ct);
+            return;
+        }
+
         var isEdit = evt.CorrectedFromExpenseId is not null;
         var title = isEdit ? $"{actorName} edited an expense" : $"{actorName} added an expense";
         var body = $"{evt.Description} — R$ {FormatCents(evt.Allocations.Sum(a => a.Cents))}";
@@ -28,8 +44,10 @@ public sealed class ExpensePushNotificationHandler(
     {
         // A void that carries CorrectedByExpenseId is the "delete" half of an edit
         // (void + resubmit) — the paired ExpenseRecorded already notified. Mirrors the
-        // same suppression ActivityEntryProjection.MapVoided applies to the activity feed.
-        if (dispatchScope.SuppressNotifications || evt.CorrectedByExpenseId is not null) return Task.CompletedTask;
+        // same suppression ActivityEntryProjection.MapVoided applies to the activity feed. The voids of a plan
+        // cancel are described by the cancel event.
+        if (dispatchScope.SuppressNotifications || evt.CorrectedByExpenseId is not null || evt.CoveredByPlanEvent)
+            return Task.CompletedTask;
 
         return SafeAsync(async () =>
         {
@@ -60,12 +78,57 @@ public sealed class ExpensePushNotificationHandler(
         }, ct);
     }
 
-    private async Task NotifyOthersAsync(Guid householdId, Guid actorId, string title, string body, CancellationToken ct)
+    public Task HandleAsync(InstallmentPlanCreated evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
+    {
+        var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        var terms = new InstallmentTerms(
+            evt.TotalCents, evt.Count, evt.DownPaymentCents, evt.PurchaseDate, evt.FirstDate);
+        var first = terms.Allocations([new SplitSegment(terms.FirstNumber, evt.Allocations)], 1);
+        var installments = $"{evt.Count}× R$ {FormatCents(terms.Amount(1))}";
+        var body = terms.HasDownPayment
+            ? $"{evt.Description} — R$ {FormatCents(terms.DownPaymentCents)} down + {installments}"
+            : $"{evt.Description} — {installments}";
+        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} created an installment plan",
+            member => body + ShareSuffix(first, member, "/month"), PlanUrl(evt.HouseholdId, evt.PlanId), ct);
+    }, ct);
+
+    public Task HandleAsync(InstallmentPlanPaidEarly evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
+    {
+        var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        var body = $"{evt.Description} {evt.FromNumber}–{evt.Count}/{evt.Count} — R$ {FormatCents(evt.PayoffCents)} (of R$ {FormatCents(evt.RemainingCents)})";
+        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} paid an installment plan early",
+            _ => body, PlanUrl(evt.HouseholdId, evt.PlanId), ct);
+    }, ct);
+
+    public Task HandleAsync(InstallmentPlanCancelled evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications ? Task.CompletedTask : SafeAsync(async () =>
+    {
+        var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        var body = evt.VoidedInstallments.Count > 0
+            ? $"{evt.Description} · voided {evt.VoidedInstallments.Count} installments"
+            : evt.Description;
+        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} cancelled an installment plan",
+            _ => body, PlanUrl(evt.HouseholdId, evt.PlanId), ct);
+    }, ct);
+
+    private static string PlanUrl(Guid householdId, Guid planId) => $"/h/{householdId}/Expenses/Plans/{planId}";
+
+    private static string ShareSuffix(IReadOnlyList<Allocation> allocations, Guid member, string unit) =>
+        allocations.FirstOrDefault(a => a.UserId == member) is { Cents: > 0 } share
+            ? $" · your share R$ {FormatCents(share.Cents)}{unit}"
+            : "";
+
+    private Task NotifyOthersAsync(Guid householdId, Guid actorId, string title, string body, CancellationToken ct) =>
+        NotifyOthersAsync(householdId, actorId, title, _ => body, $"/h/{householdId}/Expenses/Activity", ct);
+
+    private async Task NotifyOthersAsync(
+        Guid householdId, Guid actorId, string title, Func<Guid, string> body, string url, CancellationToken ct)
     {
         var members = await householdQueries.GetMembersAsync(householdId, ct);
-        var url = $"/h/{householdId}/Expenses/Activity";
         var sends = members.Where(m => m.UserId != actorId)
-            .Select(member => SafeAsync(() => pushSender.SendAsync(member.UserId, title, body, url, ct), ct));
+            .Select(member => SafeAsync(() => pushSender.SendAsync(member.UserId, title, body(member.UserId), url, ct), ct));
         await Task.WhenAll(sends);
     }
 

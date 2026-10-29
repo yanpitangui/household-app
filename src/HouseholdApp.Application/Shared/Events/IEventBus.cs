@@ -19,6 +19,12 @@ public interface IEventBus
     /// Called by IUnitOfWork.CommitAsync after the database transaction is committed.
     /// </summary>
     Task FlushDeferredAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Drops every queued event that has not been dispatched yet, so events of a failed write are never
+    /// delivered by a later commit on the same scope.
+    /// </summary>
+    void Discard();
 }
 
 /// <summary>Default handler kind. Dispatched after the publishing transaction commits.</summary>

@@ -1,0 +1,85 @@
+@model HouseholdApp.Web.Pages.Expenses.InstallmentPlanSectionViewModel
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
+    var slots = Model.Plan.Slots;
+    // Slot numbers run 0..Count when the plan has a down payment (0 = down payment), else 1..Count.
+    var firstNumber = slots.Count > 0 ? slots.Min(s => s.Number) : 1;
+    var lastNumber = slots.Count > 0 ? slots.Max(s => s.Number) : 1;
+    var center = Model.Highlight ?? slots.LastOrDefault(s => s.Status == InstallmentSlotStatus.Created)?.Number ?? firstNumber;
+    var fold = Model.Compact && slots.Count > 6;
+    var from = fold ? Math.Max(firstNumber, center - 1) : firstNumber;
+    var through = fold ? Math.Min(lastNumber, center + 1) : lastNumber;
+}
+<div class="plan-section">
+    <div class="plan-section-title">💳 @L["Expenses.Plan.Section", Model.Plan.Count]</div>
+    @{
+        var hiddenCreated = slots.Where(s => s.Number < from && s.Status == InstallmentSlotStatus.Created).ToList();
+        var hiddenVoided = slots.Where(s => s.Number < from && s.Status == InstallmentSlotStatus.Voided).ToList();
+        var hiddenUpcoming = slots.Where(s => s.Number > through && s.Status == InstallmentSlotStatus.Upcoming).ToList();
+    }
+    @{
+        var hiddenNumbered = hiddenCreated.Where(s => s.Number > 0).ToList();
+    }
+    @if (hiddenCreated.Any(s => s.Number == 0))
+    {
+        <div class="plan-more">✓ @L["Expenses.Plan.DownTag"]</div>
+    }
+    @if (hiddenNumbered.Count == 1)
+    {
+        <div class="plan-more">✓ @hiddenNumbered[0].Number</div>
+    }
+    else if (hiddenNumbered.Count > 1)
+    {
+        <div class="plan-more">@L["Expenses.Plan.CreatedRange", hiddenNumbered[0].Number, hiddenNumbered[^1].Number]</div>
+    }
+    @if (hiddenVoided.Count > 0)
+    {
+        <div class="plan-more">@L["Expenses.Plan.VoidedRange", hiddenVoided.Count]</div>
+    }
+    @foreach (var s in slots.Where(s => s.Number >= from && s.Number <= through))
+    {
+        var (icon, cls) = s.Status switch
+        {
+            InstallmentSlotStatus.Created => ("✓", "created"),
+            InstallmentSlotStatus.Voided => ("✕", "voided"),
+            InstallmentSlotStatus.NotCreated => ("–", "not-created"),
+            _ => ("○", "upcoming")
+        };
+        var isHighlight = s.Number == Model.Highlight;
+        <div class="plan-slot @cls @(isHighlight ? "current" : "")">
+            <span class="plan-slot-icon">@(isHighlight && s.Status == InstallmentSlotStatus.Created ? "●" : icon)</span>
+            <span class="plan-slot-date">@s.DueDate.ToString("dd MMM", CultureInfo.CurrentCulture)</span>
+            @if (s.Number == 0)
+            {
+                <span>@L["Expenses.Plan.DownPayment"]</span>
+            }
+            else
+            {
+                <span>@s.Number/@Model.Plan.Count</span>
+            }
+            @if (isHighlight)
+            {
+                <span class="plan-slot-tag">@L[Model.HighlightTagKey]</span>
+            }
+            @if (s.Status == InstallmentSlotStatus.Voided)
+            {
+                <span class="plan-slot-tag voided">@L["Expenses.Plan.Tag.Voided"]</span>
+            }
+            <span class="plan-slot-amount">@Money(s.Cents)</span>
+        </div>
+    }
+    @if (hiddenUpcoming.Count > 0)
+    {
+        <div class="plan-more">@L["Expenses.Plan.MoreUntil", hiddenUpcoming.Count, hiddenUpcoming[^1].DueDate.ToString("MMM", CultureInfo.CurrentCulture)]</div>
+    }
+    @if (Model.ShowFooter)
+    {
+        <div class="plan-totals">
+            <span>@L["Expenses.Plan.Totals", Money(Model.Plan.CreatedCents), Money(Model.Plan.RemainingCents)]</span>
+            <a class="plan-view-link" href="/h/@Model.HouseholdId/Expenses/Plans/@Model.Plan.PlanId">@L["Expenses.Plan.View"]</a>
+        </div>
+    }
+</div>

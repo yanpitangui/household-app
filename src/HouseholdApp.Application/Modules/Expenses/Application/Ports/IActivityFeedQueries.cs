@@ -17,7 +17,14 @@ public sealed record ActivityFeedItem(
     long? SettlementCents = null,
     bool CanRestore = false,
     string? RenamedFrom = null,
-    string? RenamedTo = null);
+    string? RenamedTo = null,
+    Guid? InstallmentPlanId = null,
+    int? InstallmentNumber = null,
+    int? InstallmentCount = null,
+    long? AmountCents = null,
+    long? ReferenceCents = null,
+    int? VoidedCount = null,
+    long? DownPaymentCents = null);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,
@@ -27,4 +34,8 @@ public interface IActivityFeedQueries
 {
     Task<ActivityFeedPage> GetActivityFeedAsync(
         Guid householdId, Guid viewerId, string? cursor, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Every activity row of one Installment Plan, newest first.</summary>
+    Task<IReadOnlyList<ActivityFeedItem>> GetPlanHistoryAsync(
+        Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default);
 }
