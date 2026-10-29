@@ -12,6 +12,7 @@ public sealed class Expense : AggregateRoot
     public IReadOnlyList<FundingSource> FundingSources { get; private set; } = [];
     public IReadOnlyList<Allocation> Allocations { get; private set; } = [];
     public bool IsVoided { get; private set; }
+    public InstallmentLink? Installment { get; private set; }
 
     private Expense() { }
 
@@ -26,7 +27,9 @@ public sealed class Expense : AggregateRoot
         Guid performedByUserId,
         Guid? id = null,
         Guid? recurringExpenseId = null,
-        Guid? correctedFromExpenseId = null)
+        Guid? correctedFromExpenseId = null,
+        InstallmentLink? installment = null,
+        bool coveredByPlanEvent = false)
     {
         Validate(fundingSources, allocations);
 
@@ -38,24 +41,27 @@ public sealed class Expense : AggregateRoot
             Description = description,
             Date = date,
             FundingSources = fundingSources,
-            Allocations = allocations
+            Allocations = allocations,
+            Installment = installment
         };
 
         expense.Raise(new ExpenseRecorded(
             Guid.CreateVersion7(), now, expense.Id, householdId, expenseGroupId,
             description, date, fundingSources, allocations, performedByUserId,
-            recurringExpenseId, correctedFromExpenseId));
+            recurringExpenseId, correctedFromExpenseId, installment, coveredByPlanEvent));
 
         return expense;
     }
 
-    public void Void(string? reason, DateTimeOffset now, Guid performedByUserId, Guid? correctedByExpenseId = null)
+    public void Void(
+        string? reason, DateTimeOffset now, Guid performedByUserId, Guid? correctedByExpenseId = null,
+        bool coveredByPlanEvent = false)
     {
         if (IsVoided) throw new InvalidOperationException("Expense is already voided.");
         IsVoided = true;
         Raise(new ExpenseVoided(
             Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations,
-            performedByUserId, Description, correctedByExpenseId, ExpenseGroupId));
+            performedByUserId, Description, correctedByExpenseId, ExpenseGroupId, Installment, coveredByPlanEvent));
     }
 
     public static Expense Create(ExpenseRecorded e) => new()
@@ -66,7 +72,8 @@ public sealed class Expense : AggregateRoot
         Description = e.Description,
         Date = e.Date,
         FundingSources = e.FundingSources,
-        Allocations = e.Allocations
+        Allocations = e.Allocations,
+        Installment = e.Installment
     };
 
     public void Apply(ExpenseVoided e) => IsVoided = true;

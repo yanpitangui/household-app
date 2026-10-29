@@ -13,7 +13,8 @@ namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 public sealed class ExpenseQueryService(
     IQuerySession querySession,
     NpgsqlDataSource db,
-    IUserQuery userQuery) : IExpenseQueries
+    IUserQuery userQuery,
+    TimeProvider timeProvider) : IExpenseQueries
 {
     private const int RecentLimit = 30;
     private const int RecentMarkerCap = 100;
@@ -50,8 +51,9 @@ public sealed class ExpenseQueryService(
                 last?.Description, last?.Date, GroupIcons.Display(g.Icon)));
         }
 
+        var plans = await LoadPlanSummariesAsync(recent.Expenses, ct);
         var (expenses, settlements) = MapTimeline(
-            recent.Expenses, recent.Settlements, profileMap, groups.ToDictionary(g => g.Id), isHome: true);
+            recent.Expenses, recent.Settlements, profileMap, groups.ToDictionary(g => g.Id), plans, isHome: true);
         return new ExpensesHome(
             ToViewerBalances(pairs, viewerId, profileMap), cards, expenses, settlements,
             recent.HasOlder, recent.FirstOlderCursor);
@@ -80,7 +82,9 @@ public sealed class ExpenseQueryService(
                 .Distinct(), ct);
 
         // GroupName stays null: the page header already names the group.
-        var (expenses, settlements) = MapTimeline(recent.Expenses, recent.Settlements, profileMap, null, isHome: false);
+        var plans = await LoadPlanSummariesAsync(recent.Expenses, ct);
+        var (expenses, settlements) = MapTimeline(
+            recent.Expenses, recent.Settlements, profileMap, null, plans, isHome: false);
         return new GroupPage(
             group.Id, group.Name, ToViewerBalances(pairs, viewerId, profileMap), expenses, settlements,
             recent.HasOlder, recent.FirstOlderCursor, GroupIcons.Display(group.Icon));
@@ -127,8 +131,9 @@ public sealed class ExpenseQueryService(
         }
 
         var profileMap = await LoadProfilesAsync(TimelineUserIds(keptE, keptS).Distinct(), ct);
+        var plans = await LoadPlanSummariesAsync(keptE, ct);
         var (expenses, settlements) = MapTimeline(
-            keptE, keptS, profileMap, groups.ToDictionary(x => x.Id), isHome: groupId is null,
+            keptE, keptS, profileMap, groups.ToDictionary(x => x.Id), plans, isHome: groupId is null,
             nameGroups: groupId is null);
         return new TimelinePage(expenses, settlements, next);
     }
@@ -152,6 +157,7 @@ public sealed class ExpenseQueryService(
         IReadOnlyList<SettlementReadModel> settlementModels,
         Dictionary<Guid, UserProfile> profileMap,
         Dictionary<Guid, ExpenseGroupDocument>? groups,
+        Dictionary<Guid, InstallmentPlanSummary> plans,
         bool isHome,
         bool nameGroups = true)
     {
@@ -170,7 +176,9 @@ public sealed class ExpenseQueryService(
             e.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList(),
             GroupOf(e.ExpenseGroupId)?.Name,
             e.RecordedAt,
-            GroupOf(e.ExpenseGroupId) is { } g ? GroupIcons.Display(g.Icon) : null)).ToList();
+            GroupOf(e.ExpenseGroupId) is { } g ? GroupIcons.Display(g.Icon) : null,
+            e.Installment,
+            e.InstallmentPlanId is { } pid ? plans.GetValueOrDefault(pid) : null)).ToList();
 
         var settlements = settlementModels.Select(s =>
         {
@@ -190,6 +198,23 @@ public sealed class ExpenseQueryService(
         }).ToList();
 
         return (expenses, settlements);
+    }
+
+    // Installment rows show the whole plan's progress, so the summaries for the plans on the page load in one pass.
+    private async Task<Dictionary<Guid, InstallmentPlanSummary>> LoadPlanSummariesAsync(
+        IEnumerable<ExpenseReadModel> expenses, CancellationToken ct)
+    {
+        var planIds = expenses.Where(e => e.InstallmentPlanId is not null)
+            .Select(e => e.InstallmentPlanId!.Value).Distinct().ToList();
+        if (planIds.Count == 0) return [];
+
+        var plans = await querySession.LoadManyAsync<InstallmentPlanDocument>(ct, planIds);
+        var installments = await querySession.Query<ExpenseReadModel>()
+            .Where(e => e.InstallmentPlanId != null && e.InstallmentPlanId.Value.IsOneOf(planIds))
+            .ToListAsync(ct);
+        return plans.ToDictionary(
+            p => p.Id,
+            p => InstallmentPlanSummaries.Build(p, installments.Where(e => e.InstallmentPlanId == p.Id).ToList()));
     }
 
     private static IEnumerable<Guid> TimelineUserIds(
@@ -389,6 +414,108 @@ public sealed class ExpenseQueryService(
         return profiles.ToDictionary(p => p.Id);
     }
 
+    public async Task<InstallmentPlanPage?> GetInstallmentPlanPageAsync(
+        Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default)
+    {
+        var plan = await querySession.LoadAsync<InstallmentPlanDocument>(planId, ct);
+        if (plan is null || plan.HouseholdId != householdId) return null;
+        var group = await querySession.LoadAsync<ExpenseGroupDocument>(plan.ExpenseGroupId, ct);
+        if (group is null || group.DeletedAt is not null) return null;
+
+        var installments = await querySession.Query<ExpenseReadModel>()
+            .Where(e => e.InstallmentPlanId == planId).ToListAsync(ct);
+        var summary = InstallmentPlanSummaries.Build(plan, installments.ToList());
+
+        // The split shown is the one the next installment will use (the last one once nothing remains).
+        var nextNumber = summary.Slots.FirstOrDefault(s => s.Status == InstallmentSlotStatus.Upcoming)?.Number
+            ?? plan.Count + 1;
+        var shown = InstallmentSchedule.Allocations(
+            plan.TotalCents, plan.Count, plan.Segments, Math.Min(nextNumber, plan.Count));
+
+        // Each member's cents over the installments still to come, ordered by user id so that the Early Payoff
+        // preview breaks rounding ties the same way InstallmentSchedule.Distribute does.
+        var remaining = InstallmentSchedule.RemainingShares(plan.TotalCents, plan.Count, plan.Segments, nextNumber)
+            .Select(a => (a.UserId, a.Cents))
+            .ToList();
+
+        var profiles = await LoadProfilesAsync(
+            shown.Select(a => a.UserId).Concat(remaining.Select(a => a.UserId)).Append(plan.PayerId).Distinct(), ct);
+        var split = shown.Select(a => new ExpenseListParticipantDto(
+            a.UserId, profiles.GetValueOrDefault(a.UserId)?.DisplayName ?? "?", a.Cents,
+            profiles.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList();
+
+        return new InstallmentPlanPage(
+            summary, householdId, plan.ExpenseGroupId, group.Name, GroupIcons.Display(group.Icon),
+            plan.PayerId, profiles.GetValueOrDefault(plan.PayerId)?.DisplayName ?? "?", plan.TotalCents,
+            plan.PurchaseDate, plan.FirstDate, split,
+            shown.FirstOrDefault(a => a.UserId == viewerId)?.Cents ?? 0,
+            nextNumber, plan.PayoffCents,
+            remaining.Select(a => new ExpenseListParticipantDto(
+                a.UserId, profiles.GetValueOrDefault(a.UserId)?.DisplayName ?? "?", a.Cents,
+                profiles.GetValueOrDefault(a.UserId)?.PictureUrl)).ToList());
+    }
+
+    public async Task<UpcomingSummary> GetUpcomingAsync(
+        Guid householdId, Guid? groupId, Guid viewerId, CancellationToken ct = default)
+    {
+        var groups = (await querySession.QueryAsync(new ExpenseGroupsForHousehold { HouseholdId = householdId }, ct))
+            .ToDictionary(g => g.Id);
+        bool InScope(Guid g) => groups.ContainsKey(g) && (groupId is null || groupId == g);
+
+        var plans = (await querySession.Query<InstallmentPlanDocument>()
+                .Where(p => p.HouseholdId == householdId && p.Status == InstallmentPlanStatus.Active)
+                .ToListAsync(ct))
+            .Where(p => InScope(p.ExpenseGroupId)).ToList();
+        var planIds = plans.Select(p => p.Id).ToList();
+        // Only the link is read: Upcoming needs which numbers exist, not the whole Expense documents.
+        var links = planIds.Count == 0
+            ? []
+            : await querySession.Query<ExpenseReadModel>()
+                .Where(e => e.InstallmentPlanId != null && e.InstallmentPlanId.Value.IsOneOf(planIds))
+                .Select(e => e.Installment!)
+                .ToListAsync(ct);
+        var withCreated = plans.Select(p => (p, links
+                .Where(l => l is { IsPayoff: false } && l.PlanId == p.Id)
+                .Select(l => l.Number).ToHashSet()))
+            .ToList();
+
+        var templates = (await LoadActiveTemplatesAsync(householdId, ct)).Where(t => InScope(t.GroupId)).ToList();
+        var summary = UpcomingBuilder.Build(withCreated, templates, timeProvider.GetUtcNow(), viewerId);
+        if (summary.Items.Count == 0) return UpcomingSummary.Empty;
+
+        var profiles = await LoadProfilesAsync(summary.Items.Select(i => i.PayerId).Distinct(), ct);
+        var named = summary.Items.Select(i => i with
+        {
+            GroupName = groups[i.GroupId].Name,
+            GroupIcon = GroupIcons.Display(groups[i.GroupId].Icon),
+            PayerName = profiles.GetValueOrDefault(i.PayerId)?.DisplayName
+        }).ToList();
+        return summary with { Items = named };
+    }
+
+    private async Task<IReadOnlyList<RecurringTemplate>> LoadActiveTemplatesAsync(Guid householdId, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<RecurringTemplateRow>(
+            """
+            SELECT id, description, expense_group_id, recurrence_frequency, cron_expression, funding_sources, allocations
+            FROM expenses.recurring_expenses
+            WHERE household_id = @householdId AND is_active
+            """,
+            new { householdId });
+        return rows.Select(r => r.ToTemplate()).ToList();
+    }
+
+    private sealed record RecurringTemplateRow(
+        Guid Id, string Description, Guid ExpenseGroupId, string RecurrenceFrequency, string CronExpression,
+        string FundingSources, string Allocations)
+    {
+        public RecurringTemplate ToTemplate() => new(
+            Id, Description, ExpenseGroupId, Enum.Parse<RecurrenceFrequency>(RecurrenceFrequency), CronExpression,
+            System.Text.Json.JsonSerializer.Deserialize<List<FundingSource>>(FundingSources) ?? [],
+            System.Text.Json.JsonSerializer.Deserialize<List<Allocation>>(Allocations) ?? []);
+    }
+
     public async Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default)
     {
         var e = await querySession.LoadAsync<ExpenseReadModel>(expenseId, ct);
@@ -398,7 +525,7 @@ public sealed class ExpenseQueryService(
             e.TotalCents, e.IsVoided, e.VoidReason,
             e.FundingSources.Select(f => new FundingSourceDto(f.UserId, f.Cents)).ToList(),
             e.Allocations.Select(a => new AllocationDto(a.UserId, a.Cents)).ToList(),
-            e.RecordedAt);
+            e.RecordedAt, e.Installment);
     }
 
     public async Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(

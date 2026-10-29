@@ -3,7 +3,8 @@
 @using System.Globalization
 @{
     var isEditing = Model.ExpenseId.HasValue;
-    ViewData["Title"] = isEditing ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"];
+    var showEditLabels = isEditing || Model.EditingPlan is not null;
+    ViewData["Title"] = showEditLabels ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"];
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     var currentUserName = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.DisplayName ?? "";
     var currentUserPic = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.PictureUrl;
@@ -11,7 +12,7 @@
 }
 
 <div class="page-heading">
-    <span>@(isEditing ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"])</span>
+    <span>@(showEditLabels ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"])</span>
     <a asp-page="Index" asp-route-householdId="@Model.HouseholdId"
        style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">
         ← @L["Action.Cancel"]
@@ -34,6 +35,14 @@
     {
         <input type="hidden" asp-for="ExpenseId" />
     }
+    <input type="hidden" id="repeat-input" name="Repeat" value="@Model.Repeat" />
+    <input type="hidden" id="count-input" name="InstallmentCount" value="@Model.InstallmentCount" />
+    <input type="hidden" id="per-input" name="AmountIsPerInstallment" value="@(Model.AmountIsPerInstallment ? "true" : "false")" />
+    <input type="hidden" id="first-input" name="FirstInstallmentDate" value="@Model.FirstInstallmentDate?.ToString("yyyy-MM-dd")" />
+    @if (Model.PlanId.HasValue)
+    {
+        <input type="hidden" asp-for="PlanId" />
+    }
 
     @* ═══════════ PANEL A: Main form ═══════════ *@
     <div id="panel-a" class="app-card">
@@ -48,7 +57,7 @@
             <span class="record-amount-currency">@currencySymbol</span>
             <input id="amount-input" name="Amount" type="number" step="0.01" min="0.01"
                    class="record-amount-input" placeholder="0,00"
-                   value="@NumberInput.Value(Model.Amount)" />
+                   value="@NumberInput.Value(Model.Amount)" readonly="@(Model.EditingPlan is not null)" />
         </div>
         <span asp-validation-for="Amount" class="field-error"></span>
 
@@ -61,6 +70,29 @@
             <span class="record-split-chevron">›</span>
         </button>
 
+        @if (!isEditing && Model.EditingPlan is null)
+        {
+            <button type="button" class="record-split-btn" id="open-repeat-btn" onclick="openRepeatPanel()">
+                <div class="record-split-icon">💳</div>
+                <div style="flex:1;min-width:0">
+                    <div class="record-split-label">@L["Expenses.Repeat"]</div>
+                    <div class="record-split-value" id="repeat-summary-text">@L["Expenses.Repeat.Once"]</div>
+                </div>
+                <span class="record-split-chevron">›</span>
+            </button>
+        }
+        @if (Model.Editing?.Installment is { IsPayoff: false } editLink)
+        {
+            <div class="record-note">@L["Expenses.Installment.EditNote", editLink.Number, editLink.Count, Model.Editing.Description]</div>
+        }
+        @if (Model.EditingPlan is { } planBeingEdited)
+        {
+            <div class="record-note">@L["Expenses.Repeat.Summary", planBeingEdited.Summary.Count,
+                $"{currencySymbol} {(planBeingEdited.Summary.Slots[0].Cents / 100m).ToString("F2")}", planBeingEdited.FirstDate.ToString("dd MMM")]</div>
+        }
+
+        @if (Model.EditingPlan is null)
+        {
         <div class="record-meta-row">
             <div class="record-date-chip">
                 📅 <span id="date-display">@Model.Date.ToString("d")</span>
@@ -77,8 +109,9 @@
                 </select>
             </div>
         </div>
+        }
 
-        <button type="submit" class="record-save-btn">@(isEditing ? L["Expenses.SaveChanges"] : L["Expenses.Record"])</button>
+        <button type="submit" id="record-save-btn" class="record-save-btn">@(showEditLabels ? L["Expenses.SaveChanges"] : L["Expenses.Record"])</button>
         <span asp-validation-summary="ModelOnly" class="field-error" style="margin-top:8px"></span>
     </div>
 
@@ -199,6 +232,47 @@
             </button>
         </div>
     </div>
+
+    @* ═══════════ PANEL C: Repeat options ═══════════ *@
+    <div id="panel-c" style="display:none">
+        <div class="split-header">
+            <button type="button" class="split-header-cancel" onclick="closeRepeatPanel()">← @L["Action.Cancel"]</button>
+            <span class="split-header-title">@L["Expenses.Repeat"]</span>
+            <button type="button" class="split-header-done" onclick="commitRepeatPanel()">@L["Expenses.DoneBtn"]</button>
+        </div>
+        <div class="app-card">
+            <div class="repeat-seg" role="radiogroup">
+                <button type="button" class="repeat-seg-opt active" data-repeat="once" onclick="setRepeat('once')">@L["Expenses.Repeat.Once"]</button>
+                <button type="button" class="repeat-seg-opt" data-repeat="installments" onclick="setRepeat('installments')">@L["Expenses.Repeat.Installments"]</button>
+                <button type="button" class="repeat-seg-opt" disabled>@L["Expenses.Repeat.Recurring"]</button>
+            </div>
+            <div id="installment-fields" style="display:none">
+                <div class="repeat-row">
+                    <span>@L["Expenses.Repeat.Count"]</span>
+                    <span class="repeat-stepper">
+                        <button type="button" onclick="stepCount(-1)">−</button>
+                        <strong id="count-display">2</strong>
+                        <button type="button" onclick="stepCount(1)">+</button>
+                    </span>
+                </div>
+                <div class="repeat-row">
+                    <span>@L["Expenses.Repeat.AmountIs"]</span>
+                    <span class="repeat-toggle">
+                        <button type="button" class="active" data-per="false" onclick="setPer(false)">@L["Expenses.Repeat.Total"]</button>
+                        <button type="button" data-per="true" onclick="setPer(true)">@L["Expenses.Repeat.PerInstallment"]</button>
+                    </span>
+                </div>
+                <div class="repeat-row">
+                    <span>@L["Expenses.Repeat.FirstDate"]</span>
+                    <input type="date" id="first-date" class="form-control repeat-date" onchange="updateRepeatPreview()" />
+                </div>
+                <div class="repeat-preview">
+                    <strong id="repeat-preview-main">—</strong>
+                    <div id="repeat-preview-share"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </form>
 
 @section Scripts {
@@ -222,6 +296,7 @@
 
     window.commitSplitPanel = function () {
         updateSplitSummaryButton();
+        if (repeat === 'installments') refreshRepeatSummary();
         closeSplitPanel();
     };
 
@@ -428,6 +503,125 @@
         return null;
     }
 
+    const repeatMeta = meta.repeat;
+    const dateLocale = '@CultureInfo.CurrentCulture.Name';
+    const fmtDate = d => new Date(d + 'T12:00').toLocaleDateString(dateLocale, { day: '2-digit', month: 'short' });
+    const fill = (tpl, ...args) => args.reduce((s, a, i) => s.replace(`{${i}}`, a), tpl);
+
+    // State starts from the hidden inputs so a re-render after a failed POST keeps the chosen repeat.
+    let repeat = document.getElementById('repeat-input').value === 'installments' ? 'installments' : 'once';
+    let count = Math.min(48, Math.max(2, parseInt(document.getElementById('count-input').value, 10) || 2));
+    let perInstallment = document.getElementById('per-input').value === 'true';
+    let snapshot = null;
+
+    function addMonths(iso, months) {
+        const [y, m, d] = iso.split('-').map(Number);
+        const last = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
+        return new Date(Date.UTC(y, m - 1 + months, Math.min(d, last))).toISOString().slice(0, 10);
+    }
+
+    function installmentCents() {
+        const tc = totalCents();
+        return perInstallment ? tc : Math.floor(tc / count) + (tc % count > 0 ? 1 : 0);
+    }
+
+    // Reflects repeat/count/perInstallment in panel C's controls.
+    function applyRepeatUi() {
+        document.querySelectorAll('.repeat-seg-opt[data-repeat]').forEach(b => b.classList.toggle('active', b.dataset.repeat === repeat));
+        document.getElementById('installment-fields').style.display = repeat === 'installments' ? 'block' : 'none';
+        document.getElementById('count-display').textContent = count;
+        document.querySelectorAll('.repeat-toggle button').forEach(b => b.classList.toggle('active', b.dataset.per === String(perInstallment)));
+    }
+
+    // Writes the committed choice into the summary row, the save button and the hidden inputs.
+    function refreshRepeatSummary() {
+        const firstDate = document.getElementById('first-date').value;
+        document.getElementById('repeat-input').value = repeat;
+        document.getElementById('count-input').value = count;
+        document.getElementById('per-input').value = perInstallment;
+        document.getElementById('first-input').value = repeat === 'installments' ? firstDate : '';
+        const summary = document.getElementById('repeat-summary-text');
+        const save = document.getElementById('record-save-btn');
+        if (repeat === 'installments') {
+            if (summary) {
+                summary.textContent = totalCents() > 0 && firstDate
+                    ? fill(repeatMeta.summary, count, `${currencySymbol} ${centsToDisplay(installmentCents())}`, fmtDate(firstDate))
+                    : `${repeatMeta.installments} · ${count}×`;
+            }
+            save.textContent = fill(repeatMeta.save, count);
+        } else {
+            if (summary) summary.textContent = repeatMeta.once;
+            save.textContent = repeatMeta.record;
+        }
+    }
+
+    function hideRepeatPanel() {
+        document.getElementById('panel-c').style.display = 'none';
+        document.getElementById('panel-a').style.display = 'block';
+    }
+
+    window.openRepeatPanel = function () {
+        const first = document.getElementById('first-date');
+        if (!first.value) first.value = document.getElementById('date-input').value;
+        snapshot = { repeat, count, perInstallment, first: first.value };
+        document.getElementById('panel-a').style.display = 'none';
+        document.getElementById('panel-c').style.display = 'block';
+        updateRepeatPreview();
+    };
+
+    // Cancel restores the committed choices so reopening the panel shows them.
+    window.closeRepeatPanel = function () {
+        if (snapshot) {
+            ({ repeat, count, perInstallment } = snapshot);
+            document.getElementById('first-date').value = snapshot.first;
+            applyRepeatUi();
+        }
+        hideRepeatPanel();
+    };
+
+    window.commitRepeatPanel = function () {
+        snapshot = null;
+        refreshRepeatSummary();
+        hideRepeatPanel();
+    };
+
+    window.setRepeat = function (mode) {
+        repeat = mode;
+        applyRepeatUi();
+        updateRepeatPreview();
+    };
+
+    window.stepCount = function (delta) {
+        count = Math.min(48, Math.max(2, count + delta));
+        applyRepeatUi();
+        updateRepeatPreview();
+    };
+
+    window.setPer = function (value) {
+        perInstallment = value;
+        applyRepeatUi();
+        updateRepeatPreview();
+    };
+
+    window.updateRepeatPreview = function () {
+        const first = document.getElementById('first-date').value;
+        const main = document.getElementById('repeat-preview-main');
+        const shareEl = document.getElementById('repeat-preview-share');
+        if (!first || totalCents() <= 0) { main.textContent = '—'; shareEl.textContent = ''; return; }
+        main.textContent = fill(repeatMeta.preview, count, `${currencySymbol} ${centsToDisplay(installmentCents())}`,
+            fmtDate(first), fmtDate(addMonths(first, count - 1)));
+        const mine = (computeAllocations() || []).find(a => a.userId === repeatMeta.currentUserId);
+        const perShare = mine ? (perInstallment ? mine.cents : Math.round(mine.cents / count)) : 0;
+        shareEl.textContent = perShare > 0 ? fill(repeatMeta.previewShare, `${currencySymbol} ${centsToDisplay(perShare)}`) : '';
+    };
+
+    document.getElementById('first-date').value = document.getElementById('first-input').value;
+    applyRepeatUi();
+    if (repeat === 'installments') refreshRepeatSummary();
+    document.getElementById('amount-input')?.addEventListener('input', () => {
+        if (repeat === 'installments') refreshRepeatSummary();
+    });
+
     document.getElementById('record-form')?.addEventListener('submit', function () {
         const container = document.getElementById('allocation-inputs');
         container.innerHTML = '';
@@ -481,20 +675,41 @@
     "pct":    { "title": "@L["Expenses.SplitMode.PctTitle"]",    "desc": "@L["Expenses.SplitMode.PctDesc"]",    "summary": "@L["Expenses.SplitSummary.Percent"]" },
     "shares": { "title": "@L["Expenses.SplitMode.SharesTitle"]", "desc": "@L["Expenses.SplitMode.SharesDesc"]", "summary": "@L["Expenses.SplitSummary.Shares"]"  },
     "adjust": { "title": "@L["Expenses.SplitMode.AdjustTitle"]", "desc": "@L["Expenses.SplitMode.AdjustDesc"]", "summary": "@L["Expenses.SplitSummary.Adjust"]"  }
-  }
+  },
+  "repeat": @Json.Serialize(new
+  {
+      once = L["Expenses.Repeat.Once"].Value,
+      installments = L["Expenses.Repeat.Installments"].Value,
+      preview = L["Expenses.Repeat.Preview"].Value,
+      previewShare = L["Expenses.Repeat.PreviewShare"].Value,
+      summary = L["Expenses.Repeat.Summary"].Value,
+      save = L["Expenses.Repeat.Save"].Value,
+      record = L["Expenses.Record"].Value,
+      currentUserId = Model.CurrentUserId
+  })
 }
 </script>
 
-@if (Model.Editing is not null)
+@{
+    IReadOnlyList<(Guid UserId, long Cents)>? seedAllocations = Model.Editing is not null
+        ? Model.Editing.Allocations.Select(a => (a.UserId, a.Cents)).ToList()
+        : Model.EditingPlan is not null
+            ? Model.EditingPlanAllocations.Select(a => (a.UserId, a.Cents)).ToList()
+            : null;
+    var seedPayerId = Model.Editing is not null
+        ? (Model.Editing.FundingSources.Count > 0 ? Model.Editing.FundingSources[0].UserId : Model.CurrentUserId)
+        : Model.PayerId;
+}
+@if (seedAllocations is not null)
 {
     <script id="edit-seed" type="application/json">
     {
-      "payerId": "@(Model.Editing.FundingSources.Count > 0 ? Model.Editing.FundingSources[0].UserId : Model.CurrentUserId)",
+      "payerId": "@seedPayerId",
       "allocations": [
-        @for (var i = 0; i < Model.Editing.Allocations.Count; i++)
+        @for (var i = 0; i < seedAllocations.Count; i++)
         {
-            var a = Model.Editing.Allocations[i];
-            @:{ "userId": "@a.UserId", "cents": @a.Cents }@(i < Model.Editing.Allocations.Count - 1 ? "," : "")
+            var a = seedAllocations[i];
+            @:{ "userId": "@a.UserId", "cents": @a.Cents }@(i < seedAllocations.Count - 1 ? "," : "")
         }
       ]
     }

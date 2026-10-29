@@ -5,7 +5,7 @@ window.householdApp.appSelectId ??= 0;
 // row, hidden done items) are carried onto the incoming markup and survive server re-renders.
 Idiomorph.defaults.callbacks.beforeNodeMorphed = function (oldNode, newNode) {
     if (oldNode instanceof Element && newNode instanceof Element) {
-        ['expanded', 'done-hidden'].forEach(function (cls) {
+        ['expanded', 'done-hidden', 'show-all'].forEach(function (cls) {
             if (oldNode.classList.contains(cls)) newNode.classList.add(cls);
         });
     }

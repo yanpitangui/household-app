@@ -21,6 +21,11 @@ file sealed class RecordingEventBus : IEventBus
         Enqueued.Add(@event);
         Calls.Add("Enqueue");
     }
+    public void Discard()
+    {
+        Calls.Add("Discard");
+        Enqueued.Clear();
+    }
     public Task FlushTransactionalAsync(CancellationToken ct = default)
     {
         TransactionalFlushCount++;

@@ -57,7 +57,25 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             e.GroupId, e.GroupNames, e.SettlementCents,
             CanRestore: e.Kind == ActivityKind.GroupDeleted && e.GroupId is { } g && deletedGroups.Contains(g),
             RenamedFrom: e.RenamedFrom,
-            RenamedTo: e.RenamedTo);
+            RenamedTo: e.RenamedTo,
+            InstallmentPlanId: e.InstallmentPlanId,
+            InstallmentNumber: e.InstallmentNumber,
+            InstallmentCount: e.InstallmentCount,
+            AmountCents: e.AmountCents,
+            ReferenceCents: e.ReferenceCents,
+            VoidedCount: e.VoidedCount);
+    }
+
+    public async Task<IReadOnlyList<ActivityFeedItem>> GetPlanHistoryAsync(
+        Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default)
+    {
+        var entries = await session.Query<ActivityEntry>()
+            .Where(a => a.HouseholdId == householdId && a.InstallmentPlanId == planId)
+            .OrderByDescending(a => a.OccurredAt)
+            .ToListAsync(ct);
+        var profiles = (await userQuery.GetByIdsAsync(entries.Select(e => e.ActorUserId).Distinct(), ct))
+            .ToDictionary(p => p.Id);
+        return entries.Select(e => Render(e, viewerId, profiles, new HashSet<Guid>())).ToList();
     }
 
     private static Cursor? Decode(string? cursor) =>

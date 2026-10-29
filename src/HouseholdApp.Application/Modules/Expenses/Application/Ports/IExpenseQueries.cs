@@ -13,7 +13,43 @@ public sealed record ExpenseListItem(
     IReadOnlyList<ExpenseListParticipantDto> Allocations,
     string? GroupName,
     DateTimeOffset? RecordedAt = null,
-    string? GroupIcon = null);
+    string? GroupIcon = null,
+    InstallmentLink? Installment = null,
+    InstallmentPlanSummary? Plan = null);
+
+public enum InstallmentSlotStatus { Created, Voided, Upcoming, NotCreated }
+
+public sealed record InstallmentSlot(int Number, DateOnly DueDate, long Cents, InstallmentSlotStatus Status);
+
+/// <summary>Every installment of a plan with its status; Created/Remaining are the cents created and still to come.</summary>
+public sealed record InstallmentPlanSummary(
+    Guid PlanId, string Description, int Count, InstallmentPlanStatus Status,
+    IReadOnlyList<InstallmentSlot> Slots, long CreatedCents, long RemainingCents);
+
+public sealed record InstallmentPlanPage(
+    InstallmentPlanSummary Summary, Guid HouseholdId, Guid ExpenseGroupId, string GroupName, string GroupIcon,
+    Guid PayerId, string PayerName, long TotalCents, DateOnly PurchaseDate, DateOnly FirstDate,
+    IReadOnlyList<ExpenseListParticipantDto> SplitPerInstallment, long ViewerShareCents,
+    int NextNumber, long? PayoffCents,
+    IReadOnlyList<ExpenseListParticipantDto> RemainingShares);
+
+public enum UpcomingSource { Installment, Recurring }
+
+/// <summary>One plan or template in the window; repeats from the same source fold into Occurrences (x N).</summary>
+public sealed record UpcomingItem(
+    UpcomingSource Source, Guid SourceId, string Description, Guid GroupId, DateOnly FirstDate, int Occurrences,
+    int? Number, int? Count, RecurrenceFrequency? Frequency, Guid PayerId, long TotalCents, long ViewerShareCents,
+    string? GroupName = null, string? GroupIcon = null, string? PayerName = null);
+
+public sealed record UpcomingSummary(IReadOnlyList<UpcomingItem> Items, long TotalCents, long ViewerShareCents)
+{
+    public static UpcomingSummary Empty { get; } = new([], 0, 0);
+}
+
+/// <summary>Template data Upcoming needs (amount, split and the cron that fires it).</summary>
+public sealed record RecurringTemplate(
+    Guid Id, string Description, Guid GroupId, RecurrenceFrequency Frequency, string CronExpression,
+    IReadOnlyList<FundingSource> FundingSources, IReadOnlyList<Allocation> Allocations);
 
 public enum PaymentPerspective { ViewerPaid, ViewerReceived, Others }
 
@@ -67,7 +103,8 @@ public sealed record ExpenseDetail(
     long TotalCents, bool IsVoided, string? VoidReason,
     IReadOnlyList<FundingSourceDto> FundingSources,
     IReadOnlyList<AllocationDto> Allocations,
-    DateTimeOffset RecordedAt);
+    DateTimeOffset RecordedAt,
+    InstallmentLink? Installment = null);
 
 /// <summary>
 /// Balance between the viewer and one other member. Positive Cents: the member owes the viewer;
@@ -109,4 +146,12 @@ public interface IExpenseQueries
 
     Task<IReadOnlyList<RecurringExpenseSummary>> ListRecurringExpensesAsync(
         Guid householdId, CancellationToken ct = default);
+
+    /// <summary>Null when the plan is missing, belongs to another household, or its group is deleted.</summary>
+    Task<InstallmentPlanPage?> GetInstallmentPlanPageAsync(
+        Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default);
+
+    /// <summary>Plan installments and recurring templates due in the next 30 days; one group when <paramref name="groupId"/> is set.</summary>
+    Task<UpcomingSummary> GetUpcomingAsync(
+        Guid householdId, Guid? groupId, Guid viewerId, CancellationToken ct = default);
 }

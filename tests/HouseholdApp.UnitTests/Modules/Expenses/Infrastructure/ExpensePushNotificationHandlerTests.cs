@@ -196,4 +196,95 @@ public sealed class ExpensePushNotificationHandlerTests
         await _pushSender.Received(1).SendAsync(
             Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
+
+    private static readonly Guid PlanId = Guid.NewGuid();
+
+    [Test]
+    public async Task Covered_expenses_and_voids_send_nothing()
+    {
+        var link = new InstallmentLink(PlanId, 1, 5);
+        await _sut.HandleAsync(new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            Guid.NewGuid(), "Car repair", DateTimeOffset.UtcNow, [new FundingSource(_actorId, 30000)],
+            [new Allocation(_otherId, 30000)], _actorId, Installment: link, CoveredByPlanEvent: true));
+        await _sut.HandleAsync(new ExpenseVoided(Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            null, [new FundingSource(_actorId, 30000)], [new Allocation(_otherId, 30000)], _actorId, "Car repair",
+            Installment: link, CoveredByPlanEvent: true));
+
+        await _pushSender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default!, default);
+    }
+
+    [Test]
+    public async Task Sweep_installment_names_the_number_and_the_recipient_share()
+    {
+        await _sut.HandleAsync(new ExpenseRecorded(Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            Guid.NewGuid(), "Car repair", DateTimeOffset.UtcNow, [new FundingSource(_actorId, 30000)],
+            [new Allocation(_actorId, 15000), new Allocation(_otherId, 15000)], _actorId,
+            Installment: new InstallmentLink(PlanId, 2, 5)));
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice added installment 2/5", "Car repair 2/5 — R$ 300.00 · your share R$ 150.00",
+            $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Plan_created_push_includes_the_monthly_share()
+    {
+        await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+            [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice created an installment plan", "Car repair — 5× R$ 300.00 · your share R$ 150.00/month",
+            $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Paid_early_and_cancelled_notify_once()
+    {
+        await _sut.HandleAsync(new InstallmentPlanPaidEarly(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Car repair", Guid.NewGuid(), 3, 5, 90000, 85000, _actorId,
+            [new Allocation(_otherId, 85000)], _actorId));
+        await _sut.HandleAsync(new InstallmentPlanCancelled(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Truck", [new VoidedInstallment(Guid.NewGuid(), 1, [], [])], _actorId));
+
+        await _pushSender.Received(1).SendAsync(_otherId, "Alice paid an installment plan early",
+            "Car repair 3–5/5 — R$ 850.00 (of R$ 900.00)", $"/h/{_householdId}/Expenses/Plans/{PlanId}",
+            Arg.Any<CancellationToken>());
+        await _pushSender.Received(1).SendAsync(_otherId, "Alice cancelled an installment plan",
+            "Truck · voided 1 installments", $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Plan_created_body_carries_the_share_only_for_members_who_have_one()
+    {
+        var bystanderId = Guid.NewGuid();
+        _householdQueries.GetMembersAsync(_householdId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new HouseholdMemberDto(_actorId, "Alice", "Member", null),
+            new HouseholdMemberDto(_otherId, "Bob", "Member", null),
+            new HouseholdMemberDto(bystanderId, "Carol", "Member", null)
+        ]);
+
+        await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+            [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
+
+        await _pushSender.Received(1).SendAsync(_otherId, Arg.Any<string>(),
+            "Car repair — 5× R$ 300.00 · your share R$ 150.00/month", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _pushSender.Received(1).SendAsync(bystanderId, Arg.Any<string>(),
+            "Car repair — 5× R$ 300.00", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Suppressed_scope_silences_plan_handlers()
+    {
+        using (_dispatchScope.Suppress())
+        {
+            await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+                Guid.NewGuid(), "Car repair", _actorId, 150000, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
+                [new Allocation(_otherId, 150000)], 1, _actorId));
+        }
+
+        await _pushSender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default!, default);
+    }
 }

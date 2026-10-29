@@ -1,0 +1,75 @@
+@model HouseholdApp.Web.Pages.Expenses.UpcomingStripViewModel
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@using HouseholdApp.Application.Modules.Expenses.Domain
+@inject TimeProvider Time
+@{
+    var u = Model.Upcoming;
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
+    // Display only; matches the query's UTC day.
+    var today = DateOnly.FromDateTime(Time.GetUtcNow().UtcDateTime);
+    string When(UpcomingItem i)
+    {
+        if (i.Frequency == RecurrenceFrequency.Weekly && i.Occurrences > 1)
+            return L["Expenses.Upcoming.Weekly", i.FirstDate.ToString("ddd", CultureInfo.CurrentCulture)].Value;
+        var days = i.FirstDate.DayNumber - today.DayNumber;
+        return days switch
+        {
+            <= 0 => L["Expenses.Upcoming.Today"].Value,
+            1 => L["Expenses.Upcoming.Tomorrow"].Value,
+            _ => L["Expenses.Upcoming.InDays", days].Value
+        };
+    }
+}
+@if (u.Items.Count > 0)
+{
+    <div class="upcoming" id="upcoming">
+        <button type="button" class="upcoming-toggle" aria-expanded="false" aria-controls="upcoming-rows">
+            <span aria-hidden="true">🗓️</span>
+            <span class="upcoming-head">
+                <span class="upcoming-label">@L["Expenses.Upcoming.Header"]</span>
+                <span class="upcoming-total">@Money(u.TotalCents) <span>· @L["Expenses.Upcoming.Share", Money(u.ViewerShareCents)]</span></span>
+            </span>
+            <span class="upcoming-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="upcoming-rows" id="upcoming-rows">
+            @for (var idx = 0; idx < u.Items.Count; idx++)
+            {
+                var i = u.Items[idx];
+                var href = i.Source == UpcomingSource.Installment
+                    ? $"/h/{Model.HouseholdId}/Expenses/Plans/{i.SourceId}"
+                    : $"/h/{Model.HouseholdId}/Expenses/Recurring";
+                var payer = i.PayerId == Model.CurrentUserId
+                    ? L["Expenses.Upcoming.YouPay"].Value
+                    : L["Expenses.Upcoming.Pays", i.PayerName ?? "?"].Value;
+                <a class="upcoming-row @(idx >= 4 ? "upcoming-extra" : "")" href="@href">
+                    <span class="expenses-date-col">
+                        <span class="expenses-date-month">@i.FirstDate.ToString("MMM", CultureInfo.CurrentCulture)</span>
+                        <span class="expenses-date-day">@i.FirstDate.Day</span>
+                    </span>
+                    <span class="upcoming-icon">@(i.Source == UpcomingSource.Installment ? "💳" : "🔁")</span>
+                    <span class="upcoming-body">
+                        <span class="upcoming-name">
+                            @i.Description
+                            @if (i.Number is { } n)
+                            {
+                                <span class="installment-pill">@n/@i.Count</span>
+                            }
+                            @if (i.Occurrences > 1)
+                            {
+                                <span class="upcoming-times">×@i.Occurrences</span>
+                            }
+                        </span>
+                        <span class="upcoming-meta">@i.GroupIcon @i.GroupName · @payer · @When(i)</span>
+                    </span>
+                    <span class="upcoming-amount">@Money(i.TotalCents)<small>@L["Expenses.Upcoming.Yours", Money(i.ViewerShareCents)]</small></span>
+                </a>
+            }
+            @if (u.Items.Count > 4)
+            {
+                <button type="button" class="upcoming-more">@L["Expenses.Upcoming.More", u.Items.Count - 4]</button>
+            }
+        </div>
+    </div>
+}

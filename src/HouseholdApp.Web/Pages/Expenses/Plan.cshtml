@@ -1,0 +1,161 @@
+@page "/h/{householdId:guid}/Expenses/Plans/{planId:guid}"
+@model HouseholdApp.Web.Pages.Expenses.InstallmentPlanModel
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@using HouseholdApp.Application.Modules.Expenses.Domain
+@using HouseholdApp.Web.Shared.Web
+@{
+    var p = Model.Plan;
+    var s = p.Summary;
+    ViewData["Title"] = s.Description;
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
+    var active = s.Status == InstallmentPlanStatus.Active;
+    var latest = s.Slots.LastOrDefault(x => x.Status == InstallmentSlotStatus.Created)?.Number;
+    var createdCount = s.Slots.Count(x => x.Status == InstallmentSlotStatus.Created);
+    var progress = s.Count == 0 ? 0 : (int)Math.Round(100.0 * s.Slots.Count(x => x.Status != InstallmentSlotStatus.Upcoming && x.Status != InstallmentSlotStatus.NotCreated) / s.Count);
+    if (s.Status is InstallmentPlanStatus.PaidEarly or InstallmentPlanStatus.Completed) progress = 100;
+    var range = $"{p.NextNumber}–{s.Count}";
+    var nextAmount = s.Slots[Math.Min(p.NextNumber, s.Count) - 1].Cents;
+}
+
+<div class="page-heading">
+    <span>💳 @s.Description</span>
+    <span class="plan-status plan-status-@s.Status.ToString().ToLowerInvariant()">@L[$"Expenses.Plan.Status.{s.Status}"]</span>
+</div>
+<a asp-page="Index" asp-route-householdId="@Model.HouseholdId" class="plan-back">← @L["Nav.Expenses"]</a>
+
+<div class="app-card plan-card">
+    <div class="plan-meta">@L["Expenses.Plan.Meta", $"{p.GroupIcon} {p.GroupName}", p.PayerName, s.Count, p.FirstDate.ToString("dd MMM yyyy", CultureInfo.CurrentCulture)]</div>
+    <div class="plan-total">@Money(p.TotalCents) <small>@L["Expenses.Plan.Total"]</small></div>
+    <div class="plan-progress"><i style="width:@progress%"></i></div>
+    <div class="plan-kv">@L["Expenses.Plan.Totals", Money(s.CreatedCents), Money(s.RemainingCents)]</div>
+    @if (s.Status == InstallmentPlanStatus.PaidEarly && p.PayoffCents is { } payoff)
+    {
+        <div class="plan-kv">@L["Expenses.Plan.Status.PaidEarly"] · @Money(payoff)</div>
+    }
+    @if (active && p.ViewerShareCents > 0)
+    {
+        <div class="plan-share">@L["Expenses.Plan.ShareMonth", Money(p.ViewerShareCents)]</div>
+    }
+</div>
+
+<div class="app-card plan-card">
+    <div class="plan-heading">@L["Expenses.Plan.SplitHeading"]</div>
+    <div class="plan-split">
+        @foreach (var m in p.SplitPerInstallment)
+        {
+            <div>@m.DisplayName<b>@Money(m.Cents)</b>@(nextAmount == 0 ? "" : $"{Math.Round(100m * m.Cents / nextAmount)}%")</div>
+        }
+    </div>
+</div>
+
+<div class="app-card plan-card">
+    <div class="plan-heading">@L["Expenses.Plan.InstallmentsHeading"]</div>
+    @await Html.PartialAsync("~/Pages/Expenses/_InstallmentPlanSection.cshtml",
+        new InstallmentPlanSectionViewModel(Model.HouseholdId, s, latest, "Expenses.Plan.Tag.Latest", Compact: false, ShowFooter: false))
+</div>
+
+@if (active)
+{
+    <div class="plan-actions">
+        <a class="btn btn-sm btn-outline-secondary" asp-page="Record" asp-route-householdId="@Model.HouseholdId" asp-route-planId="@Model.PlanId">✏️ @L["Expenses.Plan.Edit"]</a>
+        @if (s.RemainingCents > 0)
+        {
+            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('payoff-sheet').showModal()">⏩ @L["Expenses.Plan.PayEarly"]</button>
+        }
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('cancel-sheet').showModal()">@L["Expenses.Plan.Cancel"]</button>
+    </div>
+
+    <dialog id="payoff-sheet" class="app-sheet">
+        <form method="post" asp-page-handler="PayEarly" asp-route-householdId="@Model.HouseholdId" asp-route-planId="@Model.PlanId">
+            <h5>@L["Expenses.Plan.PayEarly"]</h5>
+            <p class="app-sheet-sub">@L["Expenses.Plan.PayEarlySub", range]</p>
+            <div class="record-amount-row">
+                <span class="record-amount-currency">@currencySymbol</span>
+                <input id="payoff-amount" name="amount" type="number" step="0.01" min="0.01" required
+                       max="@NumberInput.Value(s.RemainingCents / 100m)" value="@NumberInput.Value(s.RemainingCents / 100m)"
+                       class="record-amount-input" data-remaining="@s.RemainingCents" />
+            </div>
+            <div class="app-sheet-date">@L["Expenses.Date"]: @Model.Today.ToString("dd MMM yyyy", CultureInfo.CurrentCulture)</div>
+            <div class="app-sheet-shares" id="payoff-shares">
+                @foreach (var m in p.RemainingShares)
+                {
+                    <div class="app-sheet-share" data-cents="@m.Cents"><span>@m.DisplayName</span><b>@Money(m.Cents)</b></div>
+                }
+            </div>
+            <div class="app-sheet-discount" id="payoff-discount" data-template="@L["Expenses.Plan.Discount", "{0}", Money(s.RemainingCents)]"></div>
+            <button type="submit" class="record-save-btn" id="payoff-submit" data-template="@L["Expenses.Plan.PayEarlyButton", "{0}"]">@L["Expenses.Plan.PayEarlyButton", Money(s.RemainingCents)]</button>
+            <button type="button" class="app-sheet-close" onclick="this.closest('dialog').close()">@L["Action.Cancel"]</button>
+        </form>
+    </dialog>
+
+    <dialog id="cancel-sheet" class="app-sheet">
+        <form method="post" asp-page-handler="Cancel" asp-route-householdId="@Model.HouseholdId" asp-route-planId="@Model.PlanId">
+            <h5>@L["Expenses.Plan.CancelTitle"]</h5>
+            @if (s.RemainingCents > 0)
+            {
+                <p class="app-sheet-sub">@L["Expenses.Plan.CancelSub", range, Money(s.RemainingCents)]</p>
+            }
+            @if (createdCount > 0)
+            {
+                <label class="app-sheet-check">
+                    <input type="checkbox" name="voidCreated" value="true" />
+                    <span>@L["Expenses.Plan.CancelVoid", createdCount, Money(s.CreatedCents)]<br />
+                        <small>@L["Expenses.Plan.CancelHint"]</small></span>
+                </label>
+            }
+            <button type="submit" class="btn btn-outline-danger w-100">@L["Expenses.Plan.Cancel"]</button>
+            <button type="button" class="app-sheet-close" onclick="this.closest('dialog').close()">@L["Expenses.Plan.Keep"]</button>
+        </form>
+    </dialog>
+}
+
+<div class="app-card plan-card">
+    <div class="plan-heading">@L["Expenses.Plan.HistoryHeading"]</div>
+    @foreach (var item in Model.History)
+    {
+        @await Html.PartialAsync("~/Pages/Expenses/_ActivityRow.cshtml", item)
+    }
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const input = document.getElementById('payoff-amount');
+    const out = document.getElementById('payoff-discount');
+    const submit = document.getElementById('payoff-submit');
+    if (!input || !out) return;
+    const remaining = Number(input.dataset.remaining);
+    const symbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currencySymbol));
+    const decimalSeparator = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator));
+    const fmt = cents => `${symbol} ${(cents / 100).toFixed(2).replace('.', decimalSeparator)}`;
+    const rows = Array.from(document.querySelectorAll('#payoff-shares .app-sheet-share'));
+    const weights = rows.map(r => Number(r.dataset.cents));
+    // Same rule as InstallmentSchedule.Distribute: floor, then leftover cents to the largest remainders
+    // (rows arrive ordered by user id, so index order breaks ties like the server does).
+    function distribute(cents) {
+        const total = weights.reduce((a, b) => a + b, 0);
+        if (total === 0) return weights.map(() => 0);
+        const parts = weights.map((w, i) => {
+            const exact = BigInt(cents) * BigInt(w);
+            return { i, cents: Number(exact / BigInt(total)), rem: exact % BigInt(total) };
+        });
+        let leftover = cents - parts.reduce((a, p) => a + p.cents, 0);
+        parts.slice().sort((a, b) => (a.rem === b.rem ? a.i - b.i : (a.rem > b.rem ? -1 : 1)))
+            .forEach(p => { if (leftover > 0) { parts[p.i].cents += 1; leftover--; } });
+        return parts.map(p => p.cents);
+    }
+    function update() {
+        const cents = Math.round((parseFloat(input.value.replace(',', '.')) || 0) * 100);
+        const discount = remaining - cents;
+        out.textContent = discount > 0 ? out.dataset.template.replace('{0}', fmt(discount)) : '';
+        const shares = distribute(Math.max(cents, 0));
+        rows.forEach((r, i) => { r.querySelector('b').textContent = fmt(shares[i]); });
+        submit.textContent = submit.dataset.template.replace('{0}', fmt(cents));
+    }
+    input.addEventListener('input', update);
+    update();
+})();
+</script>
+}

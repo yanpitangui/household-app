@@ -34,6 +34,12 @@ internal sealed class InProcessEventBus(
         _deferredQueue.Enqueue(@event);
     }
 
+    public void Discard()
+    {
+        _transactionalQueue.Clear();
+        _deferredQueue.Clear();
+    }
+
     public async Task FlushTransactionalAsync(CancellationToken ct = default)
     {
         while (_transactionalQueue.TryDequeue(out var @event))

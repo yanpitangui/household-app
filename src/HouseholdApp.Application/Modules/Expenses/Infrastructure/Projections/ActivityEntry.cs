@@ -6,7 +6,8 @@ using Marten.Patching;
 
 namespace HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 
-public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored, GroupRenamed }
+public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored, GroupRenamed,
+    InstallmentPlanCreated, InstallmentAdded, InstallmentPlanPaidEarly, InstallmentPlanCancelled, InstallmentPlanEdited }
 
 public sealed class ActivityEntry
 {
@@ -26,6 +27,13 @@ public sealed class ActivityEntry
     public Guid? SettlementPayerId { get; set; }
     public Guid? SettlementRecipientId { get; set; }
     public Dictionary<Guid, long> ViewerDeltaCents { get; set; } = [];
+    // Installment plan rows; the plan page lists a plan's history by InstallmentPlanId.
+    public Guid? InstallmentPlanId { get; set; }
+    public int? InstallmentNumber { get; set; }
+    public int? InstallmentCount { get; set; }
+    public long? AmountCents { get; set; }
+    public long? ReferenceCents { get; set; }
+    public int? VoidedCount { get; set; }
 }
 
 // This is registered as an EventProjection ("one document per event"), distinct from
@@ -33,7 +41,9 @@ public sealed class ActivityEntry
 // and HouseholdLedgerProjection (MultiStreamProjection — one document per household aggregated
 // across streams). Every ExpenseRecorded/ExpenseVoided/SettlementRecorded/ExpenseGroupDeleted/
 // ExpenseGroupRestored event here produces its own permanent ActivityEntry row (a household settlement
-// produces one, from its lead leg). An ExpenseGroupUpdated that changes the name produces a GroupRenamed
+// produces one, from its lead leg). The InstallmentPlanCreated/Updated/PaidEarly/Cancelled events each produce a
+// plan row too; the Expenses a plan event already describes (CoveredByPlanEvent catch-ups, payoffs and cancel voids)
+// stay out of the feed so the plan row is their single entry. An ExpenseGroupUpdated that changes the name produces a GroupRenamed
 // row and refreshes the group name on the older rows.
 //
 // ApplyAsync is overridden directly (JasperFxEventProjectionBase<,>.ApplyAsync: "Override this for
@@ -51,6 +61,10 @@ public sealed partial class ActivityEntryProjection : EventProjection
         IncludeType<ExpenseGroupUpdated>();
         IncludeType<ExpenseGroupDeleted>();
         IncludeType<ExpenseGroupRestored>();
+        IncludeType<InstallmentPlanCreated>();
+        IncludeType<InstallmentPlanUpdated>();
+        IncludeType<InstallmentPlanPaidEarly>();
+        IncludeType<InstallmentPlanCancelled>();
     }
 
     public override async ValueTask ApplyAsync(IDocumentOperations operations, IEvent e, CancellationToken cancellation)
@@ -59,7 +73,8 @@ public sealed partial class ActivityEntryProjection : EventProjection
         {
             case ExpenseRecorded recorded:
                 var group = await operations.LoadAsync<ExpenseGroupDocument>(recorded.ExpenseGroupId, cancellation);
-                operations.Store(MapRecorded(e.Id, recorded, group?.Name));
+                var recordedEntry = MapRecorded(e.Id, recorded, group?.Name);
+                if (recordedEntry is not null) operations.Store(recordedEntry);
                 break;
 
             case ExpenseVoided voided:
@@ -91,6 +106,22 @@ public sealed partial class ActivityEntryProjection : EventProjection
                 await ApplyRenameAsync(operations, updated, cancellation);
                 break;
 
+            case InstallmentPlanCreated created:
+                operations.Store(MapPlanCreated(e.Id, created, await GroupNameAsync(operations, created.ExpenseGroupId, cancellation)));
+                break;
+
+            case InstallmentPlanUpdated planUpdated:
+                operations.Store(MapPlanEdited(e.Id, planUpdated, await GroupNameAsync(operations, planUpdated.ExpenseGroupId, cancellation)));
+                break;
+
+            case InstallmentPlanPaidEarly paidEarly:
+                operations.Store(MapPlanPaidEarly(e.Id, paidEarly, await GroupNameAsync(operations, paidEarly.ExpenseGroupId, cancellation)));
+                break;
+
+            case InstallmentPlanCancelled planCancelled:
+                operations.Store(MapPlanCancelled(e.Id, planCancelled, await GroupNameAsync(operations, planCancelled.ExpenseGroupId, cancellation)));
+                break;
+
             case ExpenseGroupDeleted deleted:
                 operations.Store(MapGroupLifecycle(e.Id, ActivityKind.GroupDeleted, deleted.OccurredAt,
                     deleted.GroupId, deleted.HouseholdId, deleted.GroupName, deleted.PerformedByUserId));
@@ -102,6 +133,9 @@ public sealed partial class ActivityEntryProjection : EventProjection
                 break;
         }
     }
+
+    private static async Task<string?> GroupNameAsync(IDocumentOperations operations, Guid groupId, CancellationToken ct) =>
+        (await operations.LoadAsync<ExpenseGroupDocument>(groupId, ct))?.Name;
 
     // Older entries read the group's current name. Single-group entries are patched in the database, so a rebuild
     // also reaches entries stored earlier in the same batch; household settlements list several groups and are
@@ -123,10 +157,14 @@ public sealed partial class ActivityEntryProjection : EventProjection
         }
     }
 
-    public static ActivityEntry MapRecorded(Guid eventId, ExpenseRecorded e, string? groupName)
+    public static ActivityEntry? MapRecorded(Guid eventId, ExpenseRecorded e, string? groupName)
     {
+        if (e.CoveredByPlanEvent) return null;
+
+        // An edited installment stays Edited; the plan tag below keeps it on the plan's history.
         var kind = e.RecurringExpenseId is not null ? ActivityKind.RecurringAdded
             : e.CorrectedFromExpenseId is not null ? ActivityKind.Edited
+            : e.Installment is not null ? ActivityKind.InstallmentAdded
             : ActivityKind.Added;
 
         return new ActivityEntry
@@ -139,13 +177,17 @@ public sealed partial class ActivityEntryProjection : EventProjection
             Description = e.Description,
             GroupName = groupName,
             GroupId = e.ExpenseGroupId,
-            ViewerDeltaCents = LedgerMath.NetPerUser(e.FundingSources, e.Allocations)
+            ViewerDeltaCents = LedgerMath.NetPerUser(e.FundingSources, e.Allocations),
+            InstallmentPlanId = e.Installment?.PlanId,
+            InstallmentNumber = e.Installment?.Number,
+            InstallmentCount = e.Installment?.Count,
+            AmountCents = e.Installment is null ? null : e.FundingSources.Sum(f => f.Cents)
         };
     }
 
     public static ActivityEntry? MapVoided(Guid eventId, ExpenseVoided e, Guid? groupId)
     {
-        if (e.CorrectedByExpenseId is not null) return null;
+        if (e.CorrectedByExpenseId is not null || e.CoveredByPlanEvent) return null;
 
         var net = LedgerMath.NetPerUser(e.FundingSources, e.Allocations);
         var reversed = net.ToDictionary(kv => kv.Key, kv => -kv.Value);
@@ -160,7 +202,10 @@ public sealed partial class ActivityEntryProjection : EventProjection
             Description = e.Description,
             GroupName = null,
             GroupId = groupId,
-            ViewerDeltaCents = reversed
+            ViewerDeltaCents = reversed,
+            InstallmentPlanId = e.Installment?.PlanId,
+            InstallmentNumber = e.Installment?.Number,
+            InstallmentCount = e.Installment?.Count
         };
     }
 
@@ -224,5 +269,72 @@ public sealed partial class ActivityEntryProjection : EventProjection
         GroupId = groupId,
         GroupName = groupName,
         ViewerDeltaCents = []
+    };
+
+    // The catch-up installments have no rows of their own, so the plan row carries their balance effect.
+    public static ActivityEntry MapPlanCreated(Guid eventId, InstallmentPlanCreated e, string? groupName)
+    {
+        var segments = new[] { new SplitSegment(1, e.Allocations) };
+        var delta = new Dictionary<Guid, long>();
+        for (var n = 1; n <= e.CatchUpCount; n++)
+        {
+            var amount = InstallmentSchedule.Amount(e.TotalCents, e.Count, n);
+            var net = LedgerMath.NetPerUser(
+                [new FundingSource(e.PayerId, amount)],
+                InstallmentSchedule.Allocations(e.TotalCents, e.Count, segments, n));
+            foreach (var (user, cents) in net) delta[user] = delta.GetValueOrDefault(user) + cents;
+        }
+
+        var entry = PlanEntry(eventId, ActivityKind.InstallmentPlanCreated, e.OccurredAt, e.HouseholdId,
+            e.ExpenseGroupId, groupName, e.PerformedByUserId, e.Description, e.PlanId, delta);
+        entry.InstallmentCount = e.Count;
+        entry.AmountCents = InstallmentSchedule.Amount(e.TotalCents, e.Count, 1);
+        return entry;
+    }
+
+    public static ActivityEntry MapPlanEdited(Guid eventId, InstallmentPlanUpdated e, string? groupName) =>
+        PlanEntry(eventId, ActivityKind.InstallmentPlanEdited, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+            groupName, e.PerformedByUserId, e.Description, e.PlanId, []);
+
+    public static ActivityEntry MapPlanPaidEarly(Guid eventId, InstallmentPlanPaidEarly e, string? groupName)
+    {
+        var entry = PlanEntry(eventId, ActivityKind.InstallmentPlanPaidEarly, e.OccurredAt, e.HouseholdId,
+            e.ExpenseGroupId, groupName, e.PerformedByUserId, e.Description, e.PlanId,
+            LedgerMath.NetPerUser([new FundingSource(e.PayerId, e.PayoffCents)], e.Allocations));
+        entry.InstallmentNumber = e.FromNumber;
+        entry.InstallmentCount = e.Count;
+        entry.AmountCents = e.PayoffCents;
+        entry.ReferenceCents = e.RemainingCents;
+        return entry;
+    }
+
+    // The voids of a cancel have no rows of their own, so the cancel row carries their reversal.
+    public static ActivityEntry MapPlanCancelled(Guid eventId, InstallmentPlanCancelled e, string? groupName)
+    {
+        var delta = new Dictionary<Guid, long>();
+        foreach (var v in e.VoidedInstallments)
+            foreach (var (user, cents) in LedgerMath.NetPerUser(v.FundingSources, v.Allocations))
+                delta[user] = delta.GetValueOrDefault(user) - cents;
+
+        var entry = PlanEntry(eventId, ActivityKind.InstallmentPlanCancelled, e.OccurredAt, e.HouseholdId,
+            e.ExpenseGroupId, groupName, e.PerformedByUserId, e.Description, e.PlanId, delta);
+        entry.VoidedCount = e.VoidedInstallments.Count;
+        return entry;
+    }
+
+    private static ActivityEntry PlanEntry(
+        Guid eventId, ActivityKind kind, DateTimeOffset occurredAt, Guid householdId, Guid groupId, string? groupName,
+        Guid actorId, string description, Guid planId, Dictionary<Guid, long> delta) => new()
+    {
+        Id = eventId,
+        HouseholdId = householdId,
+        OccurredAt = occurredAt,
+        ActorUserId = actorId,
+        Kind = kind,
+        Description = description,
+        GroupId = groupId,
+        GroupName = groupName,
+        InstallmentPlanId = planId,
+        ViewerDeltaCents = delta
     };
 }

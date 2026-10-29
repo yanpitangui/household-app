@@ -57,4 +57,19 @@ public sealed class ExpenseReadModelProjectionTests
 
         await Assert.That(model.CorrectedFromExpenseId).IsEqualTo(originalId);
     }
+
+    [Test]
+    public async Task Apply_ExpenseRecorded_copies_the_installment_link()
+    {
+        var link = new InstallmentLink(Guid.NewGuid(), 2, 5);
+        var evt = new ExpenseRecorded(Guid.NewGuid(), Now, Guid.NewGuid(), HouseholdId, Guid.NewGuid(),
+            "Car repair", Now, [new FundingSource(UserId, 300)], [new Allocation(UserId, 300)], UserId,
+            Installment: link);
+        var model = new ExpenseReadModel();
+
+        _projection.Apply(evt, model);
+
+        await Assert.That(model.Installment).IsEqualTo(link);
+        await Assert.That(model.InstallmentPlanId).IsEqualTo(link.PlanId);
+    }
 }

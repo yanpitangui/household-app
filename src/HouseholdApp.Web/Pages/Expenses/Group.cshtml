@@ -39,6 +39,7 @@
      sse-swap="expenses-list"
      hx-swap="morph:innerHTML"
      hx-disinherit="hx-swap">
+    @await Html.PartialAsync("_UpcomingStrip", new UpcomingStripViewModel(Model.HouseholdId, Model.CurrentUserId, Model.Upcoming))
     @await Html.PartialAsync("_ExpensesList", new ExpensesListViewModel(Model.HouseholdId, Model.GroupId, Model.CurrentUserId, Model.Entries, Model.Group.HasOlder))
 </div>
 <div id="expenses-older"></div>

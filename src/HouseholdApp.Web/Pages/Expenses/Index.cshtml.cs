@@ -18,11 +18,13 @@ public class ExpensesIndexModel(
 
     public ExpensesHome Home { get; private set; } = new([], [], [], []);
     public IReadOnlyList<ExpenseTimelineEntry> Entries { get; private set; } = [];
+    public UpcomingSummary Upcoming { get; private set; } = UpcomingSummary.Empty;
 
     public async Task OnGetAsync()
     {
         Home = await expenseQueries.GetExpensesHomeAsync(HouseholdId, CurrentUserId);
         Entries = ExpenseTimeline.Merge(Home.Expenses, Home.Settlements);
+        Upcoming = await expenseQueries.GetUpcomingAsync(HouseholdId, null, CurrentUserId);
     }
 
     // Older rows load on demand and do not live-update; the SSE stream keeps rendering Recent only.

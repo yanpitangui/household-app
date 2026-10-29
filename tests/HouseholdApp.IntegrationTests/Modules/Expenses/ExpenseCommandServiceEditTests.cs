@@ -162,4 +162,32 @@ public sealed class ExpenseCommandServiceEditTests(PostgresFixture db)
         var newDebtorOwesCents = newPair!.UserId1 == payerId ? newPair.Cents : -newPair.Cents;
         await Assert.That(newDebtorOwesCents).IsEqualTo(600L);
     }
+
+    [Test]
+    public async Task EditExpenseAsync_keeps_the_installment_link_on_the_replacement()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        await ExpenseTestData.SeedGroupAsync(Store, householdId, groupId);
+        var payerId = Guid.NewGuid();
+        var link = new InstallmentLink(Guid.NewGuid(), 2, 5);
+        var original = Expense.Record(householdId, groupId, "Car repair", DateTimeOffset.UtcNow,
+            [new FundingSource(payerId, 30000)], [new Allocation(payerId, 30000)],
+            DateTimeOffset.UtcNow, payerId, installment: link);
+        await using (var seed = Store.LightweightSession())
+        {
+            seed.Events.StartStream(original.Id, original.DomainEvents.ToArray());
+            await seed.SaveChangesAsync();
+        }
+
+        await using var session = Store.LightweightSession();
+        var newId = await BuildSut(session).EditExpenseAsync(
+            householdId, original.Id, "Car repair (fixed)", DateTimeOffset.UtcNow,
+            [new FundingSourceDto(payerId, 31000)], [new AllocationDto(payerId, 31000)]);
+
+        await using var qs = Store.QuerySession();
+        var replacement = await qs.LoadAsync<ExpenseReadModel>(newId);
+        await Assert.That(replacement!.Installment).IsEqualTo(link);
+        await Assert.That(replacement.InstallmentPlanId).IsEqualTo(link.PlanId);
+    }
 }
