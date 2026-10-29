@@ -60,6 +60,18 @@ jobs:
 
       - name: Test
         run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore
+        env:
+          # Failing tests keep a video of each browser context here (passing tests' videos are deleted).
+          E2E_VIDEO_DIR: ${{ github.workspace }}/e2e-videos
+
+      - name: Upload videos of failed E2E tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-videos
+          path: e2e-videos/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload E2E test report
         if: always()

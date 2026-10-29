@@ -91,6 +91,9 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
         {
             StorageStatePath = _storageStatePaths[user],
             IgnoreHTTPSErrors = true,
+            // Saved when the test disposes the context; FailureVideos keeps only the failing tests' videos.
+            RecordVideoDir = FailureVideos.DirectoryForCurrentTest(),
+            RecordVideoSize = new RecordVideoSize { Width = 640, Height = 480 },
         });
     }
 
