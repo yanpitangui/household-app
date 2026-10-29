@@ -143,6 +143,8 @@ html, body {
 }
 
 .app-content.has-bottom-nav {
+    /* Sticky footers offset by this so they float above the fixed bottom nav. */
+    --bottom-nav-offset: calc(var(--bottom-nav-height) + var(--safe-bottom));
     padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + 16px);
 }
 
@@ -1396,7 +1398,7 @@ textarea.form-control { resize: vertical; }
 
 /* FAB */
 .expenses-fab {
-    position: sticky; bottom: 8px;
+    position: sticky; bottom: calc(var(--bottom-nav-offset, 0px) + 8px);
     display: flex; justify-content: center;
     pointer-events: none;
     z-index: 50; margin-top: 16px;
@@ -1543,7 +1545,7 @@ textarea.form-control { resize: vertical; }
 
 /* Summary bar */
 .split-summary-bar {
-    position: sticky; bottom: 0;
+    position: sticky; bottom: var(--bottom-nav-offset, 0px);
     background: #0e0b09; border-top: 1px solid var(--border-color);
     padding: 12px 16px;
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
