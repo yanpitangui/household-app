@@ -7,6 +7,8 @@
     <IsPackable>false</IsPackable>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <NuGetAuditMode>direct</NuGetAuditMode>
+    <!-- RunAndWaitForNavigationAsync is obsolete, and it subscribes before the action runs, so it catches a navigation that WaitForURLAsync can miss. -->
+    <NoWarn>$(NoWarn);CS0612</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
