@@ -17,9 +17,10 @@ public class ListsTests(PlaywrightFixture pw)
 
         var listName = $"Weekly groceries {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
 
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
 
         await Assert.That(await page.Locator($"text={listName}").IsVisibleAsync()).IsTrue();
@@ -35,8 +36,9 @@ public class ListsTests(PlaywrightFixture pw)
         var listName = $"Delete list {Guid.NewGuid().ToString("N")[..8]}";
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         await Assert.That(await page.Locator($"text={listName}").IsVisibleAsync()).IsTrue();
@@ -469,7 +471,8 @@ public class ListsTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         var listName = $"E2E List {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
     }
 }

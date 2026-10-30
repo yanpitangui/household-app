@@ -4,6 +4,7 @@ using Microsoft.Playwright;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[Category(Shards.Second)]
 public class ExpenseGroupsTests(PlaywrightFixture pw)
 {
     [Test]
@@ -26,8 +27,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await partnerPage.Locator(".settle-breakdown-summary:has-text('30.00')").WaitForAsync();
         await Assert.That(await partnerPage.Locator(".settle-breakdown-row").CountAsync()).IsEqualTo(2);
 
-        await partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await partnerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await partnerPage.RunAndWaitForNavigationAsync(
+            () => partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
 
         var tripCard = partnerPage.Locator($"#group-{trip:N}");
         await Assert.That(await tripCard.InnerTextAsync()).Contains("you owe").And.Contains("30.00");
@@ -63,8 +65,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
 
         await Row(thirdPage, "You owe Test").Locator(".expenses-settle-with").ClickAsync();
         await Assert.That(await thirdPage.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("30.00");
-        await thirdPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await thirdPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await thirdPage.RunAndWaitForNavigationAsync(
+            () => thirdPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
 
         await Assert.That(await thirdPage.Locator(".expenses-person-row").CountAsync()).IsEqualTo(1);
         await Assert.That(await Row(thirdPage, "You owe Partner").InnerTextAsync()).Contains("10.00");
@@ -106,8 +109,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
 
         await page.ClickAsync("summary[aria-label='More actions']");
         await page.ClickAsync("button:has-text('Delete group')");
-        await page.ClickAsync("#confirm-ok");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("#confirm-ok"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
         await Assert.That(await page.Locator($"#group-{trip:N}").CountAsync()).IsEqualTo(0);
 
         await page.ClickAsync(".toast-action-btn:has-text('Undo')");
@@ -124,8 +128,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await page.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Hotel", "200");
         await page.ClickAsync("summary[aria-label='More actions']");
         await page.ClickAsync("button:has-text('Delete group')");
-        await page.ClickAsync("#confirm-ok");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("#confirm-ok"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
         await Assert.That(await page.Locator(".activity-row:has-text('Hotel')").CountAsync()).IsEqualTo(0);
@@ -172,8 +177,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}");
         await page.ClickAsync("summary[aria-label='More actions']");
         await page.ClickAsync("button:has-text('Delete group')");
-        await page.ClickAsync("#confirm-ok");
-        await page.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("#confirm-ok"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
         await Assert.That(await page.Locator(".expense-row-header:has-text('Hotel')").CountAsync()).IsEqualTo(0);
     }
 
@@ -193,8 +199,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/settle");
         await partnerPage.FillAsync("input[name='Amount']", "40");
         await partnerPage.Locator(".settle-breakdown-summary:has-text('30.00')").WaitForAsync();
-        await partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await partnerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await partnerPage.RunAndWaitForNavigationAsync(
+            () => partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
 
         var payments = partnerPage.Locator(".payment-row");
         await payments.First.WaitForAsync();
@@ -215,8 +222,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         var partnerPage = await partnerCtx.NewTrackedPageAsync();
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/settle?group={trip}");
         await partnerPage.Locator("input[name='Amount']").WaitForAsync();
-        await partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await partnerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, trip));
+        await partnerPage.RunAndWaitForNavigationAsync(
+            () => partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url, trip) });
 
         await ownerPage.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Lunch", "40");
 
@@ -258,8 +266,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         var partnerPage = await partnerCtx.NewTrackedPageAsync();
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/settle?group={trip}");
         await partnerPage.Locator("input[name='Amount']").WaitForAsync();
-        await partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await partnerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, trip));
+        await partnerPage.RunAndWaitForNavigationAsync(
+            () => partnerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url, trip) });
 
         await ownerPage.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Lunch", "40");
         await ownerPage.ClickAsync("button#expenses-show-older");
@@ -296,8 +305,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await ownerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/{trip}");
         await ownerPage.ClickAsync("summary[aria-label='More actions']");
         await ownerPage.ClickAsync("button:has-text('Delete group')");
-        await ownerPage.ClickAsync("#confirm-ok");
-        await ownerPage.WaitForURLAsync($"**/h/{householdId}/expenses");
+        await ownerPage.RunAndWaitForNavigationAsync(
+            () => ownerPage.ClickAsync("#confirm-ok"),
+            new() { UrlString = $"**/h/{householdId}/expenses" });
 
         await ownerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
         await Assert.That(await ownerPage.Locator(".activity-restore-btn").CountAsync()).IsEqualTo(1);
@@ -328,8 +338,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
         await page.FillAsync("input[name='Form.Name']", "Trip");
         await page.CheckAsync("input[name='Form.Icon'][value='✈️']");
-        await page.ClickAsync("button:has-text('+ Create')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('+ Create')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
         var trip = Guid.Parse(new Uri(page.Url).Segments[^1]);
         await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("✈️ Trip");
         await page.RecordEqualSplitAsync(pw.AppUrl, householdId, trip, "Hotel", "200");
@@ -339,9 +350,10 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await Assert.That(await page.Locator("input[name='Form.Name']").InputValueAsync()).IsEqualTo("Trip");
         await page.FillAsync("input[name='Form.Name']", "Japan");
         await page.FillAsync("input[name='Form.IconOther']", "🗾");
-        await page.ClickAsync("button[type='submit']:has-text('Save')");
         // The id-scoped IsGroupPage also matches the /edit URL, so the end-anchored form tells the saved redirect apart.
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && url.Contains(trip.ToString()));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Save')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) && url.Contains(trip.ToString()) });
         await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🗾 Japan");
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses");
@@ -367,16 +379,18 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
 
         await page.GotoAsync(editUrl);
         await page.FillAsync("input[name='Form.IconOther']", "🗾");
-        await page.ClickAsync("button[type='submit']:has-text('Save')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit"));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Save')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit") });
         await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🗾 Trip");
 
         await page.GotoAsync(editUrl);
         await Assert.That(await page.Locator("input[name='Form.IconOther']").InputValueAsync()).IsEqualTo("🗾");
         await page.CheckAsync("input[name='Form.Icon'][value='🏠']");
         await Assert.That(await page.Locator("input[name='Form.IconOther']").InputValueAsync()).IsEmpty();
-        await page.ClickAsync("button[type='submit']:has-text('Save')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit"));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Save')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) && !url.EndsWith("/edit") });
         await Assert.That(await page.Locator(".page-heading").InnerTextAsync()).Contains("🏠 Trip");
     }
 

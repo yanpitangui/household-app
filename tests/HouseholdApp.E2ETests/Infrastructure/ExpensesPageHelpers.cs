@@ -39,8 +39,9 @@ public static class ExpensesPageHelpers
     {
         await page.GotoAsync($"{appUrl}/h/{householdId}/expenses/groups/new");
         await page.FillAsync("input[name='Form.Name']", name);
-        await page.ClickAsync("button:has-text('+ Create')");
-        await page.WaitForURLAsync(url => IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('+ Create')"),
+            new() { UrlFunc = url => IsGroupPage(url) });
         return Guid.Parse(new Uri(page.Url).Segments[^1]);
     }
 
@@ -52,8 +53,9 @@ public static class ExpensesPageHelpers
         await page.FillAsync("input[name='Description']", description);
         await page.FillAsync("input[name='Amount']", amount);
         await page.ResetSseCountAsync();
-        await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync(url => IsGroupPage(url, groupId));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Record')"),
+            new() { UrlFunc = url => IsGroupPage(url, groupId) });
         await page.Locator($".expense-row-header:has-text('{description}')").WaitForAsync();
         await page.WaitForFirstSseRenderAsync();
     }

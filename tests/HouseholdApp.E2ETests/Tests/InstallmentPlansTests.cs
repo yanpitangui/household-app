@@ -4,6 +4,7 @@ using Microsoft.Playwright;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[Category(Shards.Second)]
 public class InstallmentPlansTests(PlaywrightFixture pw)
 {
     private static bool IsPlanPage(string url) => url.Contains("/expenses/plans/", StringComparison.OrdinalIgnoreCase);
@@ -30,8 +31,9 @@ public class InstallmentPlansTests(PlaywrightFixture pw)
         if (downPayment is not null) await page.FillAsync("#down-field", downPayment);
         await page.FillAsync("#first-date", firstDate.ToString("yyyy-MM-dd"));
         await Assert.That(await page.Locator("#record-save-btn").InnerTextAsync()).Contains($"{count} installments");
-        await page.ClickAsync("#record-save-btn");
-        await page.WaitForURLAsync(IsPlanPage);
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("#record-save-btn"),
+            new() { UrlFunc = IsPlanPage });
         return Guid.Parse(new Uri(page.Url).Segments[^1]);
     }
 
@@ -55,8 +57,9 @@ public class InstallmentPlansTests(PlaywrightFixture pw)
         await Assert.That(await page.Locator(".installment-pill:has-text('2/3')").CountAsync()).IsEqualTo(1);
 
         await page.Locator(".expense-row-header:has-text('Car repair')").First.ClickAsync();
-        await page.Locator(".expense-row-wrap.expanded a.plan-view-link").First.ClickAsync();
-        await page.WaitForURLAsync(IsPlanPage);
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator(".expense-row-wrap.expanded a.plan-view-link").First.ClickAsync(),
+            new() { UrlFunc = IsPlanPage });
 
         await page.ClickAsync("button:has-text('Pay remaining early')");
         await page.FillAsync("#payoff-amount", "250");
@@ -146,8 +149,9 @@ public class InstallmentPlansTests(PlaywrightFixture pw)
         await Assert.That(await page.Locator(".installment-pill:has-text('down')").CountAsync()).IsEqualTo(1);
 
         await page.Locator(".expense-row-header:has-text('Washing machine')").First.ClickAsync();
-        await page.Locator(".expense-row-wrap.expanded a.plan-view-link").First.ClickAsync();
-        await page.WaitForURLAsync(IsPlanPage);
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator(".expense-row-wrap.expanded a.plan-view-link").First.ClickAsync(),
+            new() { UrlFunc = IsPlanPage });
 
         await page.ClickAsync("button:has-text('Pay remaining early')");
         await Assert.That(await page.InputValueAsync("#payoff-amount")).IsEqualTo("1000.00");

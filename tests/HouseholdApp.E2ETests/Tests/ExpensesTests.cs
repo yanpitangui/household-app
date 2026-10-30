@@ -102,8 +102,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         await page.FillAsync("input[name='Amount']", "100");
 
         // Submit
-        await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Record')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
 
         // Expense row must appear in the list
         await page.Locator(".expense-row-header").First.WaitForAsync();
@@ -126,13 +127,15 @@ public class ExpensesTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await page.FillAsync("input[name='Description']", "Test Groceries");
         await page.FillAsync("input[name='Amount']", "100");
-        await page.ClickAsync("button[type='submit']:has-text('Record')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Record')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
 
         // Expand the row to reveal the Edit link, then follow it
         await page.Locator(".expense-row-header:has-text('Test Groceries')").ClickAsync();
-        await page.Locator("a.btn:has-text('Edit')").ClickAsync();
-        await page.WaitForURLAsync(url => url.Contains("/expenses/record") && url.Contains("expenseId"));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator("a.btn:has-text('Edit')").ClickAsync(),
+            new() { UrlFunc = url => url.Contains("/expenses/record") && url.Contains("expenseId") });
 
         // Edit page must be in edit mode with the original values prefilled
         await Assert.That(await page.Locator(".page-heading:has-text('Edit')").IsVisibleAsync()).IsTrue();
@@ -141,8 +144,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         // Change description and amount, then save
         await page.FillAsync("input[name='Description']", "Test Groceries Updated");
         await page.FillAsync("input[name='Amount']", "150");
-        await page.ClickAsync("button[type='submit']:has-text('Save')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Save')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
 
         // Updated entry replaces the original in the list
         await page.Locator(".expense-row-header").First.WaitForAsync();
@@ -191,15 +195,17 @@ public class ExpensesTests(PlaywrightFixture pw)
         // Labels are pt-BR here: "+ Criar", "Registrar", "Editar".
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/groups/new");
         await page.FillAsync("input[name='Form.Name']", "Food");
-        await page.ClickAsync("button:has-text('+ Criar')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('+ Criar')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
         var groupId = Guid.Parse(new Uri(page.Url).Segments[^1]);
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await page.FillAsync("input[name='Description']", "Decimal check");
         await page.FillAsync("input[name='Amount']", "12.34");
-        await page.ClickAsync("button[type='submit']:has-text('Registrar')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Registrar')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
 
         var row = page.Locator(".expense-row-header:has-text('Decimal check')");
         await row.WaitForAsync();
@@ -207,8 +213,9 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         // Edit form renders the stored amount back into the number input.
         await row.ClickAsync();
-        await page.Locator("a.btn:has-text('Editar')").ClickAsync();
-        await page.WaitForURLAsync(url => url.Contains("/expenses/record") && url.Contains("expenseId"));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator("a.btn:has-text('Editar')").ClickAsync(),
+            new() { UrlFunc = url => url.Contains("/expenses/record") && url.Contains("expenseId") });
         await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("12.34");
     }
 
@@ -258,15 +265,17 @@ public class ExpensesTests(PlaywrightFixture pw)
         var page = await ownerCtx.NewTrackedPageAsync();
         var groupId = await RecordEqualSplitAsync(page, householdId, "Shared dinner", "100");
 
-        await page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
-        await page.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync(),
+            new() { UrlFunc = url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase) });
 
         await Assert.That(await page.Locator("select[name='PayerId'] option:checked").InnerTextAsync()).IsEqualTo("Partner User");
         await Assert.That(await page.Locator("select[name='RecipientId'] option:checked").InnerTextAsync()).IsEqualTo("Test User");
         await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("50.00");
 
-        await page.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await page.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, groupId));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url, groupId) });
 
         // The payment that settles the group heads the list; what it settled sits behind "Show earlier entries".
         await page.Locator(".payment-row:has-text('Partner paid you')").WaitForAsync();
@@ -295,8 +304,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         });
         await page.ReloadAsync();
 
-        await page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
-        await page.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
+        await page.RunAndWaitForNavigationAsync(
+            () => page.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync(),
+            new() { UrlFunc = url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase) });
         await Assert.That(await page.Locator("input[name='Amount']").InputValueAsync()).IsEqualTo("50.00");
     }
 
@@ -317,8 +327,9 @@ public class ExpensesTests(PlaywrightFixture pw)
         await partnerPage.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/record?group={groupId}");
         await partnerPage.FillAsync("input[name='Description']", "Partner taxi");
         await partnerPage.FillAsync("input[name='Amount']", "40");
-        await partnerPage.ClickAsync("button[type='submit']:has-text('Record')");
-        await partnerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url));
+        await partnerPage.RunAndWaitForNavigationAsync(
+            () => partnerPage.ClickAsync("button[type='submit']:has-text('Record')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url) });
 
         await ownerPage.Locator(".expense-row-header:has-text('Partner taxi')")
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
@@ -340,10 +351,12 @@ public class ExpensesTests(PlaywrightFixture pw)
         await partnerPage.WaitForFirstSseRenderAsync();
         await Assert.That(await partnerPage.Locator(".payment-row").CountAsync()).IsEqualTo(0);
 
-        await ownerPage.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync();
-        await ownerPage.WaitForURLAsync(url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase));
-        await ownerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')");
-        await ownerPage.WaitForURLAsync(url => ExpensesPageHelpers.IsGroupPage(url, groupId));
+        await ownerPage.RunAndWaitForNavigationAsync(
+            () => ownerPage.Locator("#expenses-balance-card .expenses-settle-with").ClickAsync(),
+            new() { UrlFunc = url => url.Contains("/expenses/settle", StringComparison.OrdinalIgnoreCase) });
+        await ownerPage.RunAndWaitForNavigationAsync(
+            () => ownerPage.ClickAsync("button[type='submit']:has-text('Record Settlement')"),
+            new() { UrlFunc = url => ExpensesPageHelpers.IsGroupPage(url, groupId) });
 
         // The settling payment heads the live list.
         await partnerPage.Locator(".payment-row:has-text('You paid Test')")
