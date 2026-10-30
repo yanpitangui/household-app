@@ -95,6 +95,18 @@ public sealed class RecurringExpenseCommandServiceTests(PostgresFixture db)
     }
 
     [Test]
+    public async Task Create_today_after_its_time_records_the_first_occurrence_immediately()
+    {
+        var id = await CreateAsync(Monthly(2026, 11, 10));
+
+        var expenses = await ExpensesAsync(id);
+        await Assert.That(expenses.Count).IsEqualTo(1);
+        await Assert.That(expenses.Single().Date).IsEqualTo(new DateTimeOffset(2026, 11, 10, 0, 0, 0, TimeSpan.Zero));
+        await Assert.That((await DocumentAsync(id)).NextOccurrenceAt)
+            .IsEqualTo(new DateTimeOffset(2026, 12, 10, 9, 0, 0, TimeSpan.Zero));
+    }
+
+    [Test]
     public async Task Create_rejects_a_group_of_another_household()
     {
         await ExpenseTestData.SeedGroupAsync(Store, _householdId, _groupId);

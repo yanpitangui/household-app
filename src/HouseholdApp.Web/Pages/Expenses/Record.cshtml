@@ -1,9 +1,12 @@
 @page "/h/{householdId:guid}/Expenses/Record"
 @model HouseholdApp.Web.Pages.Expenses.RecordExpenseModel
 @using System.Globalization
+@using HouseholdApp.Web.Shared.Web
 @{
     var isEditing = Model.ExpenseId.HasValue;
-    var showEditLabels = isEditing || Model.EditingPlan is not null;
+    var editingRecurring = Model.EditingRecurringExpense is not null;
+    var showEditLabels = isEditing || Model.EditingPlan is not null || editingRecurring;
+    var recurrenceFirstDate = Model.RecurringFirstDate ?? Model.Date;
     ViewData["Title"] = showEditLabels ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"];
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     var currentUserName = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.DisplayName ?? "";
@@ -44,6 +47,10 @@
     {
         <input type="hidden" asp-for="PlanId" />
     }
+    @if (Model.RecurringId.HasValue)
+    {
+        <input type="hidden" asp-for="RecurringId" />
+    }
 
     @* ═══════════ PANEL A: Main form ═══════════ *@
     <div id="panel-a" class="app-card">
@@ -71,12 +78,12 @@
             <span class="record-split-chevron">›</span>
         </button>
 
-        @if (!isEditing && Model.EditingPlan is null)
+        @if (!isEditing && Model.EditingPlan is null && !editingRecurring)
         {
             <div class="repeat-seg" role="radiogroup">
                 <button type="button" class="repeat-seg-opt active" data-repeat="once" onclick="setRepeat('once')">@L["Expenses.Repeat.Once"]</button>
                 <button type="button" class="repeat-seg-opt" data-repeat="installments" onclick="setRepeat('installments')">@L["Expenses.Repeat.Installments"]</button>
-                <button type="button" class="repeat-seg-opt" disabled>@L["Expenses.Repeat.Recurring"]</button>
+                <button type="button" class="repeat-seg-opt" data-repeat="recurring" onclick="setRepeat('recurring')">@L["Expenses.Repeat.Recurring"]</button>
             </div>
             <div id="installment-fields" class="repeat-box" style="display:none">
                 <div class="repeat-row">
@@ -109,6 +116,26 @@
                     <div id="repeat-preview-share"></div>
                 </div>
             </div>
+            <div id="recurring-fields" class="repeat-box" style="display:none">
+                @await Html.PartialAsync("_RecurrencePicker", new RecurrencePickerViewModel("Recurring", Model.RecurringFrequency, recurrenceFirstDate, Model.RecurringTime))
+                <div id="recurring-short-month" class="repeat-hint" style="display:none">@L["Expenses.Recurring.ShortMonth"]</div>
+                <label id="recurring-catch-up" class="form-check repeat-hint" style="display:none">
+                    <input asp-for="RecurringCatchUp" class="form-check-input" />
+                    <span id="recurring-catch-up-label">@L["Expenses.Recurring.CatchUp", Model.RecurringCatchUpCount]</span>
+                </label>
+                <div class="repeat-preview">
+                    <strong id="recurring-preview-main">—</strong>
+                    <div id="recurring-preview-share"></div>
+                </div>
+            </div>
+        }
+        @if (editingRecurring)
+        {
+            <div id="recurring-fields" class="repeat-box">
+                @await Html.PartialAsync("_RecurrencePicker", new RecurrencePickerViewModel("Recurring", Model.RecurringFrequency, recurrenceFirstDate, Model.RecurringTime))
+                <div id="recurring-short-month" class="repeat-hint" style="display:none">@L["Expenses.Recurring.ShortMonth"]</div>
+                <div class="repeat-preview"><strong id="recurring-preview-main">—</strong><div id="recurring-preview-share"></div></div>
+            </div>
         }
         @if (Model.Editing?.Installment is { IsPayoff: false } editLink)
         {
@@ -120,7 +147,7 @@
                 $"{currencySymbol} {(planBeingEdited.Summary.Slots.First(x => x.Number == 1).Cents / 100m).ToString("F2")}", planBeingEdited.FirstDate.ToString("dd MMM")]</div>
         }
 
-        @if (Model.EditingPlan is null)
+        @if (Model.EditingPlan is null && !editingRecurring)
         {
         <div class="record-meta-row">
             <div class="record-date-chip">
@@ -498,9 +525,14 @@
 
     // State starts from the hidden inputs so a re-render after a failed POST keeps the whole installment setup.
     const instBox = document.getElementById('installment-fields');
+    const recurringBox = document.getElementById('recurring-fields');
     const firstEl = document.getElementById('first-date');
     const downEl = document.getElementById('down-field');
-    let repeat = document.getElementById('repeat-input').value === 'installments' && instBox ? 'installments' : 'once';
+    const recurringFrequency = document.getElementById('RecurringFrequency');
+    const recurringFirstDate = document.getElementById('RecurringFirstDate');
+    const recurringTime = document.getElementById('RecurringTime');
+    let repeat = document.getElementById('repeat-input').value;
+    if (repeat !== 'installments' && repeat !== 'recurring') repeat = 'once';
     let count = Math.min(48, Math.max(2, parseInt(document.getElementById('count-input').value, 10) || 2));
     let perInstallment = document.getElementById('per-input').value === 'true';
 
@@ -541,11 +573,67 @@
 
     // Reflects repeat/count/perInstallment in the inline controls.
     function applyRepeatUi() {
-        if (!instBox) return;
         document.querySelectorAll('.repeat-seg-opt[data-repeat]').forEach(b => b.classList.toggle('active', b.dataset.repeat === repeat));
-        instBox.style.display = repeat === 'installments' ? 'block' : 'none';
-        document.getElementById('count-display').textContent = count;
-        document.querySelectorAll('.repeat-toggle button').forEach(b => b.classList.toggle('active', b.dataset.per === String(perInstallment)));
+        if (instBox) {
+            instBox.style.display = repeat === 'installments' ? 'block' : 'none';
+            document.getElementById('count-display').textContent = count;
+            document.querySelectorAll('.repeat-toggle button').forEach(b => b.classList.toggle('active', b.dataset.per === String(perInstallment)));
+        }
+        if (recurringBox) recurringBox.style.display = repeat === 'recurring' ? 'block' : 'none';
+        const dateChip = document.querySelector('.record-date-chip');
+        if (dateChip) dateChip.style.display = repeat === 'recurring' ? 'none' : '';
+    }
+
+    function recurrenceDate(first, frequency, index) {
+        const [year, month, day] = first.split('-').map(Number);
+        const start = new Date(Date.UTC(year, month - 1, day));
+        if (frequency === 'Daily') start.setUTCDate(start.getUTCDate() + index);
+        else if (frequency === 'Weekly') start.setUTCDate(start.getUTCDate() + 7 * index);
+        else if (frequency === 'Biweekly') start.setUTCDate(start.getUTCDate() + 14 * index);
+        else if (frequency === 'Monthly') {
+            const targetMonth = month - 1 + index;
+            const targetYear = year + Math.floor(targetMonth / 12);
+            const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+            const last = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+            return new Date(Date.UTC(targetYear, normalizedMonth, Math.min(day, last)));
+        } else if (frequency === 'Annually') {
+            const targetYear = year + index;
+            const last = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
+            return new Date(Date.UTC(targetYear, month - 1, Math.min(day, last)));
+        }
+        return start;
+    }
+
+    function renderRecurringPreview() {
+        if (!recurringBox || !recurringFrequency || !recurringFirstDate || !recurringTime) return;
+        const main = document.getElementById('recurring-preview-main');
+        const share = document.getElementById('recurring-preview-share');
+        const shortMonth = document.getElementById('recurring-short-month');
+        const catchUp = document.getElementById('recurring-catch-up');
+        if (!recurringFirstDate.value) return;
+        const first = recurrenceDate(recurringFirstDate.value, recurringFrequency.value, 0);
+        const now = new Date();
+        const hourMinute = recurringTime.value || '12:00';
+        let index = 0;
+        let next = first;
+        let past = 0;
+        while (index < 101) {
+            const at = new Date(next.getTime());
+            const [hour, minute] = hourMinute.split(':').map(Number);
+            at.setUTCHours(hour, minute, 0, 0);
+            if (at > now) break;
+            past++; index++; next = recurrenceDate(recurringFirstDate.value, recurringFrequency.value, index);
+        }
+        const label = recurringFrequency.options[recurringFrequency.selectedIndex]?.text || recurringFrequency.value;
+        main.textContent = fill(repeatMeta.recurringPreview, `${label} at ${hourMinute} UTC`, fmtDate(next.toISOString().slice(0, 10)));
+        const mine = (computeAllocations() || []).find(a => a.userId === repeatMeta.currentUserId);
+        share.textContent = mine ? fill(repeatMeta.recurringShare, `${currencySymbol} ${centsToDisplay(mine.cents)}`) : '';
+        if (shortMonth) shortMonth.style.display = recurringFrequency.value === 'Monthly' && first.getUTCDate() >= 29 ? 'block' : 'none';
+        if (catchUp) {
+            catchUp.style.display = first < new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) ? 'block' : 'none';
+            const catchUpLabel = document.getElementById('recurring-catch-up-label');
+            if (catchUpLabel) catchUpLabel.textContent = fill(repeatMeta.catchUp, past);
+        }
     }
 
     function renderPreview() {
@@ -575,6 +663,9 @@
         if (repeat === 'installments') {
             save.textContent = fill(repeatMeta.save, count);
             renderPreview();
+        } else if (repeat === 'recurring') {
+            save.textContent = repeatMeta.record;
+            renderRecurringPreview();
         } else {
             save.textContent = repeatMeta.record;
         }
@@ -616,6 +707,8 @@
         document.getElementById('date-input').addEventListener('change', () => { syncFirstDate(); refreshRepeat(); });
         document.getElementById('amount-input')?.addEventListener('input', refreshRepeat);
     }
+    [recurringFrequency, recurringFirstDate, recurringTime].filter(Boolean).forEach(input => input.addEventListener('change', renderRecurringPreview));
+    document.getElementById('amount-input')?.addEventListener('input', renderRecurringPreview);
 
     document.getElementById('record-form')?.addEventListener('submit', function () {
         const container = document.getElementById('allocation-inputs');
@@ -678,6 +771,9 @@
       previewShare = L["Expenses.Repeat.PreviewShare"].Value,
       save = L["Expenses.Repeat.Save"].Value,
       record = L["Expenses.Record"].Value,
+      recurringPreview = L["Expenses.Recurring.Preview"].Value,
+      recurringShare = L["Expenses.Recurring.PreviewShare"].Value,
+      catchUp = L["Expenses.Recurring.CatchUp"].Value,
       currentUserId = Model.CurrentUserId
   })
 }

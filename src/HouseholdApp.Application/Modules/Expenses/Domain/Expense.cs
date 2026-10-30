@@ -13,6 +13,7 @@ public sealed class Expense : AggregateRoot
     public IReadOnlyList<Allocation> Allocations { get; private set; } = [];
     public bool IsVoided { get; private set; }
     public InstallmentLink? Installment { get; private set; }
+    public Guid? RecurringExpenseId { get; private set; }
 
     private Expense() { }
 
@@ -42,7 +43,8 @@ public sealed class Expense : AggregateRoot
             Date = date,
             FundingSources = fundingSources,
             Allocations = allocations,
-            Installment = installment
+            Installment = installment,
+            RecurringExpenseId = recurringExpenseId
         };
 
         expense.Raise(new ExpenseRecorded(
@@ -73,7 +75,8 @@ public sealed class Expense : AggregateRoot
         Date = e.Date,
         FundingSources = e.FundingSources,
         Allocations = e.Allocations,
-        Installment = e.Installment
+        Installment = e.Installment,
+        RecurringExpenseId = e.RecurringExpenseId
     };
 
     public void Apply(ExpenseVoided e) => IsVoided = true;

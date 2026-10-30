@@ -57,7 +57,7 @@ public sealed class ExpenseCommandService(
             old.HouseholdId, old.ExpenseGroupId, description, date,
             ToDomain(fundingSources), ToDomain(allocations),
             time.GetUtcNow(), currentUser.Id, id: replacementId, correctedFromExpenseId: expenseId,
-            installment: old.Installment);
+            recurringExpenseId: old.RecurringExpenseId, installment: old.Installment);
 
         session.Events.Append(expenseId, old.DomainEvents.ToArray());
         session.Events.Append(replacement.Id, replacement.DomainEvents.ToArray());

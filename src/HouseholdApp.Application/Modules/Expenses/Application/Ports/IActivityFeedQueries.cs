@@ -41,4 +41,8 @@ public interface IActivityFeedQueries
     /// <summary>Every activity row of one Installment Plan, newest first.</summary>
     Task<IReadOnlyList<ActivityFeedItem>> GetPlanHistoryAsync(
         Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default);
+
+    /// <summary>Every activity row of one recurring template, newest first.</summary>
+    Task<IReadOnlyList<ActivityFeedItem>> GetRecurringHistoryAsync(
+        Guid householdId, Guid recurringExpenseId, Guid viewerId, CancellationToken ct = default);
 }

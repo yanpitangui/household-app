@@ -51,7 +51,11 @@
 }
 <div class="activity-row" data-row>
     <div class="activity-text">
-        @if (Model.InstallmentPlanId is { } planLink)
+        @if (Model.RecurringExpenseId is { } recurringLink)
+        {
+            <a asp-page="/Expenses/RecurringDetail" asp-route-householdId="@ViewContext.RouteData.Values["householdId"]" asp-route-recurringId="@recurringLink" class="activity-plan-link"><strong>@text</strong></a>
+        }
+        else if (Model.InstallmentPlanId is { } planLink)
         {
             <a asp-page="/Expenses/Plan" asp-route-householdId="@ViewContext.RouteData.Values["householdId"]" asp-route-planId="@planLink" class="activity-plan-link"><strong>@text</strong></a>
         }

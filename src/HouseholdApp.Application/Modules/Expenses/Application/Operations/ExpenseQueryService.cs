@@ -455,6 +455,43 @@ public sealed class ExpenseQueryService(
             plan.DownPaymentCents);
     }
 
+    public async Task<RecurringExpensePage?> GetRecurringExpensePageAsync(
+        Guid householdId, Guid recurringExpenseId, Guid viewerId, CancellationToken ct = default)
+    {
+        var template = await querySession.LoadAsync<RecurringExpenseDocument>(recurringExpenseId, ct);
+        if (template is null || template.HouseholdId != householdId) return null;
+        var group = await querySession.LoadAsync<ExpenseGroupDocument>(template.ExpenseGroupId, ct);
+        if (group is null || group.HouseholdId != householdId || group.DeletedAt is not null) return null;
+
+        var linked = await querySession.Query<ExpenseReadModel>()
+            .Where(e => e.RecurringExpenseId == recurringExpenseId)
+            .OrderByDescending(e => e.RecordedAt).ThenByDescending(e => e.Id)
+            .Take(12).ToListAsync(ct);
+        var userIds = template.FundingSources.Select(f => f.UserId)
+            .Concat(template.Allocations.Select(a => a.UserId))
+            .Concat(linked.SelectMany(e => e.FundingSources.Select(f => f.UserId)
+                .Concat(e.Allocations.Select(a => a.UserId)))).Distinct();
+        var profiles = await LoadProfilesAsync(userIds, ct);
+        ExpenseListParticipantDto Participant(Guid id, long cents) => new(
+            id, profiles.GetValueOrDefault(id)?.DisplayName ?? "?", cents,
+            profiles.GetValueOrDefault(id)?.PictureUrl);
+        var split = template.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList();
+        var payer = template.FundingSources.FirstOrDefault();
+        var rows = linked.Select(e => new ExpenseListItem(
+            e.Id, e.Description, e.Date, e.TotalCents,
+            e.FundingSources.Select(f => Participant(f.UserId, f.Cents)).ToList(),
+            e.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList(),
+            group.Name, e.RecordedAt, GroupIcons.Display(group.Icon),
+            IsVoided: e.IsVoided, IsCorrection: e.CorrectedFromExpenseId is not null)).ToList();
+        var total = template.FundingSources.Sum(f => f.Cents);
+        return new RecurringExpensePage(
+            template.Id, householdId, template.Description, template.Schedule,
+            template.Status == RecurringExpenseStatus.Active, template.NextOccurrenceAt,
+            group.Id, group.Name, GroupIcons.Display(group.Icon), payer?.UserId ?? Guid.Empty,
+            payer is null ? "?" : profiles.GetValueOrDefault(payer.UserId)?.DisplayName ?? "?",
+            total, split, template.Allocations.FirstOrDefault(a => a.UserId == viewerId)?.Cents ?? 0, rows);
+    }
+
     public async Task<UpcomingSummary> GetUpcomingAsync(
         Guid householdId, Guid? groupId, Guid viewerId, CancellationToken ct = default)
     {
@@ -511,7 +548,7 @@ public sealed class ExpenseQueryService(
             e.TotalCents, e.IsVoided, e.VoidReason,
             e.FundingSources.Select(f => new FundingSourceDto(f.UserId, f.Cents)).ToList(),
             e.Allocations.Select(a => new AllocationDto(a.UserId, a.Cents)).ToList(),
-            e.RecordedAt, e.Installment);
+            e.RecordedAt, e.Installment, e.RecurringExpenseId);
     }
 
     public async Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(

@@ -186,8 +186,8 @@ public sealed partial class ActivityEntryProjection : EventProjection
         if (e.CoveredByPlanEvent) return null;
 
         // An edited installment stays Edited; the plan tag below keeps it on the plan's history.
-        var kind = e.RecurringExpenseId is not null ? ActivityKind.RecurringAdded
-            : e.CorrectedFromExpenseId is not null ? ActivityKind.Edited
+        var kind = e.CorrectedFromExpenseId is not null ? ActivityKind.Edited
+            : e.RecurringExpenseId is not null ? ActivityKind.RecurringAdded
             : e.Installment is not null ? ActivityKind.InstallmentAdded
             : ActivityKind.Added;
 
