@@ -16,7 +16,9 @@ public sealed record ExpenseListItem(
     DateTimeOffset? RecordedAt = null,
     string? GroupIcon = null,
     InstallmentLink? Installment = null,
-    InstallmentPlanSummary? Plan = null);
+    InstallmentPlanSummary? Plan = null,
+    bool IsVoided = false,
+    bool IsCorrection = false);
 
 public enum InstallmentSlotStatus { Created, Voided, Upcoming, NotCreated }
 
@@ -34,6 +36,13 @@ public sealed record InstallmentPlanPage(
     int NextNumber, long? PayoffCents,
     IReadOnlyList<ExpenseListParticipantDto> RemainingShares,
     long DownPaymentCents = 0);
+
+public sealed record RecurringExpensePage(
+    Guid Id, Guid HouseholdId, string Description, RecurrenceSchedule Schedule, bool IsActive,
+    DateTimeOffset NextOccurrenceAt, Guid ExpenseGroupId, string GroupName, string GroupIcon,
+    Guid PayerId, string PayerName, long TotalCents,
+    IReadOnlyList<ExpenseListParticipantDto> Split, long ViewerShareCents,
+    IReadOnlyList<ExpenseListItem> Expenses);
 
 public enum UpcomingSource { Installment, Recurring }
 
@@ -106,7 +115,8 @@ public sealed record ExpenseDetail(
     IReadOnlyList<FundingSourceDto> FundingSources,
     IReadOnlyList<AllocationDto> Allocations,
     DateTimeOffset RecordedAt,
-    InstallmentLink? Installment = null);
+    InstallmentLink? Installment = null,
+    Guid? RecurringExpenseId = null);
 
 /// <summary>
 /// Balance between the viewer and one other member. Positive Cents: the member owes the viewer;
@@ -152,6 +162,10 @@ public interface IExpenseQueries
     /// <summary>Null when the plan is missing, belongs to another household, or its group is deleted.</summary>
     Task<InstallmentPlanPage?> GetInstallmentPlanPageAsync(
         Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default);
+
+    /// <summary>Null when the template is missing, belongs to another household, or its group is deleted.</summary>
+    Task<RecurringExpensePage?> GetRecurringExpensePageAsync(
+        Guid householdId, Guid recurringExpenseId, Guid viewerId, CancellationToken ct = default);
 
     /// <summary>Plan installments and recurring templates due in the next 30 days; one group when <paramref name="groupId"/> is set.</summary>
     Task<UpcomingSummary> GetUpcomingAsync(

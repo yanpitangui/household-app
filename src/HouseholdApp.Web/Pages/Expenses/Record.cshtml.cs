@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
@@ -16,6 +17,7 @@ public class RecordExpenseModel(
     IExpenseCommands expenseCommands,
     IExpenseQueries expenseQueries,
     IInstallmentPlanCommands planCommands,
+    IRecurringExpenseCommands recurringCommands,
     IHouseholdQueries householdQueries,
     TimeProvider timeProvider) : HouseholdPageModel(currentUser, guard)
 {
@@ -49,8 +51,25 @@ public class RecordExpenseModel(
     [BindProperty]
     public List<long> AllocationCents { get; set; } = [];
 
-    [BindProperty]
+    [BindProperty(SupportsGet = true)]
     public string Repeat { get; set; } = "once";
+
+    [BindProperty(SupportsGet = true)]
+    public Guid? RecurringId { get; set; }
+
+    [BindProperty]
+    public RecurrenceFrequency RecurringFrequency { get; set; } = RecurrenceFrequency.Monthly;
+
+    [BindProperty]
+    public DateOnly? RecurringFirstDate { get; set; }
+
+    [BindProperty]
+    public TimeOnly RecurringTime { get; set; } = new(12, 0);
+
+    [BindProperty]
+    public bool RecurringCatchUp { get; set; }
+
+    public int RecurringCatchUpCount { get; private set; }
 
     [BindProperty]
     public int InstallmentCount { get; set; } = 2;
@@ -69,6 +88,8 @@ public class RecordExpenseModel(
     public Guid? PlanId { get; set; }
 
     public InstallmentPlanPage? EditingPlan { get; private set; }
+
+    public RecurringExpensePage? EditingRecurringExpense { get; private set; }
 
     /// <summary>The remaining amount split in proportion to the plan's per-installment split, seeding the split panel.</summary>
     public IReadOnlyList<Allocation> EditingPlanAllocations { get; private set; } = [];
@@ -107,13 +128,34 @@ public class RecordExpenseModel(
             PayerId = EditingPlan.PayerId;
         }
 
+        if (RecurringId.HasValue)
+        {
+            if (await LoadEditableRecurringExpenseAsync() is { } ended) return ended;
+            var recurring = EditingRecurringExpense!;
+            Description = recurring.Description;
+            Amount = recurring.TotalCents / 100m;
+            GroupId = recurring.ExpenseGroupId;
+            PayerId = recurring.PayerId;
+            RecurringFrequency = recurring.Schedule.Frequency;
+            RecurringFirstDate = recurring.Schedule.FirstDate;
+            RecurringTime = recurring.Schedule.Time;
+            Repeat = "recurring";
+            AllocationUserIds = recurring.Split.Select(s => s.UserId).ToList();
+            AllocationCents = recurring.Split.Select(s => s.Cents).ToList();
+        }
+
+        if (Repeat == "recurring" && RecurringFirstDate is null) RecurringFirstDate = Date;
+        UpdateRecurringCatchUpCount();
+
         await LoadLookups();
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (PlanId.HasValue && await LoadEditablePlanAsync() is { } ended) return ended;
+        if (RecurringId.HasValue && await LoadEditableRecurringExpenseAsync() is { } ended) return ended;
+        if (PlanId.HasValue && await LoadEditablePlanAsync() is { } endedPlan) return endedPlan;
+        UpdateRecurringCatchUpCount();
 
         if (!ModelState.IsValid)
         {
@@ -155,6 +197,59 @@ public class RecordExpenseModel(
         }
 
         var date = new DateTimeOffset(Date, TimeOnly.MinValue, TimeSpan.Zero);
+
+        if (RecurringId is { } editRecurringId)
+        {
+            var recurring = EditingRecurringExpense!;
+            var schedule = new RecurrenceSchedule(RecurringFrequency, RecurringFirstDate ?? recurring.Schedule.FirstDate, RecurringTime);
+            try
+            {
+                await recurringCommands.UpdateAsync(HouseholdId, editRecurringId, Description, schedule, funding, allocations);
+            }
+            catch (InvalidOperationException ex)
+            {
+                await LoadLookups();
+                ModelState.AddModelError("", ex.Message);
+                return Page();
+            }
+            catch (StreamLockedException)
+            {
+                TempData["Error"] = Loc["Expenses.Recurring.Busy"].Value;
+                return RedirectToPage("RecurringDetail", new { householdId = HouseholdId, recurringId = editRecurringId });
+            }
+
+            TempData["Success"] = Loc["Flash.RecurringUpdated"].Value;
+            return RedirectToPage("RecurringDetail", new { householdId = HouseholdId, recurringId = editRecurringId });
+        }
+
+        if (Repeat == "recurring" && !ExpenseId.HasValue && !PlanId.HasValue)
+        {
+            await LoadLookups();
+            if (Groups.All(g => g.Id != GroupId))
+            {
+                ModelState.AddModelError("", Loc["Expenses.Group.Gone"].Value);
+                return Page();
+            }
+
+            var schedule = new RecurrenceSchedule(RecurringFrequency, RecurringFirstDate ?? Date, RecurringTime);
+            try
+            {
+                var recurringId = await recurringCommands.CreateAsync(
+                    HouseholdId, GroupId, Description, schedule, funding, allocations, RecurringCatchUp);
+                TempData["Success"] = Loc["Flash.RecurringCreated"].Value;
+                return RedirectToPage("RecurringDetail", new { householdId = HouseholdId, recurringId });
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                return Page();
+            }
+            catch (StreamLockedException)
+            {
+                TempData["Error"] = Loc["Expenses.Recurring.Busy"].Value;
+                return RedirectToPage("Recurring", new { householdId = HouseholdId });
+            }
+        }
 
         if (PlanId is { } editPlanId)
         {
@@ -244,6 +339,38 @@ public class RecordExpenseModel(
         EditingPlanAllocations = InstallmentSchedule.Distribute(
             plan.Summary.RemainingCents,
             plan.SplitPerInstallment.Select(s => new Allocation(s.UserId, s.Cents)).ToList());
+    }
+
+    private async Task<IActionResult?> LoadEditableRecurringExpenseAsync()
+    {
+        var recurringId = RecurringId!.Value;
+        var recurring = await expenseQueries.GetRecurringExpensePageAsync(HouseholdId, recurringId, CurrentUserId);
+        if (recurring is null)
+        {
+            TempData["Error"] = Loc["Expenses.Recurring.NotFound"].Value;
+            return RedirectToPage("Recurring", new { householdId = HouseholdId });
+        }
+
+        if (!recurring.IsActive)
+        {
+            TempData["Error"] = Loc["Expenses.Recurring.AlreadyEnded"].Value;
+            return RedirectToPage("RecurringDetail", new { householdId = HouseholdId, recurringId });
+        }
+
+        EditingRecurringExpense = recurring;
+        return null;
+    }
+
+    private void UpdateRecurringCatchUpCount()
+    {
+        if (!RecurringId.HasValue && RecurringFirstDate is { } firstDate)
+        {
+            var now = timeProvider.GetUtcNow();
+            var schedule = new RecurrenceSchedule(RecurringFrequency, firstDate, RecurringTime);
+            RecurringCatchUpCount = firstDate < DateOnly.FromDateTime(now.UtcDateTime)
+                ? schedule.CountThrough(now)
+                : 0;
+        }
     }
 
     /// <summary>

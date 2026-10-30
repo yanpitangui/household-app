@@ -33,10 +33,11 @@ public sealed class RecurringExpenseCommandService(
             householdId, groupId, description, ToDomain(fundingSources), ToDomain(allocations), schedule, catchUp, now,
             currentUser.Id);
 
-        // Only a catch-up has occurrences behind it; a first date today waits for the sweep like any other.
+        // A past catch-up and today's already-due first occurrence are both committed with their template.
         var startsInThePast = schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime);
         var catchUps = new List<Expense>();
-        if (catchUp && startsInThePast)
+        var firstOccurrenceIsDue = schedule.FirstDate == DateOnly.FromDateTime(now.UtcDateTime) && schedule.At(0) <= now;
+        if ((catchUp && startsInThePast) || firstOccurrenceIsDue)
         {
             foreach (var date in template.DueOccurrences(now))
             {

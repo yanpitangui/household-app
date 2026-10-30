@@ -81,6 +81,19 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
         return entries.Select(e => Render(e, viewerId, profiles, new HashSet<Guid>())).ToList();
     }
 
+    public async Task<IReadOnlyList<ActivityFeedItem>> GetRecurringHistoryAsync(
+        Guid householdId, Guid recurringExpenseId, Guid viewerId, CancellationToken ct = default)
+    {
+        var entries = await session.Query<ActivityEntry>()
+            .Where(a => a.HouseholdId == householdId && a.RecurringExpenseId == recurringExpenseId)
+            .OrderByDescending(a => a.OccurredAt)
+            .ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+        var profiles = (await userQuery.GetByIdsAsync(entries.Select(e => e.ActorUserId).Distinct(), ct))
+            .ToDictionary(p => p.Id);
+        return entries.Select(e => Render(e, viewerId, profiles, new HashSet<Guid>())).ToList();
+    }
+
     private static Cursor? Decode(string? cursor) =>
         cursor is null ? null : JsonSerializer.Deserialize<Cursor>(Convert.FromBase64String(cursor));
 

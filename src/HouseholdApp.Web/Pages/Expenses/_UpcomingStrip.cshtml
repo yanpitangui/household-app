@@ -40,7 +40,7 @@
                 var i = u.Items[idx];
                 var href = i.Source == UpcomingSource.Installment
                     ? $"/h/{Model.HouseholdId}/Expenses/Plans/{i.SourceId}"
-                    : $"/h/{Model.HouseholdId}/Expenses/Recurring";
+                    : $"/h/{Model.HouseholdId}/Expenses/Recurring/{i.SourceId}";
                 var payer = i.PayerId == Model.CurrentUserId
                     ? L["Expenses.Upcoming.YouPay"].Value
                     : L["Expenses.Upcoming.Pays", i.PayerName ?? "?"].Value;
