@@ -4,14 +4,11 @@ using Quartz;
 
 namespace HouseholdApp.Application.Shared.Scheduler;
 
-/// <summary>How the app's jobs are laid out in Quartz: keys, the runner each kind is stored with, and the upsert both use.</summary>
+/// <summary>How the app-wide jobs are laid out in Quartz: key, runner and the upsert.</summary>
 internal static class QuartzJobs
 {
     /// <summary>Group of the app-wide jobs from <see cref="ScheduledJobRegistration.AddScheduledJob{TJob}"/>.</summary>
     public const string ScheduledGroup = "scheduled";
-
-    /// <summary>A recurring job's group is the job's name and its key name is the entity id, so the store itself is the index.</summary>
-    public static JobKey RecurringKey(string jobName, Guid entityId) => new(entityId.ToString(), jobName);
 
     public static JobKey ScheduledKey(string name) => new(name, ScheduledGroup);
 
@@ -47,26 +44,13 @@ internal static class QuartzJobs
 // would leave each stored job pointing at a type that no longer exists.
 
 /// <summary>
-/// Quartz's entry point for every recurring job: the key says which job and which entity. A job whose name is not
-/// registered on this node (one being retired, or one a newer node of a rolling deploy added) is skipped.
+/// Earlier releases stored one job per template under this runner, and a due one can fire before startup removes it. It
+/// only needs to load and do nothing, since the sweeps create what is due. Removed with the old recurring table.
 /// </summary>
 [DisallowConcurrentExecution]
-internal sealed partial class RecurringJobRunner(IServiceScopeFactory scopes, ILogger<RecurringJobRunner> logger) : IJob
+internal sealed class RecurringJobRunner : IJob
 {
-    public async ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default)
-    {
-        var key = context.JobDetail.Key;
-        await using var scope = scopes.CreateAsyncScope();
-        if (scope.ServiceProvider.GetKeyedService<IRecurringJob>(key.Group) is not { } job)
-        {
-            LogUnregistered(key.Group);
-            return;
-        }
-        await job.RunAsync(Guid.Parse(key.Name), cancellationToken);
-    }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipped a run of recurring job {JobName}: not registered on this node")]
-    private partial void LogUnregistered(string jobName);
+    public ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default) => default;
 }
 
 /// <summary>Quartz's entry point for every app-wide job: the key name says which one. An unregistered one is skipped.</summary>
@@ -87,21 +71,4 @@ internal sealed partial class ScheduledJobRunner(IServiceScopeFactory scopes, IL
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Skipped a run of scheduled job {JobName}: not registered on this node")]
     private partial void LogUnregistered(string jobName);
-}
-
-internal sealed class QuartzRecurringJobScheduler(ISchedulerFactory schedulers) : IRecurringJobScheduler
-{
-    public async Task ScheduleAsync(string jobName, Guid entityId, string cronExpression, CancellationToken ct = default)
-    {
-        var scheduler = await schedulers.GetScheduler(ct);
-        await QuartzJobs.UpsertCronAsync<RecurringJobRunner>(scheduler, QuartzJobs.RecurringKey(jobName, entityId), cronExpression, ct);
-    }
-
-    public async Task UnscheduleAsync(string jobName, Guid entityId, CancellationToken ct = default)
-    {
-        var scheduler = await schedulers.GetScheduler(ct);
-        await scheduler.DeleteJob(QuartzJobs.RecurringKey(jobName, entityId), ct);
-    }
-
-    public void Validate(string cronExpression) => QuartzCron.FromUnix(cronExpression);
 }

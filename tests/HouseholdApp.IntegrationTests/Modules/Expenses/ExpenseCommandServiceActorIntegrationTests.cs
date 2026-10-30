@@ -16,10 +16,7 @@ public sealed class ExpenseCommandServiceActorIntegrationTests(PostgresFixture d
     private static ExpenseCommandService BuildSut(IDocumentSession session, Guid actorId) => new(
         session,
         new FakeCurrentUser(actorId),
-        new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(),
-        new ThrowingUnitOfWork(),
-        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        new FakeTimeProvider());
 
     [Test]
     public async Task VoidExpenseAsync_stamps_PerformedByUserId_from_ICurrentUser()

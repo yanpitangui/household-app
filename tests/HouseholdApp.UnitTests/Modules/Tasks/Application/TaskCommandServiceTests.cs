@@ -2,12 +2,10 @@ using Microsoft.Extensions.Time.Testing;
 using HouseholdApp.Application.Modules.Tasks.Application.Operations;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
 using HouseholdApp.Application.Modules.Tasks.Domain;
-using HouseholdApp.Application.Modules.Tasks.Infrastructure.Jobs;
 using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
 using NSubstitute;
 
 namespace HouseholdApp.UnitTests.Modules.Tasks.Application;
@@ -17,14 +15,18 @@ public sealed class TaskCommandServiceTests
     private readonly ITaskRepository _repo = Substitute.For<ITaskRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
-    private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly TaskCommandService _sut;
+
+    private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+
+    private static RecurrenceSchedule Weekly(int day = 12) =>
+        new(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, day), new TimeOnly(9, 0));
 
     public TaskCommandServiceTests()
     {
         _currentUser.Id.Returns(Guid.NewGuid());
-        _sut = new TaskCommandService(_repo, _uow, _eventBus, _scheduler, new FakeTimeProvider(), _currentUser);
+        _sut = new TaskCommandService(_repo, _uow, _eventBus, new FakeTimeProvider(Now), _currentUser);
     }
 
     [Test]
@@ -146,55 +148,26 @@ public sealed class TaskCommandServiceTests
     }
 
     [Test]
-    public async Task CreateRecurringTaskAsync_returns_non_empty_id()
+    public async Task CreateRecurringTaskAsync_returns_the_saved_template_id()
     {
-        var id = await _sut.CreateRecurringTaskAsync(Guid.NewGuid(), "Weekly vacuum", null, null, "0 9 * * 1");
-
-        await Assert.That(id).IsNotEqualTo(Guid.Empty);
-    }
-
-    [Test]
-    public async Task CreateRecurringTaskAsync_schedules_the_saved_task_after_commit()
-    {
-        const string cron = "0 9 * * 1";
         RecurringTask? saved = null;
         _repo.When(r => r.SaveRecurringTaskAsync(Arg.Any<RecurringTask>(), Arg.Any<CancellationToken>()))
             .Do(ci => saved = ci.Arg<RecurringTask>());
 
-        var id = await _sut.CreateRecurringTaskAsync(Guid.NewGuid(), "Weekly vacuum", null, null, cron);
+        var id = await _sut.CreateRecurringTaskAsync(Guid.NewGuid(), "Weekly vacuum", null, null, Weekly());
 
         await Assert.That(saved!.Id).IsEqualTo(id);
-        Received.InOrder(() =>
-        {
-            _uow.CommitAsync(Arg.Any<CancellationToken>());
-            _scheduler.ScheduleAsync(RecurringTaskJobs.Name, id, cron, Arg.Any<CancellationToken>());
-        });
+        await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task CreateRecurringTaskAsync_saves_nothing_when_the_scheduler_rejects_the_cron()
+    public async Task CreateRecurringTaskAsync_saves_nothing_for_a_first_date_in_the_past()
     {
-        _scheduler.When(s => s.Validate("0 9 * * 1")).Throw(new FormatException("unsupported"));
-
         await Assert.That(async () => await _sut.CreateRecurringTaskAsync(
-                Guid.NewGuid(), "Weekly vacuum", null, null, "0 9 * * 1"))
-            .Throws<FormatException>();
-
-        await _repo.DidNotReceiveWithAnyArgs().SaveRecurringTaskAsync(default!, default);
-        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
-    }
-
-    [Test]
-    public async Task CreateRecurringTaskAsync_does_not_schedule_when_db_save_fails()
-    {
-        _uow.CommitAsync(Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => Task.FromException(new InvalidOperationException("DB error")));
-
-        await Assert.That(async () => await _sut.CreateRecurringTaskAsync(
-                Guid.NewGuid(), "Weekly vacuum", null, null, "0 9 * * 1"))
+                Guid.NewGuid(), "Weekly vacuum", null, null, Weekly(9)))
             .Throws<InvalidOperationException>();
 
-        await _scheduler.DidNotReceiveWithAnyArgs().ScheduleAsync(default!, default, default!, default);
+        await _repo.DidNotReceiveWithAnyArgs().SaveRecurringTaskAsync(default!, default);
     }
 
     [Test]
@@ -202,50 +175,32 @@ public sealed class TaskCommandServiceTests
     {
         _repo.GetRecurringTaskAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((RecurringTask?)null);
 
-        await Assert.That(async () => await _sut.DeactivateRecurringTaskAsync(Guid.NewGuid()))
+        await Assert.That(async () => await _sut.DeactivateRecurringTaskAsync(Guid.NewGuid(), Guid.NewGuid()))
             .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task DeactivateRecurringTaskAsync_throws_for_another_household()
+    {
+        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), Now);
+        _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
+
+        await Assert.That(async () => await _sut.DeactivateRecurringTaskAsync(Guid.NewGuid(), task.Id))
+            .Throws<InvalidOperationException>();
+
+        await _repo.DidNotReceiveWithAnyArgs().SaveRecurringTaskAsync(default!, default);
     }
 
     [Test]
     public async Task DeactivateRecurringTaskAsync_marks_task_inactive()
     {
-        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, "0 8 * * *", null);
+        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), Now);
         _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
 
-        await _sut.DeactivateRecurringTaskAsync(task.Id);
+        await _sut.DeactivateRecurringTaskAsync(task.HouseholdId, task.Id);
 
         await Assert.That(task.IsActive).IsFalse();
-    }
-
-    [Test]
-    public async Task DeactivateRecurringTaskAsync_unschedules_after_commit()
-    {
-        var task = RecurringTask.Rehydrate(
-            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, "0 8 * * *", true, null);
-        _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
-
-        await _sut.DeactivateRecurringTaskAsync(task.Id);
-
-        Received.InOrder(() =>
-        {
-            _uow.CommitAsync(Arg.Any<CancellationToken>());
-            _scheduler.UnscheduleAsync(RecurringTaskJobs.Name, task.Id, Arg.Any<CancellationToken>());
-        });
-    }
-
-    [Test]
-    public async Task DeactivateRecurringTaskAsync_keeps_the_schedule_when_db_fails()
-    {
-        var task = RecurringTask.Rehydrate(
-            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, "0 8 * * *", true, null);
-        _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
-        _uow.CommitAsync(Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => Task.FromException(new InvalidOperationException("DB error")));
-
-        await Assert.That(async () => await _sut.DeactivateRecurringTaskAsync(task.Id))
-            .Throws<InvalidOperationException>();
-
-        await _scheduler.DidNotReceiveWithAnyArgs().UnscheduleAsync(default!, default, default);
+        await _repo.Received(1).SaveRecurringTaskAsync(task, Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -256,32 +211,48 @@ public sealed class TaskCommandServiceTests
 
         await _sut.SpawnRecurringTaskAsync(Guid.NewGuid());
 
-        await _repo.DidNotReceive().SaveTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
+        await _repo.DidNotReceive().TryInsertTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
     public async Task SpawnRecurringTaskAsync_does_nothing_when_recurring_task_inactive()
     {
         var recurring = RecurringTask.Rehydrate(
-            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, "0 8 * * *", false, null);
+            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, Weekly(10), false, Now);
         _repo.GetRecurringTaskAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
 
         await _sut.SpawnRecurringTaskAsync(recurring.Id);
 
-        await _repo.DidNotReceive().SaveTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
+        await _repo.DidNotReceive().TryInsertTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task SpawnRecurringTaskAsync_saves_spawned_task_and_publishes_events()
+    public async Task SpawnRecurringTaskAsync_inserts_the_due_task_publishes_its_events_and_saves_the_cursor()
     {
         var recurring = RecurringTask.Rehydrate(
-            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, "0 8 * * *", true, null);
+            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, Weekly(10), true, Now);
         _repo.GetRecurringTaskAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
+        _repo.TryInsertTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>()).Returns(true);
 
         await _sut.SpawnRecurringTaskAsync(recurring.Id);
 
-        await _repo.Received(1).SaveTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
+        await _repo.Received(1).TryInsertTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>());
         _eventBus.Received(1).Enqueue(Arg.Any<IDomainEvent>());
+        await _repo.Received(1).SaveRecurringTaskAsync(recurring, Arg.Any<CancellationToken>());
         await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task SpawnRecurringTaskAsync_publishes_nothing_for_a_date_already_created()
+    {
+        var recurring = RecurringTask.Rehydrate(
+            Guid.NewGuid(), Guid.NewGuid(), "Daily sweep", null, null, Weekly(10), true, Now);
+        _repo.GetRecurringTaskAsync(recurring.Id, Arg.Any<CancellationToken>()).Returns(recurring);
+        _repo.TryInsertTaskAsync(Arg.Any<HouseholdTask>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        await _sut.SpawnRecurringTaskAsync(recurring.Id);
+
+        _eventBus.DidNotReceive().Enqueue(Arg.Any<IDomainEvent>());
+        await _repo.Received(1).SaveRecurringTaskAsync(recurring, Arg.Any<CancellationToken>());
     }
 }

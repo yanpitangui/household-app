@@ -9,7 +9,11 @@ public interface ITaskRepository
     Task SaveRecurringTaskAsync(RecurringTask task, CancellationToken ct = default);
     Task<RecurringTask?> GetRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default);
 
-    /// <summary>Cron of every active RecurringTask, by id.</summary>
-    Task<IReadOnlyDictionary<Guid, string>> GetActiveRecurringSchedulesAsync(CancellationToken ct = default);
+
+    /// <summary>Inserts the Task unless one with its id exists, and says whether it did.</summary>
+    Task<bool> TryInsertTaskAsync(HouseholdTask task, CancellationToken ct = default);
+
+    /// <summary>Ids of active RecurringTasks due at <paramref name="now"/>.</summary>
+    Task<IReadOnlyList<Guid>> GetDueRecurringTaskIdsAsync(DateTimeOffset now, CancellationToken ct = default);
     Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default);
 }

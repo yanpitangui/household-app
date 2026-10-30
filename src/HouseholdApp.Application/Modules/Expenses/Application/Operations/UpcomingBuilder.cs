@@ -1,14 +1,13 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
-using Cronos;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 /// <summary>
 /// Upcoming: everything due in the next 30 days from active plans and active recurring templates. Read-only and
-/// never in a balance. Templates are read with the same cron (UTC) the scheduler fires, so the list matches what will
-/// actually be created, including a template on the 31st skipping 30-day months.
+/// never in a balance. Templates are read with the same schedule the sweep fires, so the list matches what will
+/// actually be created, including a template on the 31st landing on the last day of a 30-day month.
 /// </summary>
 public static class UpcomingBuilder
 {
@@ -43,11 +42,9 @@ public static class UpcomingBuilder
 
         foreach (var template in templates)
         {
-            // A row with an unreadable cron is skipped so one bad template never breaks the Expenses page.
-            if (!CronExpression.TryParse(template.CronExpression, out var schedule)) continue;
-            var dates = schedule
-                .GetOccurrences(now.UtcDateTime, end.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), fromInclusive: false)
-                .Select(DateOnly.FromDateTime)
+            var dates = template.Schedule
+                .Between(now, new DateTimeOffset(end, TimeOnly.MinValue, TimeSpan.Zero))
+                .Select(at => DateOnly.FromDateTime(at.UtcDateTime))
                 .ToList();
             if (dates.Count == 0) continue;
 
@@ -55,7 +52,7 @@ public static class UpcomingBuilder
             var share = template.Allocations.FirstOrDefault(a => a.UserId == viewerId)?.Cents ?? 0;
             items.Add(new UpcomingItem(
                 UpcomingSource.Recurring, template.Id, template.Description, template.GroupId, dates[0], dates.Count,
-                null, null, template.Frequency, template.FundingSources.FirstOrDefault()?.UserId ?? Guid.Empty,
+                null, null, template.Schedule.Frequency, template.FundingSources.FirstOrDefault()?.UserId ?? Guid.Empty,
                 amount * dates.Count, share * dates.Count));
         }
 

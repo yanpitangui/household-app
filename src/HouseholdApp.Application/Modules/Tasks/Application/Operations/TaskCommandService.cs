@@ -1,11 +1,9 @@
-using Cronos;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
 using HouseholdApp.Application.Modules.Tasks.Domain;
-using HouseholdApp.Application.Modules.Tasks.Infrastructure.Jobs;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
+using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.Application.Modules.Tasks.Application.Operations;
 
@@ -13,7 +11,6 @@ public sealed class TaskCommandService(
     ITaskRepository repo,
     IUnitOfWork uow,
     IEventBus eventBus,
-    IRecurringJobScheduler scheduler,
     TimeProvider time,
     ICurrentUser currentUser) : ITaskCommands
 {
@@ -64,13 +61,21 @@ public sealed class TaskCommandService(
 
     public async Task SpawnRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default)
     {
-        var recurring = await repo.GetRecurringTaskAsync(recurringTaskId, ct);
-        if (recurring is null || !recurring.IsActive) return;
-
-        var task = recurring.Spawn(time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
-        await repo.SaveTaskAsync(task, ct);
-        eventBus.EnqueueAll(task);
+        var recurring = await repo.GetRecurringTaskAsync(recurringTaskId, ct);
+        if (recurring is null || !recurring.IsActive)
+        {
+            await uow.CommitAsync(ct);
+            return;
+        }
+
+        foreach (var task in recurring.SpawnDue(time.GetUtcNow()))
+        {
+            // A conflict is a retry of a date already created; its event went out then.
+            if (await repo.TryInsertTaskAsync(task, ct))
+                eventBus.EnqueueAll(task);
+        }
+        await repo.SaveRecurringTaskAsync(recurring, ct);
         await uow.CommitAsync(ct);
     }
 
@@ -86,32 +91,24 @@ public sealed class TaskCommandService(
 
     public async Task<Guid> CreateRecurringTaskAsync(
         Guid householdId, string title, string? description,
-        Guid? defaultAssignedTo, string cronExpression, CancellationToken ct = default)
+        Guid? defaultAssignedTo, RecurrenceSchedule schedule, CancellationToken ct = default)
     {
-        var schedule = CronExpression.Parse(cronExpression);
-        // The cron is typed by the user, so it is checked against the scheduler before anything is saved.
-        scheduler.Validate(cronExpression);
-        var nextRun = schedule.GetNextOccurrence(time.GetUtcNow(), TimeZoneInfo.Utc);
-        var recurring = RecurringTask.Create(householdId, title, description, defaultAssignedTo, cronExpression, nextRun);
-
+        var recurring = RecurringTask.Create(householdId, title, description, defaultAssignedTo, schedule, time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveRecurringTaskAsync(recurring, ct);
         await uow.CommitAsync(ct);
-
-        await scheduler.ScheduleAsync(RecurringTaskJobs.Name, recurring.Id, cronExpression, ct);
         return recurring.Id;
     }
 
-    public async Task DeactivateRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default)
+    public async Task DeactivateRecurringTaskAsync(Guid householdId, Guid recurringTaskId, CancellationToken ct = default)
     {
         await uow.BeginTransactionAsync(ct);
-        var recurring = await repo.GetRecurringTaskAsync(recurringTaskId, ct)
-            ?? throw new InvalidOperationException("Recurring task not found.");
+        var recurring = await repo.GetRecurringTaskAsync(recurringTaskId, ct);
+        if (recurring is null || recurring.HouseholdId != householdId)
+            throw new InvalidOperationException("Recurring task not found.");
 
         recurring.Deactivate();
         await repo.SaveRecurringTaskAsync(recurring, ct);
         await uow.CommitAsync(ct);
-
-        await scheduler.UnscheduleAsync(RecurringTaskJobs.Name, recurringTaskId, ct);
     }
 }

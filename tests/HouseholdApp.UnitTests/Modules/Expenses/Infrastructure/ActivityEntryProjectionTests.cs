@@ -1,5 +1,6 @@
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.UnitTests.Modules.Expenses.Infrastructure;
 
@@ -283,5 +284,62 @@ public sealed class ActivityEntryProjectionTests
         await Assert.That(entry.Kind).IsEqualTo(ActivityKind.Removed);
         await Assert.That(entry.InstallmentPlanId).IsEqualTo(PlanId);
         await Assert.That(entry.InstallmentNumber).IsEqualTo(2);
+    }
+
+    private static readonly RecurrenceSchedule MonthlySchedule =
+        new(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(9, 0));
+
+    private static RecurringExpenseCreated Created(bool imported = false) => new(
+        Guid.NewGuid(), DateTimeOffset.UnixEpoch, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Rent",
+        [new FundingSource(ActorId, 100_00)], [new Allocation(ActorId, 50_00), new Allocation(Guid.NewGuid(), 50_00)],
+        MonthlySchedule, DateTimeOffset.UnixEpoch, ActorId, imported);
+
+    [Test]
+    public async Task Map_RecurringExpenseCreated_carries_amount_frequency_and_template()
+    {
+        var e = Created();
+
+        var entry = ActivityEntryProjection.MapRecurringCreated(Guid.NewGuid(), e, "Home")!;
+
+        await Assert.That(entry.Kind).IsEqualTo(ActivityKind.RecurringExpenseCreated);
+        await Assert.That(entry.AmountCents).IsEqualTo(100_00);
+        await Assert.That(entry.Frequency).IsEqualTo(RecurrenceFrequency.Monthly);
+        await Assert.That(entry.RecurringExpenseId).IsEqualTo(e.RecurringExpenseId);
+    }
+
+    [Test]
+    public async Task Map_an_imported_RecurringExpenseCreated_has_no_row()
+    {
+        await Assert.That(ActivityEntryProjection.MapRecurringCreated(Guid.NewGuid(), Created(imported: true), "Home")).IsNull();
+    }
+
+    [Test]
+    public async Task Map_RecurringExpenseUpdated_keeps_the_previous_amount_for_the_row_text()
+    {
+        var c = Created();
+        var e = new RecurringExpenseUpdated(
+            Guid.NewGuid(), DateTimeOffset.UnixEpoch, c.RecurringExpenseId, c.HouseholdId, c.ExpenseGroupId, "Rent",
+            [new FundingSource(ActorId, 120_00)], [new Allocation(ActorId, 120_00)], MonthlySchedule,
+            DateTimeOffset.UnixEpoch, 100_00, ActorId);
+
+        var entry = ActivityEntryProjection.MapRecurringUpdated(Guid.NewGuid(), e, "Home");
+
+        await Assert.That(entry.Kind).IsEqualTo(ActivityKind.RecurringExpenseEdited);
+        await Assert.That(entry.AmountCents).IsEqualTo(120_00);
+        await Assert.That(entry.ReferenceCents).IsEqualTo(100_00);
+    }
+
+    [Test]
+    public async Task Map_ExpenseRecorded_tags_the_row_with_its_template()
+    {
+        var templateId = Guid.NewGuid();
+        var e = new ExpenseRecorded(
+            Guid.NewGuid(), DateTimeOffset.UnixEpoch, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Rent",
+            DateTimeOffset.UnixEpoch, [new FundingSource(ActorId, 100)], [new Allocation(ActorId, 100)], ActorId,
+            RecurringExpenseId: templateId);
+
+        var entry = ActivityEntryProjection.MapRecorded(Guid.NewGuid(), e, "Home")!;
+
+        await Assert.That(entry.RecurringExpenseId).IsEqualTo(templateId);
     }
 }

@@ -20,6 +20,7 @@ public sealed class ExpenseReadModel
     // Flat copy of Installment.PlanId so plan lookups use a plain indexed column.
     public Guid? InstallmentPlanId { get; set; }
     public InstallmentLink? Installment { get; set; }
+    public Guid? RecurringExpenseId { get; set; }
 }
 
 public partial class ExpenseReadModelProjection : SingleStreamProjection<ExpenseReadModel, Guid>
@@ -38,6 +39,7 @@ public partial class ExpenseReadModelProjection : SingleStreamProjection<Expense
         model.CorrectedFromExpenseId = e.CorrectedFromExpenseId;
         model.Installment = e.Installment;
         model.InstallmentPlanId = e.Installment?.PlanId;
+        model.RecurringExpenseId = e.RecurringExpenseId;
     }
 
     public void Apply(ExpenseVoided e, ExpenseReadModel model)

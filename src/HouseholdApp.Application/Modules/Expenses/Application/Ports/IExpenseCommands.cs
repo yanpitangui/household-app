@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
@@ -38,24 +39,6 @@ public interface IExpenseCommands
     Task UpdateExpenseGroupAsync(
         Guid householdId, Guid groupId, string name, string? description, string icon,
         CancellationToken ct = default);
-
-    Task<Guid> CreateRecurringExpenseAsync(
-        Guid householdId, Guid expenseGroupId, string description,
-        RecurrenceFrequency frequency, DateTimeOffset startAt,
-        IReadOnlyList<FundingSourceDto> defaultFundingSources,
-        IReadOnlyList<AllocationDto> defaultAllocations,
-        CancellationToken ct = default);
-
-    Task UpdateRecurringExpenseAsync(
-        Guid recurringExpenseId, string description,
-        RecurrenceFrequency frequency, DateTimeOffset startAt,
-        IReadOnlyList<FundingSourceDto> defaultFundingSources,
-        IReadOnlyList<AllocationDto> defaultAllocations,
-        CancellationToken ct = default);
-
-    Task DeactivateRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default);
-
-    Task SpawnRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default);
 
     Task DeleteExpenseGroupAsync(Guid householdId, Guid groupId, CancellationToken ct = default);
 

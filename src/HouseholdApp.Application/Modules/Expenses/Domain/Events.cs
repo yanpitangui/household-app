@@ -23,7 +23,7 @@ public sealed record ExpenseRecorded(
     Guid? RecurringExpenseId = null,
     Guid? CorrectedFromExpenseId = null,
     InstallmentLink? Installment = null,
-    // True for Expenses a plan event already describes (catch-up, early payoff); the feed and pushes come from it.
+    // True for Expenses a plan or recurring event already describes (catch-up, early payoff); the feed and pushes come from it.
     bool CoveredByPlanEvent = false) : IDomainEvent;
 
 public sealed record ExpenseVoided(

@@ -1,3 +1,5 @@
+using HouseholdApp.Application.Shared.Domain;
+
 namespace HouseholdApp.Application.Modules.Tasks.Application.Ports;
 
 public interface ITaskCommands
@@ -11,10 +13,11 @@ public interface ITaskCommands
     Task UncompleteTaskAsync(Guid taskId, CancellationToken ct = default);
 
     Task<Guid> CreateRecurringTaskAsync(Guid householdId, string title, string? description,
-        Guid? defaultAssignedTo, string cronExpression, CancellationToken ct = default);
+        Guid? defaultAssignedTo, RecurrenceSchedule schedule, CancellationToken ct = default);
 
-    Task DeactivateRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default);
+    Task DeactivateRecurringTaskAsync(Guid householdId, Guid recurringTaskId, CancellationToken ct = default);
 
+    /// <summary>Creates every Task due for this template, in one transaction.</summary>
     Task SpawnRecurringTaskAsync(Guid recurringTaskId, CancellationToken ct = default);
 
     Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default);

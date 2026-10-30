@@ -12,20 +12,6 @@ public static class ScheduledJobRegistration
         services.AddSingleton(new ScheduledJobDefinition(name, cron));
         return services;
     }
-
-    /// <summary>
-    /// Registers <typeparamref name="TJob"/> as the recurring job <paramref name="name"/>: entities are scheduled under it with
-    /// <see cref="IRecurringJobScheduler"/>, and each run resolves the job in its own scope.
-    /// </summary>
-    public static IServiceCollection AddRecurringJob<TJob>(this IServiceCollection services, string name)
-        where TJob : class, IRecurringJob
-    {
-        services.AddKeyedScoped<IRecurringJob, TJob>(name);
-        services.AddSingleton(new RecurringJobDefinition(name));
-        return services;
-    }
 }
 
 internal sealed record ScheduledJobDefinition(string Name, string Cron);
-
-internal sealed record RecurringJobDefinition(string Name);

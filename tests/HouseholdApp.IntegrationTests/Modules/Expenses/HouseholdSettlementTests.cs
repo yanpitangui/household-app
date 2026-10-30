@@ -15,8 +15,7 @@ public sealed class HouseholdSettlementTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private static ExpenseCommandService BuildSut(IDocumentSession session, Guid actorId) => new(
-        session, new FakeCurrentUser(actorId), new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(), new ThrowingUnitOfWork(), new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        session, new FakeCurrentUser(actorId), new FakeTimeProvider());
 
     private sealed record Scenario(Guid HouseholdId, Guid Trip, Guid Home, Guid Leo, Guid Ana);
 

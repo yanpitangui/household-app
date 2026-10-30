@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Shared.Domain;
 using JasperFx.Events;
 using Marten;
 using Marten.Events.Projections;
@@ -7,7 +8,8 @@ using Marten.Patching;
 namespace HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 
 public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored, GroupRenamed,
-    InstallmentPlanCreated, InstallmentAdded, InstallmentPlanPaidEarly, InstallmentPlanCancelled, InstallmentPlanEdited }
+    InstallmentPlanCreated, InstallmentAdded, InstallmentPlanPaidEarly, InstallmentPlanCancelled, InstallmentPlanEdited,
+    RecurringExpenseCreated, RecurringExpenseEdited, RecurringExpenseEnded }
 
 public sealed class ActivityEntry
 {
@@ -35,6 +37,9 @@ public sealed class ActivityEntry
     public long? DownPaymentCents { get; set; } // set on a created row whose plan has a down payment
     public long? ReferenceCents { get; set; }
     public int? VoidedCount { get; set; }
+    // Recurring expense rows; the template page lists a template's history by RecurringExpenseId.
+    public Guid? RecurringExpenseId { get; set; }
+    public RecurrenceFrequency? Frequency { get; set; }
 }
 
 // This is registered as an EventProjection ("one document per event"), distinct from
@@ -44,7 +49,9 @@ public sealed class ActivityEntry
 // ExpenseGroupRestored event here produces its own permanent ActivityEntry row (a household settlement
 // produces one, from its lead leg). The InstallmentPlanCreated/Updated/PaidEarly/Cancelled events each produce a
 // plan row too; the Expenses a plan event already describes (CoveredByPlanEvent catch-ups, payoffs and cancel voids)
-// stay out of the feed so the plan row is their single entry. An ExpenseGroupUpdated that changes the name produces a GroupRenamed
+// stay out of the feed so the plan row is their single entry. The RecurringExpenseCreated/Updated/Ended events each
+// produce a template row too (imported ones stay out); RecurringExpenseOccurred stays out, since the Expense it
+// creates is its own row. An ExpenseGroupUpdated that changes the name produces a GroupRenamed
 // row and refreshes the group name on the older rows.
 //
 // ApplyAsync is overridden directly (JasperFxEventProjectionBase<,>.ApplyAsync: "Override this for
@@ -66,6 +73,9 @@ public sealed partial class ActivityEntryProjection : EventProjection
         IncludeType<InstallmentPlanUpdated>();
         IncludeType<InstallmentPlanPaidEarly>();
         IncludeType<InstallmentPlanCancelled>();
+        IncludeType<RecurringExpenseCreated>();
+        IncludeType<RecurringExpenseUpdated>();
+        IncludeType<RecurringExpenseEnded>();
     }
 
     public override async ValueTask ApplyAsync(IDocumentOperations operations, IEvent e, CancellationToken cancellation)
@@ -121,6 +131,19 @@ public sealed partial class ActivityEntryProjection : EventProjection
 
             case InstallmentPlanCancelled planCancelled:
                 operations.Store(MapPlanCancelled(e.Id, planCancelled, await GroupNameAsync(operations, planCancelled.ExpenseGroupId, cancellation)));
+                break;
+
+            case RecurringExpenseCreated recurringCreated:
+                var createdEntry = MapRecurringCreated(e.Id, recurringCreated, await GroupNameAsync(operations, recurringCreated.ExpenseGroupId, cancellation));
+                if (createdEntry is not null) operations.Store(createdEntry);
+                break;
+
+            case RecurringExpenseUpdated recurringUpdated:
+                operations.Store(MapRecurringUpdated(e.Id, recurringUpdated, await GroupNameAsync(operations, recurringUpdated.ExpenseGroupId, cancellation)));
+                break;
+
+            case RecurringExpenseEnded { Imported: false } recurringEnded:
+                operations.Store(MapRecurringEnded(e.Id, recurringEnded, await GroupNameAsync(operations, recurringEnded.ExpenseGroupId, cancellation)));
                 break;
 
             case ExpenseGroupDeleted deleted:
@@ -182,9 +205,47 @@ public sealed partial class ActivityEntryProjection : EventProjection
             InstallmentPlanId = e.Installment?.PlanId,
             InstallmentNumber = e.Installment?.Number,
             InstallmentCount = e.Installment?.Count,
-            AmountCents = e.Installment is null ? null : e.FundingSources.Sum(f => f.Cents)
+            AmountCents = e.Installment is null ? null : e.FundingSources.Sum(f => f.Cents),
+            RecurringExpenseId = e.RecurringExpenseId
         };
     }
+
+    public static ActivityEntry? MapRecurringCreated(Guid eventId, RecurringExpenseCreated e, string? groupName) =>
+        e.Imported
+            ? null
+            : RecurringEntry(eventId, ActivityKind.RecurringExpenseCreated, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+                groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, e.FundingSources.Sum(f => f.Cents),
+                e.Schedule.Frequency);
+
+    public static ActivityEntry MapRecurringUpdated(Guid eventId, RecurringExpenseUpdated e, string? groupName)
+    {
+        var entry = RecurringEntry(eventId, ActivityKind.RecurringExpenseEdited, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+            groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, e.FundingSources.Sum(f => f.Cents),
+            e.Schedule.Frequency);
+        entry.ReferenceCents = e.PreviousAmountCents;
+        return entry;
+    }
+
+    public static ActivityEntry MapRecurringEnded(Guid eventId, RecurringExpenseEnded e, string? groupName) =>
+        RecurringEntry(eventId, ActivityKind.RecurringExpenseEnded, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+            groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, null, null);
+
+    private static ActivityEntry RecurringEntry(
+        Guid eventId, ActivityKind kind, DateTimeOffset occurredAt, Guid householdId, Guid groupId, string? groupName,
+        Guid actorId, string description, Guid templateId, long? amountCents, RecurrenceFrequency? frequency) => new()
+    {
+        Id = eventId,
+        HouseholdId = householdId,
+        OccurredAt = occurredAt,
+        ActorUserId = actorId,
+        Kind = kind,
+        Description = description,
+        GroupId = groupId,
+        GroupName = groupName,
+        RecurringExpenseId = templateId,
+        AmountCents = amountCents,
+        Frequency = frequency
+    };
 
     public static ActivityEntry? MapVoided(Guid eventId, ExpenseVoided e, Guid? groupId)
     {

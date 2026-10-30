@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using Dapper;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
 using Npgsql;
@@ -38,14 +39,21 @@ public sealed class TaskQueryService(NpgsqlDataSource db) : ITaskQueries
     public async Task<IReadOnlyList<RecurringTaskSummary>> ListRecurringAsync(Guid householdId, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = await conn.QueryAsync<RecurringTaskSummary>(
+        var rows = await conn.QueryAsync<RecurringRow>(
             """
             SELECT id, title, description, default_assigned_to AS DefaultAssignedTo,
-                   cron_expression AS CronExpression, is_active AS IsActive, next_run_at AS NextRunAt
+                   frequency, first_date AS FirstDate, run_time AS RunTime, is_active AS IsActive, next_run_at AS NextRunAt
             FROM tasks.recurring_tasks WHERE household_id = @householdId
             ORDER BY title
             """,
             new { householdId });
-        return rows.ToList();
+        return rows.Select(r => new RecurringTaskSummary(
+            r.Id, r.Title, r.Description, r.DefaultAssignedTo,
+            new RecurrenceSchedule(Enum.Parse<RecurrenceFrequency>(r.Frequency), r.FirstDate, r.RunTime),
+            r.IsActive, r.NextRunAt)).ToList();
     }
+
+    private sealed record RecurringRow(
+        Guid Id, string Title, string? Description, Guid? DefaultAssignedTo,
+        string Frequency, DateOnly FirstDate, TimeOnly RunTime, bool IsActive, DateTimeOffset? NextRunAt);
 }

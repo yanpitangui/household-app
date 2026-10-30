@@ -19,10 +19,7 @@ public sealed class ExpenseCommandServiceEditTests(PostgresFixture db)
     private static ExpenseCommandService BuildSut(IDocumentSession session) => new(
         session,
         new FakeCurrentUser(Guid.NewGuid()),
-        new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(),
-        new ThrowingUnitOfWork(),
-        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        new FakeTimeProvider());
 
     [Test]
     public async Task EditExpenseAsync_reverses_old_and_applies_only_new_ledger_amounts()

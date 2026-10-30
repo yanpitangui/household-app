@@ -169,8 +169,6 @@
   <data name="Tasks.Done"><value>Done</value></data>
   <data name="Tasks.NewRecurring"><value>New Recurring Task</value></data>
   <data name="Tasks.RecurringTitle"><value>Recurring Tasks</value></data>
-  <data name="Tasks.CronExpression"><value>Cron expression</value></data>
-  <data name="Tasks.CronInvalid"><value>Use a 5-field cron: minute hour day-of-month month day-of-week (e.g. 0 9 * * 1).</value></data>
   <data name="Tasks.DescriptionOptional"><value>Description (optional)</value></data>
   <data name="Tasks.Active"><value>Active</value></data>
   <data name="Tasks.Inactive"><value>Inactive</value></data>
@@ -501,4 +499,20 @@
   <data name="Expenses.Activity.PlanCancelledVoided"><value>{0} cancelled the plan &apos;{1}&apos; · voided {2} installments</value></data>
   <data name="Expenses.Activity.PlanEdited"><value>{0} edited the plan &apos;{1}&apos;</value></data>
   <data name="Expenses.Plan.Busy"><value>This plan is being changed right now. Try again in a moment.</value></data>
+  <data name="Expenses.Activity.RecurringCreated"><value>{0} created &apos;{1}&apos; · {2} · {3}.</value></data>
+  <data name="Expenses.Activity.RecurringRaised"><value>{0} raised &apos;{1}&apos; to {2}.</value></data>
+  <data name="Expenses.Activity.RecurringLowered"><value>{0} lowered &apos;{1}&apos; to {2}.</value></data>
+  <data name="Expenses.Activity.RecurringEdited"><value>{0} edited &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.RecurringEnded"><value>{0} ended &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Frequency.Daily"><value>Daily</value></data>
+  <data name="Expenses.Frequency.Biweekly"><value>Every two weeks</value></data>
+  <data name="Recurrence.Repeats"><value>Repeats</value></data>
+  <data name="Recurrence.FirstOn"><value>First on</value></data>
+  <data name="Recurrence.AtUtc"><value>At (UTC)</value></data>
+  <data name="Recurrence.FirstDatePast"><value>The first date must be today or later.</value></data>
+  <data name="Recurrence.Describe.Daily"><value>Daily at {0} UTC</value></data>
+  <data name="Recurrence.Describe.Weekly"><value>Weekly on {0} at {1} UTC</value></data>
+  <data name="Recurrence.Describe.Biweekly"><value>Every two weeks on {0} at {1} UTC</value></data>
+  <data name="Recurrence.Describe.Monthly"><value>Monthly on day {0} at {1} UTC</value></data>
+  <data name="Recurrence.Describe.Annually"><value>Annually on {0} at {1} UTC</value></data>
 </root>

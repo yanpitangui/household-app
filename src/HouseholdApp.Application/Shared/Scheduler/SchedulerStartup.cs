@@ -1,16 +1,18 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Quartz;
 
 namespace HouseholdApp.Application.Shared.Scheduler;
 
 /// <summary>
-/// Writes the app-wide jobs, drops the ones no longer registered, and reconciles the recurring jobs. Every node of a
-/// cluster does this as it starts; each write is an upsert under the store's lock, so they converge on the same schedule.
+/// Writes the app-wide jobs and drops every stored job that is not one of them, including the per-template jobs earlier
+/// releases stored. Every node of a cluster does this as it starts; each write is an upsert under the store's lock, so they
+/// converge on the same schedule.
 /// </summary>
-internal sealed class SchedulerStartup(
+internal sealed partial class SchedulerStartup(
     ISchedulerFactory schedulers,
     IEnumerable<ScheduledJobDefinition> scheduledJobs,
-    RecurringJobReconciler reconciler) : IHostedService
+    ILogger<SchedulerStartup> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -23,12 +25,19 @@ internal sealed class SchedulerStartup(
             names.Add(job.Name);
         }
 
-        var stored = await scheduler.GetJobKeys(GroupMatcher<JobKey>.GroupEquals(QuartzJobs.ScheduledGroup), cancellationToken);
-        foreach (var key in stored.Where(k => !names.Contains(k.Name)))
-            await scheduler.DeleteJob(key, cancellationToken);
-
-        await reconciler.ReconcileAsync(cancellationToken);
+        var stored = await scheduler.GetJobKeys(GroupMatcher<JobKey>.AnyGroup(), cancellationToken);
+        var retired = stored
+            .Where(k => k.Group != QuartzJobs.ScheduledGroup || !names.Contains(k.Name))
+            .ToList();
+        if (retired.Count > 0)
+        {
+            await scheduler.DeleteJobs(retired, cancellationToken);
+            LogRetired(retired.Count, string.Join(", ", retired.Select(k => k.Group).Distinct()));
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} retired scheduler jobs from groups: {Groups}")]
+    private partial void LogRetired(int count, string groups);
 }

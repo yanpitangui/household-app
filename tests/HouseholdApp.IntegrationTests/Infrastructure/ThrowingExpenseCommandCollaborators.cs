@@ -1,40 +1,6 @@
-using System.Data;
-using HouseholdApp.Application.Modules.Expenses.Application.Ports;
-using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Identity;
-using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
 
 namespace HouseholdApp.IntegrationTests.Infrastructure;
-
-/// <summary>
-/// Fake collaborators for <see cref="ExpenseCommandServiceVoidTests"/> and
-/// <see cref="ExpenseCommandServiceEditTests"/>-style tests that only exercise the Marten-backed
-/// paths of ExpenseCommandService. All members throw if invoked, since those tests never reach
-/// the recurring-expense or unit-of-work code paths.
-/// </summary>
-public sealed class ThrowingRecurringExpenseRepository : IRecurringExpenseRepository
-{
-    public Task<RecurringExpense?> GetAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task SaveAsync(RecurringExpense expense, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<IReadOnlyDictionary<Guid, string>> GetActiveSchedulesAsync(CancellationToken ct = default) => throw new NotSupportedException();
-}
-
-public sealed class ThrowingRecurringJobScheduler : IRecurringJobScheduler
-{
-    public Task ScheduleAsync(string jobName, Guid entityId, string cronExpression, CancellationToken ct = default) =>
-        throw new NotSupportedException();
-    public Task UnscheduleAsync(string jobName, Guid entityId, CancellationToken ct = default) => throw new NotSupportedException();
-    public void Validate(string cronExpression) => throw new NotSupportedException();
-}
-
-public sealed class ThrowingUnitOfWork : IUnitOfWork
-{
-    public IDbTransaction? CurrentTransaction => null;
-    public Task<IDbConnection> GetConnectionAsync(CancellationToken ct = default) => throw new NotSupportedException();
-    public Task BeginTransactionAsync(CancellationToken ct = default) => throw new NotSupportedException();
-    public Task CommitAsync(CancellationToken ct = default) => throw new NotSupportedException();
-}
 
 public sealed class FakeCurrentUser(Guid id) : ICurrentUser
 {

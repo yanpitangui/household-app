@@ -33,11 +33,19 @@ public static class ExpenseDocumentStore
             opts.Events.AddEventType<InstallmentPlanPaidEarly>();
             opts.Events.AddEventType<InstallmentPlanCancelled>();
             opts.Events.AddEventType<InstallmentPlanCompleted>();
+            opts.Events.AddEventType<RecurringExpenseCreated>();
+            opts.Events.AddEventType<RecurringExpenseUpdated>();
+            opts.Events.AddEventType<RecurringExpenseOccurred>();
+            opts.Events.AddEventType<RecurringExpenseEnded>();
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<ActivityEntryProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<SettlementReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<InstallmentPlanProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<RecurringExpenseProjection>(ProjectionLifecycle.Inline);
+            opts.Schema.For<ExpenseReadModel>().Index(x => x.RecurringExpenseId);
+            opts.Schema.For<ActivityEntry>().Index(x => x.RecurringExpenseId);
+            opts.Schema.For<RecurringExpenseDocument>().Index(x => x.HouseholdId).Index(x => x.NextOccurrenceAt);
             opts.AutoCreateSchemaObjects = AutoCreate.All;
         })))
         .Value;

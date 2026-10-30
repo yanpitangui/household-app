@@ -17,10 +17,7 @@ public sealed class ActivityEntryProjectionIntegrationTests(PostgresFixture db)
     private static ExpenseCommandService BuildSut(IDocumentSession session, Guid actorId) => new(
         session,
         new FakeCurrentUser(actorId),
-        new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(),
-        new ThrowingUnitOfWork(),
-        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        new FakeTimeProvider());
 
     [Test]
     public async Task RecordExpenseAsync_creates_one_ActivityEntry_with_Added_kind()

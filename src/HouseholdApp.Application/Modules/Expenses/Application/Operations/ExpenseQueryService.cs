@@ -1,4 +1,4 @@
-using Dapper;
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
@@ -6,13 +6,11 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using Marten;
 using Marten.Linq.MatchesSql;
-using Npgsql;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 public sealed class ExpenseQueryService(
     IQuerySession querySession,
-    NpgsqlDataSource db,
     IUserQuery userQuery,
     TimeProvider timeProvider) : IExpenseQueries
 {
@@ -497,25 +495,11 @@ public sealed class ExpenseQueryService(
 
     private async Task<IReadOnlyList<RecurringTemplate>> LoadActiveTemplatesAsync(Guid householdId, CancellationToken ct)
     {
-        await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = await conn.QueryAsync<RecurringTemplateRow>(
-            """
-            SELECT id, description, expense_group_id, recurrence_frequency, cron_expression, funding_sources, allocations
-            FROM expenses.recurring_expenses
-            WHERE household_id = @householdId AND is_active
-            """,
-            new { householdId });
-        return rows.Select(r => r.ToTemplate()).ToList();
-    }
-
-    private sealed record RecurringTemplateRow(
-        Guid Id, string Description, Guid ExpenseGroupId, string RecurrenceFrequency, string CronExpression,
-        string FundingSources, string Allocations)
-    {
-        public RecurringTemplate ToTemplate() => new(
-            Id, Description, ExpenseGroupId, Enum.Parse<RecurrenceFrequency>(RecurrenceFrequency), CronExpression,
-            System.Text.Json.JsonSerializer.Deserialize<List<FundingSource>>(FundingSources) ?? [],
-            System.Text.Json.JsonSerializer.Deserialize<List<Allocation>>(Allocations) ?? []);
+        var docs = await querySession.Query<RecurringExpenseDocument>()
+            .Where(t => t.HouseholdId == householdId && t.Status == RecurringExpenseStatus.Active)
+            .ToListAsync(ct);
+        return docs.Select(t => new RecurringTemplate(
+            t.Id, t.Description, t.ExpenseGroupId, t.Schedule, t.FundingSources, t.Allocations)).ToList();
     }
 
     public async Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default)
@@ -540,23 +524,11 @@ public sealed class ExpenseQueryService(
     public async Task<IReadOnlyList<RecurringExpenseSummary>> ListRecurringExpensesAsync(
         Guid householdId, CancellationToken ct = default)
     {
-        await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = await conn.QueryAsync<RecurringExpenseRow>(
-            """
-            SELECT id, description, recurrence_frequency, start_at, is_active, expense_group_id
-            FROM expenses.recurring_expenses
-            WHERE household_id = @householdId
-            ORDER BY description
-            """,
-            new { householdId });
-        return rows.Select(r => r.ToSummary()).ToList();
-    }
-
-    private sealed record RecurringExpenseRow(
-        Guid Id, string Description, string RecurrenceFrequency,
-        DateTimeOffset StartAt, bool IsActive, Guid ExpenseGroupId)
-    {
-        public RecurringExpenseSummary ToSummary() =>
-            new(Id, Description, Enum.Parse<RecurrenceFrequency>(RecurrenceFrequency), StartAt, IsActive, ExpenseGroupId);
+        var docs = await querySession.Query<RecurringExpenseDocument>()
+            .Where(t => t.HouseholdId == householdId)
+            .OrderBy(t => t.Description)
+            .ToListAsync(ct);
+        return docs.Select(t => new RecurringExpenseSummary(
+            t.Id, t.Description, t.Schedule, t.Status == RecurringExpenseStatus.Active, t.ExpenseGroupId)).ToList();
     }
 }
