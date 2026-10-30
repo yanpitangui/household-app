@@ -1,7 +1,9 @@
 using Dapper;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
@@ -25,7 +27,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService Queries(IQuerySession qs) =>
-        new(qs, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()),
+        new(qs, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()),
             new FakeTimeProvider(Now));
 
     private async Task InsertUsersAsync(params Guid[] ids)
@@ -54,20 +56,15 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
 
     private async Task InsertTemplateAsync(Guid groupId, string description, bool active = true)
     {
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            """
-            INSERT INTO expenses.recurring_expenses
-              (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression,
-               is_active, funding_sources, allocations)
-            VALUES (@h, @g, @d, 'Monthly', now(), '0 9 20 * *', @active, @f::jsonb, @a::jsonb)
-            """,
-            new
-            {
-                h = _householdId, g = groupId, d = description, active,
-                f = $"[{{\"UserId\":\"{_leo}\",\"Cents\":12000}}]",
-                a = $"[{{\"UserId\":\"{_ana}\",\"Cents\":6000}},{{\"UserId\":\"{_leo}\",\"Cents\":6000}}]"
-            });
+        var template = RecurringExpense.Create(
+            _householdId, groupId, description, [new FundingSource(_leo, 12000)],
+            [new Allocation(_ana, 6000), new Allocation(_leo, 6000)],
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 20), new TimeOnly(9, 0)),
+            catchUp: false, Now, _ana);
+        if (!active) template.End(Now, _ana);
+        await using var s = Store.LightweightSession();
+        s.Events.StartStream(template.Id, template.DomainEvents.ToArray());
+        await s.SaveChangesAsync();
     }
 
     [Test]
@@ -150,21 +147,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
     public async Task Upcoming_lists_plan_and_template_rows_in_the_window()
     {
         await CreatePlanAsync(new DateOnly(2026, 10, 10)); // #3 due Dec 10: out of window from Nov 10
-        await using (var conn = await db.DataSource.OpenConnectionAsync())
-            await conn.ExecuteAsync(
-                """
-                INSERT INTO expenses.recurring_expenses
-                  (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression,
-                   is_active, funding_sources, allocations)
-                VALUES (@h, @g, 'Internet', 'Monthly', now(), '0 9 20 * *', true,
-                        @f::jsonb, @a::jsonb)
-                """,
-                new
-                {
-                    h = _householdId, g = _groupId,
-                    f = $"[{{\"UserId\":\"{_leo}\",\"Cents\":12000}}]",
-                    a = $"[{{\"UserId\":\"{_ana}\",\"Cents\":6000}},{{\"UserId\":\"{_leo}\",\"Cents\":6000}}]"
-                });
+        await InsertTemplateAsync(_groupId, "Internet");
 
         await using var qs = Store.QuerySession();
         var summary = await Queries(qs).GetUpcomingAsync(_householdId, null, _ana);

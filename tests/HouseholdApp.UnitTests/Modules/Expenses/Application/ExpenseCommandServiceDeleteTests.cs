@@ -3,8 +3,6 @@ using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
-using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -15,14 +13,11 @@ public sealed class ExpenseCommandServiceDeleteTests
 {
     private readonly IDocumentSession _session = Substitute.For<IDocumentSession>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
-    private readonly IRecurringExpenseRepository _recurringRepo = Substitute.For<IRecurringExpenseRepository>();
-    private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ExpenseCommandService _sut;
 
     public ExpenseCommandServiceDeleteTests()
     {
-        _sut = new ExpenseCommandService(_session, _currentUser, _recurringRepo, _scheduler, _uow, new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        _sut = new ExpenseCommandService(_session, _currentUser, new FakeTimeProvider());
     }
 
     [Test]

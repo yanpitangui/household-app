@@ -1,71 +1,64 @@
 using HouseholdApp.Application.Modules.Tasks.Domain;
+using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.UnitTests.Modules.Tasks.Domain;
 
 public sealed class RecurringTaskTests
 {
-    private static readonly Guid HouseholdId = Guid.NewGuid();
-    private static readonly Guid UserId = Guid.NewGuid();
+    private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
-    private static RecurringTask Valid(string cron = "0 9 * * *") =>
-        RecurringTask.Create(HouseholdId, "Weekly clean", null, UserId, cron, null);
+    private static RecurrenceSchedule Weekly(int d) =>
+        new(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, d), new TimeOnly(9, 0));
+
+    private static RecurringTask Create(RecurrenceSchedule schedule) =>
+        RecurringTask.Create(Guid.NewGuid(), "Water plants", null, null, schedule, Now);
 
     [Test]
-    public async Task Create_generates_non_empty_id()
+    public async Task Create_rejects_a_first_date_before_today()
     {
-        var task = Valid();
-
-        await Assert.That(task.Id).IsNotEqualTo(Guid.Empty);
+        await Assert.That(() => Create(Weekly(9))).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Create_is_active_by_default()
+    public async Task Create_today_with_the_time_passed_is_due_right_away()
     {
-        var task = Valid();
+        var template = Create(Weekly(10));
 
-        await Assert.That(task.IsActive).IsTrue();
+        await Assert.That(template.SpawnDue(Now).Count).IsEqualTo(1);
     }
 
     [Test]
-    public async Task Create_stores_cron_expression()
+    public async Task SpawnDue_gives_each_task_its_own_due_date_and_advances()
     {
-        var task = Valid("0 0 1 * *");
+        var template = Create(Weekly(10));
 
-        await Assert.That(task.CronExpression).IsEqualTo("0 0 1 * *");
+        var tasks = template.SpawnDue(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero));
+
+        await Assert.That(tasks.Select(t => t.DueDate!.Value.Day)).IsEquivalentTo(new[] { 10, 17 });
+        await Assert.That(tasks.Select(t => t.Id)).IsEquivalentTo(new[]
+        {
+            RecurrenceSchedule.OccurrenceId(template.Id, new DateOnly(2026, 11, 10)),
+            RecurrenceSchedule.OccurrenceId(template.Id, new DateOnly(2026, 11, 17))
+        });
+        await Assert.That(template.NextRunAt).IsEqualTo(new DateTimeOffset(2026, 11, 24, 9, 0, 0, TimeSpan.Zero));
     }
 
     [Test]
-    public async Task Deactivate_sets_is_active_false()
+    public async Task SpawnDue_returns_nothing_when_inactive()
     {
-        var task = Valid();
+        var template = Create(Weekly(10));
+        template.Deactivate();
 
-        task.Deactivate();
-
-        await Assert.That(task.IsActive).IsFalse();
+        await Assert.That(template.SpawnDue(Now)).IsEmpty();
     }
 
     [Test]
-    public async Task Spawn_creates_task_with_same_household()
-    {
-        var task = Valid();
-
-        var spawned = task.Spawn(DateTimeOffset.UtcNow);
-
-        await Assert.That(spawned.HouseholdId).IsEqualTo(HouseholdId);
-    }
-
-    [Test]
-    public async Task Rehydrate_roundtrips_all_properties()
+    public async Task Rehydrate_roundtrips_the_schedule()
     {
         var id = Guid.NewGuid();
-        var nextRun = DateTimeOffset.UtcNow.AddHours(1);
+        var template = RecurringTask.Rehydrate(id, Guid.NewGuid(), "T", null, null, Weekly(10), true, Now);
 
-        var task = RecurringTask.Rehydrate(
-            id, HouseholdId, "Clean", "Desc", UserId, "0 9 * * *", false, nextRun);
-
-        await Assert.That(task.Id).IsEqualTo(id);
-        await Assert.That(task.HouseholdId).IsEqualTo(HouseholdId);
-        await Assert.That(task.IsActive).IsFalse();
-        await Assert.That(task.NextRunAt).IsEqualTo(nextRun);
+        await Assert.That(template.Id).IsEqualTo(id);
+        await Assert.That(template.Schedule).IsEqualTo(Weekly(10));
     }
 }

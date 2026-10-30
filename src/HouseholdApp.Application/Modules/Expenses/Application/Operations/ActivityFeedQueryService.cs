@@ -64,7 +64,9 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             AmountCents: e.AmountCents,
             ReferenceCents: e.ReferenceCents,
             VoidedCount: e.VoidedCount,
-            DownPaymentCents: e.DownPaymentCents);
+            DownPaymentCents: e.DownPaymentCents,
+            RecurringExpenseId: e.RecurringExpenseId,
+            Frequency: e.Frequency);
     }
 
     public async Task<IReadOnlyList<ActivityFeedItem>> GetPlanHistoryAsync(

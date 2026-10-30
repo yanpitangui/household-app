@@ -13,7 +13,7 @@ public static class TasksModule
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ITaskCommands, TaskCommandService>();
         services.AddScoped<ITaskQueries, TaskQueryService>();
-        services.AddRecurringJob<RecurringTaskJobs>(RecurringTaskJobs.Name);
+        services.AddScheduledJob<RecurringTaskSweepJob>(RecurringTaskSweepJob.Name, RecurringTaskSweepJob.Cron);
         return services;
     }
 }

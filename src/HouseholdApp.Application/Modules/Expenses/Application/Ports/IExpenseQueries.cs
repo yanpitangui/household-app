@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
@@ -47,9 +48,9 @@ public sealed record UpcomingSummary(IReadOnlyList<UpcomingItem> Items, long Tot
     public static UpcomingSummary Empty { get; } = new([], 0, 0);
 }
 
-/// <summary>Template data Upcoming needs (amount, split and the cron that fires it).</summary>
+/// <summary>Template data Upcoming needs (amount, split and the schedule that fires it).</summary>
 public sealed record RecurringTemplate(
-    Guid Id, string Description, Guid GroupId, RecurrenceFrequency Frequency, string CronExpression,
+    Guid Id, string Description, Guid GroupId, RecurrenceSchedule Schedule,
     IReadOnlyList<FundingSource> FundingSources, IReadOnlyList<Allocation> Allocations);
 
 public enum PaymentPerspective { ViewerPaid, ViewerReceived, Others }
@@ -116,7 +117,7 @@ public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description, string Icon = GroupIcons.Default);
 
 public sealed record RecurringExpenseSummary(
-    Guid Id, string Description, RecurrenceFrequency Frequency, DateTimeOffset StartAt, bool IsActive, Guid ExpenseGroupId);
+    Guid Id, string Description, RecurrenceSchedule Schedule, bool IsActive, Guid ExpenseGroupId);
 
 public interface IExpenseQueries
 {

@@ -13,7 +13,8 @@ public sealed class ExpensePushNotificationHandler(
     IUserQuery userQuery,
     EventDispatchScope dispatchScope)
     : IEventHandler<ExpenseRecorded>, IEventHandler<ExpenseVoided>, IEventHandler<SettlementRecorded>,
-      IEventHandler<InstallmentPlanCreated>, IEventHandler<InstallmentPlanPaidEarly>, IEventHandler<InstallmentPlanCancelled>
+      IEventHandler<InstallmentPlanCreated>, IEventHandler<InstallmentPlanPaidEarly>, IEventHandler<InstallmentPlanCancelled>,
+      IEventHandler<RecurringExpenseCreated>, IEventHandler<RecurringExpenseEnded>
 {
     public Task HandleAsync(ExpenseRecorded evt, CancellationToken ct = default) =>
         dispatchScope.SuppressNotifications || evt.CoveredByPlanEvent ? Task.CompletedTask : SafeAsync(async () =>
@@ -111,6 +112,23 @@ public sealed class ExpensePushNotificationHandler(
             : evt.Description;
         await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} cancelled an installment plan",
             _ => body, PlanUrl(evt.HouseholdId, evt.PlanId), ct);
+    }, ct);
+
+    public Task HandleAsync(RecurringExpenseCreated evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications || evt.Imported ? Task.CompletedTask : SafeAsync(async () =>
+    {
+        var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        var body = $"{evt.Description} — R$ {FormatCents(evt.FundingSources.Sum(f => f.Cents))}";
+        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} created a recurring expense",
+            member => body + ShareSuffix(evt.Allocations, member, ""), $"/h/{evt.HouseholdId}/Expenses/Recurring", ct);
+    }, ct);
+
+    public Task HandleAsync(RecurringExpenseEnded evt, CancellationToken ct = default) =>
+        dispatchScope.SuppressNotifications || evt.Imported ? Task.CompletedTask : SafeAsync(async () =>
+    {
+        var actorName = await ActorNameAsync(evt.PerformedByUserId, ct);
+        await NotifyOthersAsync(evt.HouseholdId, evt.PerformedByUserId, $"{actorName} ended a recurring expense",
+            _ => evt.Description, $"/h/{evt.HouseholdId}/Expenses/Recurring", ct);
     }, ct);
 
     private static string PlanUrl(Guid householdId, Guid planId) => $"/h/{householdId}/Expenses/Plans/{planId}";

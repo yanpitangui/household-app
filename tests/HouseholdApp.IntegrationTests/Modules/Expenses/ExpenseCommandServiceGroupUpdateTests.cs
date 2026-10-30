@@ -16,10 +16,7 @@ public sealed class ExpenseCommandServiceGroupUpdateTests(PostgresFixture db)
     private static ExpenseCommandService BuildSut(IDocumentSession session, Guid actorId) => new(
         session,
         new FakeCurrentUser(actorId),
-        new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(),
-        new ThrowingUnitOfWork(),
-        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        new FakeTimeProvider());
 
     private async Task<(Guid HouseholdId, Guid GroupId)> CreateGroupAsync(string name, string? icon = null)
     {

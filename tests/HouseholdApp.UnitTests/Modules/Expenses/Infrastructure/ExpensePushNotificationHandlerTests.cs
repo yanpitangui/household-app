@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using HouseholdApp.Application.Modules.Notifications.Application.Ports;
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Events;
 using NSubstitute;
 
@@ -310,6 +311,46 @@ public sealed class ExpensePushNotificationHandlerTests
                 Guid.NewGuid(), "Car repair", _actorId, 150000, 0, 5, new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10),
                 [new Allocation(_otherId, 150000)], 1, _actorId));
         }
+
+        await _pushSender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default!, default);
+    }
+
+    private RecurringExpenseCreated RecurringCreated(bool imported = false) => new(
+        Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId, Guid.NewGuid(), "Rent",
+        [new FundingSource(_actorId, 10000)], [new Allocation(_actorId, 5000), new Allocation(_otherId, 5000)],
+        new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(9, 0)),
+        DateTimeOffset.UtcNow, _actorId, imported);
+
+    private RecurringExpenseEnded RecurringEnded(bool imported = false) => new(
+        Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId, Guid.NewGuid(), "Rent", _actorId, imported);
+
+    [Test]
+    public async Task RecurringExpenseCreated_notifies_other_members_with_their_share()
+    {
+        await _sut.HandleAsync(RecurringCreated());
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice created a recurring expense", "Rent — R$ 100.00 · your share R$ 50.00",
+            $"/h/{_householdId}/Expenses/Recurring", Arg.Any<CancellationToken>());
+        await _pushSender.DidNotReceive().SendAsync(
+            _actorId, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task RecurringExpenseEnded_notifies_other_members()
+    {
+        await _sut.HandleAsync(RecurringEnded());
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice ended a recurring expense", "Rent",
+            $"/h/{_householdId}/Expenses/Recurring", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Imported_recurring_events_push_nothing()
+    {
+        await _sut.HandleAsync(RecurringCreated(imported: true));
+        await _sut.HandleAsync(RecurringEnded(imported: true));
 
         await _pushSender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default!, default);
     }

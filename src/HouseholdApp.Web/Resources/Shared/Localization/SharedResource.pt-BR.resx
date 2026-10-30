@@ -169,8 +169,6 @@
   <data name="Tasks.Done"><value>Concluída</value></data>
   <data name="Tasks.NewRecurring"><value>Nova tarefa recorrente</value></data>
   <data name="Tasks.RecurringTitle"><value>Tarefas recorrentes</value></data>
-  <data name="Tasks.CronExpression"><value>Expressão cron</value></data>
-  <data name="Tasks.CronInvalid"><value>Use um cron de 5 campos: minuto hora dia-do-mês mês dia-da-semana (ex.: 0 9 * * 1).</value></data>
   <data name="Tasks.DescriptionOptional"><value>Descrição (opcional)</value></data>
   <data name="Tasks.Active"><value>Ativa</value></data>
   <data name="Tasks.Inactive"><value>Inativa</value></data>
@@ -501,4 +499,20 @@
   <data name="Expenses.Activity.PlanCancelledVoided"><value>{0} cancelou o parcelamento &apos;{1}&apos; · anulou {2} parcelas</value></data>
   <data name="Expenses.Activity.PlanEdited"><value>{0} alterou o parcelamento &apos;{1}&apos;</value></data>
   <data name="Expenses.Plan.Busy"><value>Este parcelamento está sendo alterado agora. Tente de novo em instantes.</value></data>
+  <data name="Expenses.Activity.RecurringCreated"><value>{0} criou &apos;{1}&apos; · {2} · {3}.</value></data>
+  <data name="Expenses.Activity.RecurringRaised"><value>{0} aumentou &apos;{1}&apos; para {2}.</value></data>
+  <data name="Expenses.Activity.RecurringLowered"><value>{0} reduziu &apos;{1}&apos; para {2}.</value></data>
+  <data name="Expenses.Activity.RecurringEdited"><value>{0} editou &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.RecurringEnded"><value>{0} encerrou &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Frequency.Daily"><value>Diariamente</value></data>
+  <data name="Expenses.Frequency.Biweekly"><value>A cada duas semanas</value></data>
+  <data name="Recurrence.Repeats"><value>Repetir</value></data>
+  <data name="Recurrence.FirstOn"><value>Primeira em</value></data>
+  <data name="Recurrence.AtUtc"><value>Às (UTC)</value></data>
+  <data name="Recurrence.FirstDatePast"><value>A primeira data deve ser hoje ou depois.</value></data>
+  <data name="Recurrence.Describe.Daily"><value>Todos os dias às {0} UTC</value></data>
+  <data name="Recurrence.Describe.Weekly"><value>Toda semana, {0}, às {1} UTC</value></data>
+  <data name="Recurrence.Describe.Biweekly"><value>A cada duas semanas, {0}, às {1} UTC</value></data>
+  <data name="Recurrence.Describe.Monthly"><value>Todo mês, dia {0}, às {1} UTC</value></data>
+  <data name="Recurrence.Describe.Annually"><value>Todo ano, {0}, às {1} UTC</value></data>
 </root>

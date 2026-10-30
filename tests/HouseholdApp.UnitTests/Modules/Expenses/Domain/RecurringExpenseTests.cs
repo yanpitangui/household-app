@@ -1,157 +1,182 @@
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.UnitTests.Modules.Expenses.Domain;
 
 public sealed class RecurringExpenseTests
 {
-    private static readonly Guid HouseholdId = Guid.NewGuid();
-    private static readonly Guid GroupId = Guid.NewGuid();
-    private static readonly Guid UserId = Guid.NewGuid();
+    private static readonly Guid Household = Guid.NewGuid();
+    private static readonly Guid Group = Guid.NewGuid();
+    private static readonly Guid Ana = Guid.NewGuid();
+    private static readonly Guid Leo = Guid.NewGuid();
+    private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
-    private static readonly DateTimeOffset BaseTime = new(2026, 6, 16, 9, 30, 0, TimeSpan.Zero); // Tuesday
+    private static readonly IReadOnlyList<FundingSource> Funding = [new(Ana, 100_00)];
+    private static readonly IReadOnlyList<Allocation> Split = [new(Ana, 50_00), new(Leo, 50_00)];
 
-    private static RecurringExpense Valid(
-        RecurrenceFrequency frequency = RecurrenceFrequency.Monthly,
-        DateTimeOffset? startAt = null) =>
-        RecurringExpense.Create(
-            HouseholdId, GroupId, "Monthly rent",
-            [new FundingSource(UserId, 100_00)],
-            [new Allocation(UserId, 100_00)],
-            frequency, startAt ?? BaseTime);
+    private static RecurrenceSchedule Monthly(int y, int m, int d, int hour = 9) =>
+        new(RecurrenceFrequency.Monthly, new DateOnly(y, m, d), new TimeOnly(hour, 0));
+
+    private static RecurringExpense Create(RecurrenceSchedule schedule, bool catchUp = false) =>
+        RecurringExpense.Create(Household, Group, "Rent", Funding, Split, schedule, catchUp, Now, Ana);
 
     [Test]
-    public async Task Create_throws_when_funding_not_equal_allocations()
+    public async Task Create_rejects_funding_that_differs_from_allocations()
     {
         await Assert.That(() => RecurringExpense.Create(
-                HouseholdId, GroupId, "X",
-                [new FundingSource(UserId, 1000)],
-                [new Allocation(UserId, 500)],
-                RecurrenceFrequency.Monthly, BaseTime))
+                Household, Group, "Rent", Funding, [new Allocation(Ana, 1)], Monthly(2026, 12, 1), false, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Create_is_active_by_default()
+    public async Task Create_rejects_a_zero_amount()
     {
-        var recurring = Valid();
-
-        await Assert.That(recurring.IsActive).IsTrue();
+        await Assert.That(() => RecurringExpense.Create(
+                Household, Group, "Rent", [new FundingSource(Ana, 0)], [new Allocation(Ana, 0)], Monthly(2026, 12, 1),
+                false, Now, Ana))
+            .Throws<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Create_generates_non_empty_id()
+    public async Task Update_rejects_a_zero_amount()
     {
-        var recurring = Valid();
+        var template = Create(Monthly(2026, 12, 1));
 
-        await Assert.That(recurring.Id).IsNotEqualTo(Guid.Empty);
+        await Assert.That(() => template.Update(
+                "Rent", [new FundingSource(Ana, 0)], [new Allocation(Ana, 0)], Monthly(2026, 12, 1), Now, Ana))
+            .Throws<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Create_stores_frequency_and_start_at()
+    public async Task Create_with_a_future_first_date_starts_at_the_first_occurrence()
     {
-        var recurring = Valid(RecurrenceFrequency.Annually, BaseTime);
+        var template = Create(Monthly(2026, 12, 1));
 
-        await Assert.That(recurring.Frequency).IsEqualTo(RecurrenceFrequency.Annually);
-        await Assert.That(recurring.StartAt).IsEqualTo(BaseTime);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 12, 1, 9, 0, 0, TimeSpan.Zero));
     }
 
     [Test]
-    [Arguments(RecurrenceFrequency.Weekly,   "30 9 * * 2")] // Tuesday = 2
-    [Arguments(RecurrenceFrequency.Monthly,  "30 9 16 * *")]
-    [Arguments(RecurrenceFrequency.Annually, "30 9 16 6 *")]
-    public async Task ComputeCron_produces_correct_pattern(RecurrenceFrequency frequency, string expectedCron)
+    public async Task Create_today_with_the_time_passed_is_due_right_away()
     {
-        var cron = RecurringExpense.ComputeCron(frequency, BaseTime);
+        var template = Create(Monthly(2026, 11, 10, hour: 9));
 
-        await Assert.That(cron).IsEqualTo(expectedCron);
+        await Assert.That(template.DueOccurrences(Now).Count).IsEqualTo(1);
     }
 
     [Test]
-    public async Task Create_cron_expression_matches_computed_cron()
+    public async Task Create_in_the_past_without_catch_up_only_sets_the_rhythm()
     {
-        var recurring = Valid(RecurrenceFrequency.Monthly, BaseTime);
+        var template = Create(Monthly(2026, 1, 15));
 
-        await Assert.That(recurring.CronExpression).IsEqualTo(RecurringExpense.ComputeCron(RecurrenceFrequency.Monthly, BaseTime));
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero));
+        await Assert.That(template.DueOccurrences(Now)).IsEmpty();
     }
 
     [Test]
-    public async Task Spawn_returns_expense_with_same_household_and_group()
+    public async Task Create_in_the_past_with_catch_up_leaves_every_past_occurrence_due()
     {
-        var recurring = Valid();
+        var template = Create(Monthly(2026, 9, 1), catchUp: true);
 
-        var expense = recurring.Spawn(DateTimeOffset.UtcNow);
+        var due = template.DueOccurrences(Now);
 
-        await Assert.That(expense.HouseholdId).IsEqualTo(HouseholdId);
-        await Assert.That(expense.ExpenseGroupId).IsEqualTo(GroupId);
+        await Assert.That(due).IsEquivalentTo(new[]
+        {
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1), new DateOnly(2026, 11, 1)
+        });
     }
 
     [Test]
-    public async Task Spawn_returns_expense_with_same_amounts()
+    public async Task Create_rejects_a_catch_up_over_the_cap()
     {
-        var recurring = Valid();
-        var expense = recurring.Spawn(DateTimeOffset.UtcNow);
-        var evt = (ExpenseRecorded)expense.DomainEvents[0];
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Daily, new DateOnly(2026, 1, 1), new TimeOnly(9, 0));
 
-        await Assert.That(evt.FundingSources.Sum(f => f.Cents)).IsEqualTo(100_00L);
-        await Assert.That(evt.Allocations.Sum(a => a.Cents)).IsEqualTo(100_00L);
+        await Assert.That(() => Create(schedule, catchUp: true)).Throws<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Spawn_raises_expense_recorded_event()
+    public async Task MarkOccurred_advances_to_the_next_occurrence()
     {
-        var recurring = Valid();
+        var template = Create(Monthly(2026, 10, 31), catchUp: true);
 
-        var expense = recurring.Spawn(DateTimeOffset.UtcNow);
+        template.MarkOccurred(new DateOnly(2026, 10, 31), Now);
 
-        await Assert.That(expense.DomainEvents.Count).IsEqualTo(1);
-        await Assert.That(expense.DomainEvents[0] is ExpenseRecorded).IsTrue();
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero));
     }
 
     [Test]
-    public async Task Deactivate_sets_is_active_false()
+    public async Task BuildExpense_uses_the_derived_id_and_the_occurrence_date()
     {
-        var recurring = Valid();
+        var template = Create(Monthly(2026, 11, 1), catchUp: true);
+        var date = new DateOnly(2026, 11, 1);
 
-        recurring.Deactivate();
+        var expense = template.BuildExpense(date, Now, coveredByCreatedEvent: false);
 
-        await Assert.That(recurring.IsActive).IsFalse();
+        await Assert.That(expense.Id).IsEqualTo(RecurrenceSchedule.OccurrenceId(template.Id, date));
+        await Assert.That(expense.Date).IsEqualTo(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero));
+        var recorded = (ExpenseRecorded)expense.DomainEvents.Single();
+        await Assert.That(recorded.RecurringExpenseId).IsEqualTo(template.Id);
+        await Assert.That(recorded.PerformedByUserId).IsEqualTo(Ana);
     }
 
     [Test]
-    public async Task Update_recomputes_cron_and_updates_all_fields()
+    public async Task Update_with_a_new_schedule_moves_next_to_the_first_after_now()
     {
-        var recurring = Valid(RecurrenceFrequency.Monthly, BaseTime);
-        var newStart = BaseTime.AddMonths(6);
+        var template = Create(Monthly(2026, 12, 1));
 
-        recurring.Update(
-            RecurrenceFrequency.Annually, newStart, "New desc",
-            [new FundingSource(UserId, 200_00)],
-            [new Allocation(UserId, 200_00)]);
+        template.Update("Rent", Funding, Split, Monthly(2026, 11, 20), Now, Ana);
 
-        await Assert.That(recurring.Frequency).IsEqualTo(RecurrenceFrequency.Annually);
-        await Assert.That(recurring.StartAt).IsEqualTo(newStart);
-        await Assert.That(recurring.Description).IsEqualTo("New desc");
-        await Assert.That(recurring.CronExpression).IsEqualTo(RecurringExpense.ComputeCron(RecurrenceFrequency.Annually, newStart));
-        await Assert.That(recurring.DefaultFundingSources[0].Cents).IsEqualTo(200_00L);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
     }
 
     [Test]
-    public async Task Rehydrate_roundtrips_all_properties()
+    public async Task Update_with_the_same_schedule_keeps_next_and_records_the_previous_amount()
     {
-        var id = Guid.NewGuid();
+        var template = Create(Monthly(2026, 12, 1));
+        template.ClearEvents();
 
-        var recurring = RecurringExpense.Rehydrate(
-            id, HouseholdId, GroupId, "Rent",
-            RecurrenceFrequency.Monthly, BaseTime,
-            false,
-            [new FundingSource(UserId, 5000)],
-            [new Allocation(UserId, 5000)]);
+        template.Update("Rent", [new FundingSource(Ana, 120_00)],
+            [new Allocation(Ana, 60_00), new Allocation(Leo, 60_00)], Monthly(2026, 12, 1), Now, Ana);
 
-        await Assert.That(recurring.Id).IsEqualTo(id);
-        await Assert.That(recurring.HouseholdId).IsEqualTo(HouseholdId);
-        await Assert.That(recurring.Frequency).IsEqualTo(RecurrenceFrequency.Monthly);
-        await Assert.That(recurring.StartAt).IsEqualTo(BaseTime);
-        await Assert.That(recurring.IsActive).IsFalse();
-        await Assert.That(recurring.DefaultFundingSources[0].Cents).IsEqualTo(5000L);
+        var updated = (RecurringExpenseUpdated)template.DomainEvents.Single();
+        await Assert.That(updated.PreviousAmountCents).IsEqualTo(100_00);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 12, 1, 9, 0, 0, TimeSpan.Zero));
+    }
+
+    [Test]
+    public async Task Update_allows_an_unchanged_past_first_date_and_rejects_a_changed_one()
+    {
+        var template = Create(Monthly(2026, 1, 15));
+
+        template.Update("Renamed", Funding, Split, Monthly(2026, 1, 15), Now, Ana);
+
+        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 2, 15), Now, Ana))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task End_is_final()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+
+        template.End(Now, Ana);
+
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Ended);
+        await Assert.That(template.DueOccurrences(Now.AddYears(1))).IsEmpty();
+        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 12, 1), Now, Ana))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Replaying_the_events_rebuilds_the_same_state()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Now, Ana);
+        var events = template.DomainEvents.ToList();
+
+        var replayed = RecurringExpense.Create((RecurringExpenseCreated)events[0]);
+        replayed.Apply((RecurringExpenseUpdated)events[1]);
+
+        await Assert.That(replayed.Description).IsEqualTo("Renamed");
+        await Assert.That(replayed.NextOccurrenceAt).IsEqualTo(template.NextOccurrenceAt);
     }
 }

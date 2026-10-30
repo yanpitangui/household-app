@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
-    <PackageReference Include="Cronos" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Marten" />
     <PackageReference Include="Microsoft.Extensions.Http" />

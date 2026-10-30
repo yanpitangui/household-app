@@ -28,17 +28,17 @@
                     }
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">@L["Tasks.CronExpression"]</label>
-                <input asp-for="NewCronExpression" class="form-control" placeholder="0 9 * * 1" />
-                <span asp-validation-for="NewCronExpression" class="field-error"></span>
-            </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">+ @L["Action.Create"]</button>
             </div>
             <div class="col-12">
                 <label class="form-label">@L["Tasks.DescriptionOptional"]</label>
                 <input asp-for="NewDescription" class="form-control" placeholder="Details..." />
+            </div>
+            <div class="col-12">
+                @await Html.PartialAsync("_RecurrencePicker", new RecurrencePickerViewModel("New", Model.NewFrequency, Model.NewFirstDate, Model.NewTime))
+                <span asp-validation-for="NewFirstDate" class="field-error"></span>
+                <span asp-validation-for="NewTime" class="field-error"></span>
             </div>
         </div>
     </form>
@@ -61,7 +61,10 @@ else
                     <div class="list-row-meta">@t.Description</div>
                 }
                 <div class="list-row-meta">
-                    <code style="font-size:11px; color:var(--text-secondary)">@t.CronExpression</code>
+                    @if (t.IsActive)
+                    {
+                        <span style="font-size:11px; color:var(--text-secondary)">@RecurrenceLabel.Describe(t.Schedule, L)</span>
+                    }
                     @if (t.DefaultAssignedTo.HasValue)
                     {
                         <span class="ms-2">→ @(Model.Members.FirstOrDefault(m => m.UserId == t.DefaultAssignedTo.Value)?.DisplayName ?? "?")</span>

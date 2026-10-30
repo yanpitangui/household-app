@@ -3,8 +3,6 @@ using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Identity;
-using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using Marten;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,9 +17,6 @@ public sealed class ExpenseCommandServiceActorTests
     private static readonly Guid CurrentUserId = Guid.NewGuid();
 
     private readonly IDocumentSession _session = Substitute.For<IDocumentSession>();
-    private readonly IRecurringExpenseRepository _recurringRepo = Substitute.For<IRecurringExpenseRepository>();
-    private readonly IRecurringJobScheduler _scheduler = Substitute.For<IRecurringJobScheduler>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly ExpenseCommandService _sut;
 
@@ -31,7 +26,7 @@ public sealed class ExpenseCommandServiceActorTests
         _session.LoadAsync<ExpenseGroupDocument>(GroupId, Arg.Any<CancellationToken>())
             .Returns(new ExpenseGroupDocument { Id = GroupId, HouseholdId = HouseholdId, Name = "Home" });
         _sut = new ExpenseCommandService(
-            _session, _currentUser, _recurringRepo, _scheduler, _uow, new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+            _session, _currentUser, new FakeTimeProvider());
     }
 
     [Test]

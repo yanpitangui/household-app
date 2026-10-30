@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Modules.Tasks.Domain;
+using HouseholdApp.Application.Shared.Domain;
 using DomainTaskStatus = HouseholdApp.Application.Modules.Tasks.Domain.TaskStatus;
 
 namespace HouseholdApp.UnitTests.Modules.Tasks.Domain;
@@ -83,11 +84,12 @@ public sealed class HouseholdTaskTests
     }
 
     [Test]
-    public async Task RecurringTask_Spawn_creates_task_linked_to_recurring()
+    public async Task RecurringTask_SpawnDue_creates_task_linked_to_recurring()
     {
-        var recurring = RecurringTask.Create(HouseholdId, "Weekly cleaning", null, UserId, "0 9 * * 1", Now);
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Weekly, DateOnly.FromDateTime(Now.UtcDateTime), TimeOnly.MinValue);
+        var recurring = RecurringTask.Create(HouseholdId, "Weekly cleaning", null, UserId, schedule, Now);
 
-        var spawned = recurring.Spawn(Now);
+        var spawned = recurring.SpawnDue(Now).Single();
 
         await Assert.That(spawned.HouseholdId).IsEqualTo(HouseholdId);
         await Assert.That(spawned.Title).IsEqualTo("Weekly cleaning");

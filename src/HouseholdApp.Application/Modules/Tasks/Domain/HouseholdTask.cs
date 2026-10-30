@@ -21,11 +21,11 @@ public sealed class HouseholdTask : AggregateRoot
     public static HouseholdTask Create(
         Guid householdId, string title, string? description,
         Guid? assignedTo, DateTimeOffset? dueDate, DateTimeOffset now,
-        Guid? recurringTaskId = null)
+        Guid? recurringTaskId = null, Guid? id = null)
     {
         var task = new HouseholdTask
         {
-            Id = Guid.CreateVersion7(),
+            Id = id ?? Guid.CreateVersion7(),
             HouseholdId = householdId,
             Title = title,
             Description = description,

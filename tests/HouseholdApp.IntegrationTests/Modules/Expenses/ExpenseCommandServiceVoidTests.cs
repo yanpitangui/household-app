@@ -16,10 +16,7 @@ public sealed class ExpenseCommandServiceVoidTests(PostgresFixture db)
     private static ExpenseCommandService BuildSut(IDocumentSession session) => new(
         session,
         new FakeCurrentUser(Guid.NewGuid()),
-        new ThrowingRecurringExpenseRepository(),
-        new ThrowingRecurringJobScheduler(),
-        new ThrowingUnitOfWork(),
-        new FakeTimeProvider(), NullLogger<ExpenseCommandService>.Instance);
+        new FakeTimeProvider());
 
     [Test]
     public async Task VoidExpenseAsync_reverses_the_ledger_balance()

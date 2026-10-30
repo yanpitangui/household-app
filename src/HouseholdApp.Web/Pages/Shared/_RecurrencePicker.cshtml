@@ -1,0 +1,21 @@
+@model HouseholdApp.Web.Shared.Web.RecurrencePickerViewModel
+@using HouseholdApp.Application.Shared.Domain
+<div class="repeat-row">
+    <label for="@(Model.Prefix)Frequency">@L["Recurrence.Repeats"]</label>
+    <select id="@(Model.Prefix)Frequency" name="@(Model.Prefix)Frequency" class="form-select repeat-date">
+        @foreach (var f in Enum.GetValues<RecurrenceFrequency>())
+        {
+            <option value="@f" selected="@(Model.Frequency == f)">@L[$"Expenses.Frequency.{f}"]</option>
+        }
+    </select>
+</div>
+<div class="repeat-row">
+    <label for="@(Model.Prefix)FirstDate">@L["Recurrence.FirstOn"]</label>
+    <input type="date" id="@(Model.Prefix)FirstDate" name="@(Model.Prefix)FirstDate" class="form-control repeat-date" required
+           value="@Model.FirstDate.ToString("yyyy-MM-dd")" />
+</div>
+<div class="repeat-row">
+    <label for="@(Model.Prefix)Time">@L["Recurrence.AtUtc"]</label>
+    <input type="time" id="@(Model.Prefix)Time" name="@(Model.Prefix)Time" class="form-control repeat-date" required
+           value="@Model.Time.ToString("HH:mm")" />
+</div>

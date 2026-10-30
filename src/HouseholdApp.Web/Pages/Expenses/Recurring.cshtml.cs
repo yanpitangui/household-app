@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
@@ -5,6 +6,7 @@ using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Shared.Web;
+using Marten.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HouseholdApp.Web.Pages.Expenses;
@@ -12,7 +14,7 @@ namespace HouseholdApp.Web.Pages.Expenses;
 public class RecurringExpensesModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
-    IExpenseCommands expenseCommands,
+    IRecurringExpenseCommands recurringCommands,
     IExpenseQueries expenseQueries,
     IHouseholdQueries householdQueries,
     TimeProvider time) : HouseholdPageModel(currentUser, guard)
@@ -98,8 +100,23 @@ public class RecurringExpensesModel(
             .Select((id, i) => new AllocationDto(id, share + (i == 0 ? remainder : 0)))
             .ToList();
 
-        await expenseCommands.CreateRecurringExpenseAsync(
-            HouseholdId, NewGroupId, NewDescription, NewFrequency, NewStartAt, funding, allocations);
+        try
+        {
+            await recurringCommands.CreateAsync(
+                HouseholdId, NewGroupId, NewDescription, ScheduleFrom(NewFrequency, NewStartAt), funding, allocations,
+                catchUp: false);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError("", ex.Message);
+            await Load();
+            return Page();
+        }
+        catch (Exception ex) when (ex is StreamLockedException or JasperFx.ConcurrencyException)
+        {
+            TempData["Error"] = Loc["Expenses.Plan.Busy"].Value;
+            return RedirectToPage(new { householdId = HouseholdId });
+        }
 
         TempData["Success"] = Loc["Flash.RecurringExpenseCreated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
@@ -125,8 +142,22 @@ public class RecurringExpensesModel(
             .Select((id, i) => new AllocationDto(id, share + (i == 0 ? remainder : 0)))
             .ToList();
 
-        await expenseCommands.UpdateRecurringExpenseAsync(
-            EditId, EditDescription, EditFrequency, EditStartAt, funding, allocations);
+        try
+        {
+            await recurringCommands.UpdateAsync(
+                HouseholdId, EditId, EditDescription, ScheduleFrom(EditFrequency, EditStartAt), funding, allocations);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError("", ex.Message);
+            await Load();
+            return Page();
+        }
+        catch (Exception ex) when (ex is StreamLockedException or JasperFx.ConcurrencyException)
+        {
+            TempData["Error"] = Loc["Expenses.Plan.Busy"].Value;
+            return RedirectToPage(new { householdId = HouseholdId });
+        }
 
         TempData["Success"] = Loc["Flash.RecurringExpenseUpdated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
@@ -135,9 +166,29 @@ public class RecurringExpensesModel(
     [RequireManage]
     public async Task<IActionResult> OnPostDeactivateAsync(Guid recurringExpenseId)
     {
-        await expenseCommands.DeactivateRecurringExpenseAsync(recurringExpenseId);
+        try
+        {
+            await recurringCommands.EndAsync(HouseholdId, recurringExpenseId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToPage(new { householdId = HouseholdId });
+        }
+        catch (Exception ex) when (ex is StreamLockedException or JasperFx.ConcurrencyException)
+        {
+            TempData["Error"] = Loc["Expenses.Plan.Busy"].Value;
+            return RedirectToPage(new { householdId = HouseholdId });
+        }
+
         TempData["Success"] = Loc["Flash.RecurringExpenseDeactivated"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
+    }
+
+    private static RecurrenceSchedule ScheduleFrom(RecurrenceFrequency frequency, DateTimeOffset startAt)
+    {
+        var utc = startAt.UtcDateTime;
+        return new RecurrenceSchedule(frequency, DateOnly.FromDateTime(utc), TimeOnly.FromDateTime(utc));
     }
 
     private async Task Load()

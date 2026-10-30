@@ -36,6 +36,16 @@
             : string.Format(L["Expenses.Activity.PlanCancelled"].Value, Model.ActorDisplayName, Model.Description),
         ActivityKind.InstallmentPlanEdited => string.Format(L["Expenses.Activity.PlanEdited"].Value,
             Model.ActorDisplayName, Model.Description),
+        ActivityKind.RecurringExpenseCreated => string.Format(L["Expenses.Activity.RecurringCreated"].Value,
+            Model.ActorDisplayName, Model.Description, L[$"Expenses.Frequency.{Model.Frequency}"].Value, Money(Model.AmountCents)),
+        ActivityKind.RecurringExpenseEdited when Model.AmountCents > Model.ReferenceCents => string.Format(L["Expenses.Activity.RecurringRaised"].Value,
+            Model.ActorDisplayName, Model.Description, Money(Model.AmountCents)),
+        ActivityKind.RecurringExpenseEdited when Model.AmountCents < Model.ReferenceCents => string.Format(L["Expenses.Activity.RecurringLowered"].Value,
+            Model.ActorDisplayName, Model.Description, Money(Model.AmountCents)),
+        ActivityKind.RecurringExpenseEdited => string.Format(L["Expenses.Activity.RecurringEdited"].Value,
+            Model.ActorDisplayName, Model.Description),
+        ActivityKind.RecurringExpenseEnded => string.Format(L["Expenses.Activity.RecurringEnded"].Value,
+            Model.ActorDisplayName, Model.Description),
         _ => Model.Description
     };
 }

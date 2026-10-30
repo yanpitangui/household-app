@@ -42,11 +42,8 @@ public static class SchedulerModule
         });
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
-        services.AddScoped<IRecurringJobScheduler, QuartzRecurringJobScheduler>();
-        services.AddSingleton<RecurringJobReconciler>();
         // Registered after Quartz's hosted service, so the scheduler is built before the jobs are written.
         services.AddHostedService<SchedulerStartup>();
-        services.AddScheduledJob<RecurringJobReconcileJob>(RecurringJobReconcileJob.Name, RecurringJobReconcileJob.Cron);
         return services;
     }
 }

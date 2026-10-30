@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
@@ -19,8 +20,11 @@ public sealed class UpcomingBuilderTests
         Segments = [new SplitSegment(1, [new Allocation(Ana, 75000), new Allocation(Leo, 75000)])]
     };
 
-    private static RecurringTemplate Template(RecurrenceFrequency frequency, string cron, long cents = 8000) => new(
-        Guid.NewGuid(), "Cleaning", Group, frequency, cron,
+    private static RecurrenceSchedule Schedule(RecurrenceFrequency frequency, int y, int m, int d) =>
+        new(frequency, new DateOnly(y, m, d), new TimeOnly(9, 0));
+
+    private static RecurringTemplate Template(RecurrenceSchedule schedule, long cents = 8000) => new(
+        Guid.NewGuid(), "Cleaning", Group, schedule,
         [new FundingSource(Ana, cents)], [new Allocation(Ana, cents / 2), new Allocation(Leo, cents / 2)]);
 
     [Test]
@@ -83,20 +87,9 @@ public sealed class UpcomingBuilderTests
     }
 
     [Test]
-    public async Task A_template_with_an_unreadable_cron_is_skipped()
-    {
-        var bad = Template(RecurrenceFrequency.Monthly, "not a cron");
-        var good = Template(RecurrenceFrequency.Annually, "0 9 15 11 *");
-
-        var summary = UpcomingBuilder.Build([], [bad, good], Now, Leo);
-
-        await Assert.That(summary.Items.Select(i => i.SourceId)).IsEquivalentTo(new[] { good.Id });
-    }
-
-    [Test]
     public async Task Weekly_templates_fold_into_one_row_with_a_count()
     {
-        var weekly = Template(RecurrenceFrequency.Weekly, "0 9 * * 6"); // Saturdays 09:00
+        var weekly = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 31)); // Saturdays 09:00
 
         var summary = UpcomingBuilder.Build([], [weekly], Now, Leo);
 
@@ -110,8 +103,8 @@ public sealed class UpcomingBuilderTests
     [Test]
     public async Task Annual_templates_appear_only_in_their_month()
     {
-        var inWindow = Template(RecurrenceFrequency.Annually, "0 9 15 11 *");
-        var outOfWindow = Template(RecurrenceFrequency.Annually, "0 9 15 3 *");
+        var inWindow = Template(Schedule(RecurrenceFrequency.Annually, 2026, 11, 15));
+        var outOfWindow = Template(Schedule(RecurrenceFrequency.Annually, 2026, 3, 15));
 
         var summary = UpcomingBuilder.Build([], [inWindow, outOfWindow], Now, Leo);
 
@@ -121,7 +114,7 @@ public sealed class UpcomingBuilderTests
     [Test]
     public async Task An_occurrence_earlier_today_already_fired_and_is_left_out()
     {
-        var thursdays = Template(RecurrenceFrequency.Weekly, "0 9 * * 4"); // today (Thu) 09:00 < now 12:00
+        var thursdays = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 29)); // today (Thu) 09:00 < now 12:00
 
         var summary = UpcomingBuilder.Build([], [thursdays], Now, Leo);
 
@@ -134,12 +127,23 @@ public sealed class UpcomingBuilderTests
     public async Task Totals_sum_every_row_and_rows_sort_by_date()
     {
         var plan = Plan(new DateOnly(2026, 10, 10));
-        var weekly = Template(RecurrenceFrequency.Weekly, "0 9 * * 6");
+        var weekly = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 31));
 
         var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [weekly], Now, Leo);
 
         await Assert.That(summary.TotalCents).IsEqualTo(62000L);
         await Assert.That(summary.ViewerShareCents).IsEqualTo(31000L);
         await Assert.That(summary.Items[0].Source).IsEqualTo(UpcomingSource.Recurring);
+    }
+
+    [Test]
+    public async Task A_template_on_the_31st_lands_on_the_last_day_of_a_shorter_month()
+    {
+        var monthEnd = Template(Schedule(RecurrenceFrequency.Monthly, 2026, 1, 31));
+        var now = new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+
+        var summary = UpcomingBuilder.Build([], [monthEnd], now, Leo);
+
+        await Assert.That(summary.Items.Single().FirstDate).IsEqualTo(new DateOnly(2026, 11, 30));
     }
 }

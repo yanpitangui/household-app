@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using Dapper;
 using HouseholdApp.Application.Modules.Tasks.Application.Operations;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
@@ -82,14 +83,15 @@ public sealed class TaskQueryServiceTests(PostgresFixture db)
         await using var conn = await db.DataSource.OpenConnectionAsync();
 
         await conn.ExecuteAsync(
-            "INSERT INTO tasks.recurring_tasks (id, household_id, title, cron_expression, is_active) VALUES (@id, @householdId, 'Weekly clean', '0 9 * * 1', true)",
+            "INSERT INTO tasks.recurring_tasks (id, household_id, title, frequency, first_date, run_time, is_active) VALUES (@id, @householdId, 'Weekly clean', 'Weekly', '2026-11-09', '09:00', true)",
             new { id = Guid.NewGuid(), householdId });
 
         var result = await _sut.ListRecurringAsync(householdId);
 
         await Assert.That(result.Count).IsEqualTo(1);
         await Assert.That(result[0].Title).IsEqualTo("Weekly clean");
-        await Assert.That(result[0].CronExpression).IsEqualTo("0 9 * * 1");
+        await Assert.That(result[0].Schedule).IsEqualTo(
+            new RecurrenceSchedule(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, 9), new TimeOnly(9, 0)));
         await Assert.That(result[0].IsActive).IsTrue();
     }
 }

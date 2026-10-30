@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Domain;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Ports;
 
@@ -24,7 +25,9 @@ public sealed record ActivityFeedItem(
     long? AmountCents = null,
     long? ReferenceCents = null,
     int? VoidedCount = null,
-    long? DownPaymentCents = null);
+    long? DownPaymentCents = null,
+    Guid? RecurringExpenseId = null,
+    RecurrenceFrequency? Frequency = null);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,

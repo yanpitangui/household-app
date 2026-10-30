@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using Dapper;
 using TUnit.Core.Interfaces;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
@@ -18,7 +19,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
-        new(querySession, db.DataSource, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), TimeProvider.System);
+        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), TimeProvider.System);
 
     private async Task InsertUsersAsync(params Guid[] ids)
     {
@@ -102,33 +103,35 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await Assert.That(results).IsEmpty();
     }
 
+    private async Task<Guid> StartTemplateAsync(
+        Guid householdId, Guid groupId, string description, RecurrenceSchedule schedule)
+    {
+        var userId = Guid.NewGuid();
+        var template = RecurringExpense.Create(
+            householdId, groupId, description, [new FundingSource(userId, 100_00)], [new Allocation(userId, 100_00)],
+            schedule, catchUp: false, new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero), userId);
+        await using var s = Store.LightweightSession();
+        s.Events.StartStream(template.Id, template.DomainEvents.ToArray());
+        await s.SaveChangesAsync();
+        return template.Id;
+    }
+
     [Test]
     public async Task ListRecurringExpensesAsync_returns_recurring_expenses_with_correct_fields()
     {
         var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        var startAt = new DateTimeOffset(2026, 7, 1, 9, 0, 0, TimeSpan.Zero);
-        var cron = RecurringExpense.ComputeCron(RecurrenceFrequency.Monthly, startAt);
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            """
-            INSERT INTO expenses.recurring_expenses
-                (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression, is_active, funding_sources, allocations)
-            VALUES
-                (@HouseholdId, @GroupId, 'Rent', 'Monthly', @StartAt, @Cron, true, '[]', '[]')
-            """,
-            new { HouseholdId = householdId, GroupId = groupId, StartAt = startAt, Cron = cron });
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 7, 1), new TimeOnly(9, 0));
+        var id = await StartTemplateAsync(householdId, groupId, "Rent", schedule);
 
         await using var qs = Store.QuerySession();
         var results = await BuildSut(qs).ListRecurringExpensesAsync(householdId);
 
         await Assert.That(results.Count).IsEqualTo(1);
         var item = results[0];
+        await Assert.That(item.Id).IsEqualTo(id);
         await Assert.That(item.Description).IsEqualTo("Rent");
-        await Assert.That(item.Frequency).IsEqualTo(RecurrenceFrequency.Monthly);
-        await Assert.That(item.StartAt).IsEqualTo(startAt);
+        await Assert.That(item.Schedule).IsEqualTo(schedule);
         await Assert.That(item.IsActive).IsTrue();
         await Assert.That(item.ExpenseGroupId).IsEqualTo(groupId);
     }
@@ -139,19 +142,9 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var householdA = Guid.NewGuid();
         var householdB = Guid.NewGuid();
         var groupId = Guid.NewGuid();
-        var startAt = new DateTimeOffset(2026, 6, 1, 8, 0, 0, TimeSpan.Zero);
-        var cron = RecurringExpense.ComputeCron(RecurrenceFrequency.Annually, startAt);
-
-        await using var conn = await db.DataSource.OpenConnectionAsync();
-        await conn.ExecuteAsync(
-            """
-            INSERT INTO expenses.recurring_expenses
-                (household_id, expense_group_id, description, recurrence_frequency, start_at, cron_expression, is_active, funding_sources, allocations)
-            VALUES
-                (@H, @G, 'A-expense', 'Annually', @S, @C, true, '[]', '[]'),
-                (@HB, @G, 'B-expense', 'Annually', @S, @C, true, '[]', '[]')
-            """,
-            new { H = householdA, HB = householdB, G = groupId, S = startAt, C = cron });
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Annually, new DateOnly(2026, 6, 1), new TimeOnly(8, 0));
+        await StartTemplateAsync(householdA, groupId, "A-expense", schedule);
+        await StartTemplateAsync(householdB, groupId, "B-expense", schedule);
 
         await using var qs = Store.QuerySession();
         var results = await BuildSut(qs).ListRecurringExpensesAsync(householdA);
@@ -595,9 +588,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await using (var s = Store.LightweightSession())
         {
             var commands = new ExpenseCommandService(
-                s, new FakeCurrentUser(sc.Leo), new ThrowingRecurringExpenseRepository(),
-                new ThrowingRecurringJobScheduler(), new ThrowingUnitOfWork(), new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(1)),
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<ExpenseCommandService>.Instance);
+                s, new FakeCurrentUser(sc.Leo), new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(1)));
             leadId = await commands.RecordHouseholdSettlementAsync(sc.HouseholdId, sc.Leo, sc.Ana, 40, DateTimeOffset.UtcNow);
         }
 

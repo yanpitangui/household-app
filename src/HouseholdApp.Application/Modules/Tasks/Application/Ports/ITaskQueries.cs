@@ -1,3 +1,5 @@
+using HouseholdApp.Application.Shared.Domain;
+
 namespace HouseholdApp.Application.Modules.Tasks.Application.Ports;
 
 public sealed record TaskSummary(
@@ -6,7 +8,7 @@ public sealed record TaskSummary(
 
 public sealed record RecurringTaskSummary(
     Guid Id, string Title, string? Description,
-    Guid? DefaultAssignedTo, string CronExpression, bool IsActive, DateTimeOffset? NextRunAt);
+    Guid? DefaultAssignedTo, RecurrenceSchedule Schedule, bool IsActive, DateTimeOffset? NextRunAt);
 
 public interface ITaskQueries
 {

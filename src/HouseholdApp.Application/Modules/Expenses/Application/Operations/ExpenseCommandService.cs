@@ -1,25 +1,18 @@
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
-using HouseholdApp.Application.Modules.Expenses.Infrastructure.Jobs;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
-using HouseholdApp.Application.Shared.Persistence;
-using HouseholdApp.Application.Shared.Scheduler;
 using Marten;
 using Marten.Patching;
-using Microsoft.Extensions.Logging;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 public sealed class ExpenseCommandService(
     IDocumentSession session,
     ICurrentUser currentUser,
-    IRecurringExpenseRepository recurringRepo,
-    IRecurringJobScheduler scheduler,
-    IUnitOfWork uow,
-    TimeProvider time,
-    ILogger<ExpenseCommandService> logger) : IExpenseCommands
+    TimeProvider time) : IExpenseCommands
 {
     public async Task<Guid> RecordExpenseAsync(
         Guid householdId, Guid expenseGroupId, string description, DateTimeOffset date,
@@ -211,89 +204,9 @@ public sealed class ExpenseCommandService(
             throw new InvalidOperationException("Expense group is deleted.");
     }
 
-    public async Task<Guid> CreateRecurringExpenseAsync(
-        Guid householdId, Guid expenseGroupId, string description,
-        RecurrenceFrequency frequency, DateTimeOffset startAt,
-        IReadOnlyList<FundingSourceDto> defaultFundingSources,
-        IReadOnlyList<AllocationDto> defaultAllocations,
-        CancellationToken ct = default)
-    {
-        await EnsureActiveOwnedGroupAsync(householdId, expenseGroupId, ct);
-        var recurring = RecurringExpense.Create(
-            householdId, expenseGroupId, description,
-            ToDomain(defaultFundingSources), ToDomain(defaultAllocations),
-            frequency, startAt);
-
-        await uow.BeginTransactionAsync(ct);
-        await recurringRepo.SaveAsync(recurring, ct);
-        await uow.CommitAsync(ct);
-
-        await ScheduleAsync(recurring, ct);
-        return recurring.Id;
-    }
-
-    public async Task UpdateRecurringExpenseAsync(
-        Guid recurringExpenseId, string description,
-        RecurrenceFrequency frequency, DateTimeOffset startAt,
-        IReadOnlyList<FundingSourceDto> defaultFundingSources,
-        IReadOnlyList<AllocationDto> defaultAllocations,
-        CancellationToken ct = default)
-    {
-        var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct)
-            ?? throw new InvalidOperationException("Recurring expense not found.");
-
-        recurring.Update(
-            frequency, startAt, description,
-            ToDomain(defaultFundingSources), ToDomain(defaultAllocations));
-
-        await uow.BeginTransactionAsync(ct);
-        await recurringRepo.SaveAsync(recurring, ct);
-        await uow.CommitAsync(ct);
-
-        // A deactivated template keeps its edits without a schedule.
-        if (recurring.IsActive)
-            await ScheduleAsync(recurring, ct);
-    }
-
     private static List<FundingSource> ToDomain(IReadOnlyList<FundingSourceDto> dtos) =>
         dtos.Select(f => new FundingSource(f.UserId, f.Cents)).ToList();
 
     private static List<Allocation> ToDomain(IReadOnlyList<AllocationDto> dtos) =>
         dtos.Select(a => new Allocation(a.UserId, a.Cents)).ToList();
-
-    // The schedule follows the committed template; scheduling again replaces the template's previous cron.
-    private Task ScheduleAsync(RecurringExpense recurring, CancellationToken ct) =>
-        scheduler.ScheduleAsync(RecurringExpenseJobs.Name, recurring.Id, recurring.CronExpression, ct);
-
-    public async Task SpawnRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default)
-    {
-        var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct);
-        if (recurring is null || !recurring.IsActive) return;
-
-        var group = await session.LoadAsync<ExpenseGroupDocument>(recurring.ExpenseGroupId, ct);
-        if (group?.DeletedAt is not null)
-        {
-            logger.LogInformation(
-                "Skipping recurring expense {RecurringExpenseId}: group {GroupId} is deleted",
-                recurringExpenseId, recurring.ExpenseGroupId);
-            return;
-        }
-
-        var expense = recurring.Spawn(time.GetUtcNow());
-        session.Events.Append(expense.Id, expense.DomainEvents.ToArray());
-        await session.SaveChangesAsync(ct);
-    }
-
-    public async Task DeactivateRecurringExpenseAsync(Guid recurringExpenseId, CancellationToken ct = default)
-    {
-        await uow.BeginTransactionAsync(ct);
-        var recurring = await recurringRepo.GetAsync(recurringExpenseId, ct)
-            ?? throw new InvalidOperationException("Recurring expense not found.");
-
-        recurring.Deactivate();
-        await recurringRepo.SaveAsync(recurring, ct);
-        await uow.CommitAsync(ct);
-
-        await scheduler.UnscheduleAsync(RecurringExpenseJobs.Name, recurringExpenseId, ct);
-    }
 }
