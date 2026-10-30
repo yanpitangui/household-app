@@ -18,6 +18,7 @@ using HouseholdApp.Application.Modules.Tasks;
 using HouseholdApp.Application.Modules.Tasks.Domain;
 using HouseholdApp.Application.Modules.Recipes.Domain;
 using HouseholdApp.Application.Modules.Expenses.Domain;
+using HouseholdApp.Migrations;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Scheduler;
@@ -277,6 +278,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+
+// DbUp applies the Dapper modules' scripts before hosted services start, so the scheduler and module jobs find their tables.
+if (!DatabaseMigrator.Migrate(connStr))
+    throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
 
 app.UseForwardedHeaders();
 

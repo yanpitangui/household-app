@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HouseholdApp.Application\HouseholdApp.Application.csproj" />
+    <ProjectReference Include="..\HouseholdApp.Migrations\HouseholdApp.Migrations.csproj" />
     <ProjectReference Include="..\HouseholdApp.ServiceDefaults\HouseholdApp.ServiceDefaults.csproj" />
   </ItemGroup>
 

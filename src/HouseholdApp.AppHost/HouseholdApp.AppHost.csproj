@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HouseholdApp.Web\HouseholdApp.Web.csproj" />
-    <ProjectReference Include="..\HouseholdApp.Migrator\HouseholdApp.Migrator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

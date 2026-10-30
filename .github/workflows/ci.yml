@@ -43,8 +43,17 @@ jobs:
           retention-days: 14
 
   test-e2e:
-    name: E2E Tests
+    name: E2E Tests (shard ${{ matrix.shard.id }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Classes tagged [Category(Shards.Second)] run in shard 2 and everything else in shard 1, so a new class always runs.
+        shard:
+          - id: 1
+            filter: "/*/*/*/*[Category!=E2EShard2]"
+          - id: 2
+            filter: "/*/*/*/*[Category=E2EShard2]"
 
     steps:
       - uses: actions/checkout@v4
@@ -58,8 +67,10 @@ jobs:
       - name: Restore
         run: dotnet restore tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj
 
+      # Release so the web app Aspire launches (same configuration as the test build) runs optimized code
+      # on the small runner, where test execution dominates the job.
       - name: Test
-        run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore
+        run: dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj --no-restore -c Release --treenode-filter "${{ matrix.shard.filter }}"
         env:
           # Failing tests keep a video of each browser context here (passing tests' videos are deleted).
           E2E_VIDEO_DIR: ${{ github.workspace }}/e2e-videos
@@ -68,7 +79,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-failure-videos
+          name: e2e-failure-videos-${{ matrix.shard.id }}
           path: e2e-videos/
           if-no-files-found: ignore
           retention-days: 14
@@ -77,8 +88,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-report
-          path: tests/HouseholdApp.E2ETests/bin/Debug/net11.0/TestResults/*.html
+          name: e2e-test-report-${{ matrix.shard.id }}
+          path: TestResults/*.html
           retention-days: 14
 
   docker:

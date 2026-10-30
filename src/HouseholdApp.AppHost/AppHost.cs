@@ -16,14 +16,10 @@ var appDb = postgres.AddDatabase("householdapp");
 
 var redis = builder.AddRedis("redis");
 
-var migrator = builder.AddProject<Projects.HouseholdApp_Migrator>("migrator")
-    .WithReference(appDb)
-    .WaitFor(postgres);
-
 builder.AddProject<Projects.HouseholdApp_Web>("web")
     .WithReference(appDb)
     .WithReference(redis)
-    .WaitForCompletion(migrator)
+    .WaitFor(postgres)
     .WaitFor(redis)
     .WithHttpEndpoint(port: 9000, name: "http")
     .WithHttpHealthCheck("/health", endpointName: "http")

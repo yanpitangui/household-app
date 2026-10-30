@@ -17,9 +17,10 @@ public class ListsTests(PlaywrightFixture pw)
 
         var listName = $"Weekly groceries {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
 
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
 
         await Assert.That(await page.Locator($"text={listName}").IsVisibleAsync()).IsTrue();
@@ -35,8 +36,9 @@ public class ListsTests(PlaywrightFixture pw)
         var listName = $"Delete list {Guid.NewGuid().ToString("N")[..8]}";
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         await Assert.That(await page.Locator($"text={listName}").IsVisibleAsync()).IsTrue();
@@ -283,9 +285,6 @@ public class ListsTests(PlaywrightFixture pw)
         var page = await ctx.NewPageAsync();
         await NavigateToListAsync(page, householdId);
 
-        // Bootstrap dropdown click+animation is flaky in headless Playwright (see the
-        // pre-existing desktop-category-picker comments in this file) — invoke the JS API
-        // directly instead of clicking the ⋯ toggle button.
         await OpenListOptionsMenuAndClickAsync(page, "button:has-text('Manage categories')");
         await page.WaitForFunctionAsync("document.getElementById('category-manage-dialog').open === true",
             null, new PageWaitForFunctionOptions { Timeout = 5_000 });
@@ -427,29 +426,33 @@ public class ListsTests(PlaywrightFixture pw)
         ).IsTrue();
     }
 
-    // The list detail page's SSE stream (`ListStreamEndpoints`) fully re-renders `#items-list-sse`
-    // — including the `.list-options-menu` "⋯" dropdown — on every push, and the very first push
-    // (sent right after the SSE connection opens) can land at any point after page load, especially
-    // under load. If that swap lands between opening the Bootstrap dropdown via JS and clicking an
-    // item inside it, the freshly-rendered menu node is replaced/closed and the click never lands
-    // (confirmed by observing the dropdown's `show` class getting wiped ~250-300ms after opening in
-    // isolation, and by seeing it happen much later mid-test under load). Retrying the whole
-    // open+click cycle handles the race regardless of when it lands, without a blind sleep.
+    [Test]
+    public async Task Options_menu_stays_open_when_list_updates_live()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Lists HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page1 = await ctx.NewPageAsync();
+        await NavigateToListAsync(page1, householdId);
+        var page2 = await ctx.NewPageAsync();
+        await page2.GotoAsync(page1.Url);
+
+        await page1.Locator(".list-options-menu > button").ClickAsync();
+        var menu = page1.Locator(".list-options-menu .dropdown-menu");
+        await menu.WaitForAsync();
+
+        var itemName = $"LiveItem{Guid.NewGuid().ToString("N")[..6]}";
+        await TypeIntoItemInput(page2, itemName);
+        await SubmitAddItemFormAsync(page2);
+        await page1.Locator(".check-item-text").Filter(new LocatorFilterOptions { HasText = itemName })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await Assert.That(await menu.IsVisibleAsync()).IsTrue();
+    }
+
     private static async Task OpenListOptionsMenuAndClickAsync(IPage page, string itemSelector)
     {
-        for (var attempt = 1; ; attempt++)
-        {
-            await page.EvaluateAsync("bootstrap.Dropdown.getOrCreateInstance(document.querySelector('.list-options-menu > button')).show()");
-            try
-            {
-                await page.ClickAsync(itemSelector, new PageClickOptions { Timeout = 1_500 });
-                return;
-            }
-            catch (TimeoutException) when (attempt < 20)
-            {
-                // dropdown got swapped out from under us by an SSE re-render — retry
-            }
-        }
+        await page.Locator(".list-options-menu > button").ClickAsync();
+        await page.ClickAsync(itemSelector);
     }
 
     private static async Task TypeIntoItemInput(IPage page, string text)
@@ -468,7 +471,8 @@ public class ListsTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/lists");
         var listName = $"E2E List {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button:has-text('Create')");
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button:has-text('Create')"),
+            new() { UrlString = "**/lists/**" });
     }
 }

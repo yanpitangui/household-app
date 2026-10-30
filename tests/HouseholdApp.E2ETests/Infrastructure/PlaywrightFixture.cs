@@ -75,13 +75,13 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     private async Task LoginAsync(IPage page)
     {
         Console.WriteLine($"[E2E] Navigating to {AppUrl}/households ...");
-        await page.GotoAsync($"{AppUrl}/households", new PageGotoOptions
-        {
-            WaitUntil = WaitUntilState.Commit,
-            Timeout = 60_000,
-        });
-        Console.WriteLine($"[E2E] Committed, current URL = {page.Url}");
-        await page.WaitForURLAsync($"{AppUrl}/households", new PageWaitForURLOptions { Timeout = 90_000 });
+        await page.RunAndWaitForNavigationAsync(
+            () => page.GotoAsync($"{AppUrl}/households", new PageGotoOptions
+            {
+                WaitUntil = WaitUntilState.Commit,
+                Timeout = 60_000,
+            }),
+            new() { UrlString = $"{AppUrl}/households", Timeout = 90_000 });
         Console.WriteLine($"[E2E] Login complete");
     }
 
@@ -139,8 +139,9 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
         var page = await ctx.NewPageAsync();
         await page.GotoAsync($"{AppUrl}/households/create");
         await page.FillAsync("input[name='Name']", name);
-        await page.ClickAsync("button[type='submit']");
-        await page.WaitForURLAsync("**/h/**", new PageWaitForURLOptions { Timeout = 60_000 });
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']"),
+            new() { UrlString = "**/h/**", Timeout = 60_000 });
         var segments = new Uri(page.Url).Segments;
         var id = Guid.Parse(segments.Last().TrimEnd('/'));
         await page.CloseAsync();

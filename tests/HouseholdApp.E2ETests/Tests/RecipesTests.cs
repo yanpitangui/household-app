@@ -4,6 +4,7 @@ using Microsoft.Playwright;
 namespace HouseholdApp.E2ETests.Tests;
 
 [ClassDataSource<PlaywrightFixture>(Shared = SharedType.PerClass)]
+[Category(Shards.Second)]
 public class RecipesTests(PlaywrightFixture pw)
 {
     [Test]
@@ -69,8 +70,9 @@ public class RecipesTests(PlaywrightFixture pw)
 
         var listName = $"My List {Guid.NewGuid().ToString("N")[..6]}";
         await page.FillAsync("input[name='NewListName']", listName);
-        await page.ClickAsync("button[type='submit']");
-        await page.WaitForURLAsync("**/lists/**");
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("button[type='submit']"),
+            new() { UrlString = "**/lists/**" });
 
         await Assert.That(await page.Locator(".check-item-text", new() { HasText = "eggs" }).IsVisibleAsync()).IsTrue();
     }
