@@ -20,7 +20,7 @@
                 <a class="page-menu-item" asp-page="EditGroup" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@Model.GroupId">✏️ @L["Expenses.Group.Edit"]</a>
                 <form method="post" asp-page-handler="Delete" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@Model.GroupId">
                     <button type="submit" class="page-menu-item danger"
-                            data-confirm="@L["Confirm.DeleteGroup", Model.Group.Name]">🗑 @L["Expenses.Group.Delete"]</button>
+                            data-confirm="@Model.DeleteConfirm">🗑 @L["Expenses.Group.Delete"]</button>
                 </form>
             </div>
         </details>

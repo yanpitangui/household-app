@@ -104,6 +104,18 @@ public sealed class RecurringExpenseTests
     }
 
     [Test]
+    public async Task MarkOccurred_skipped_advances_and_flags_the_event()
+    {
+        var template = Create(Monthly(2026, 10, 31), catchUp: true);
+
+        template.MarkOccurred(new DateOnly(2026, 10, 31), Now, skipped: true);
+
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero));
+        var occurred = template.DomainEvents.OfType<RecurringExpenseOccurred>().Last();
+        await Assert.That(occurred.Skipped).IsTrue();
+    }
+
+    [Test]
     public async Task BuildExpense_uses_the_derived_id_and_the_occurrence_date()
     {
         var template = Create(Monthly(2026, 11, 1), catchUp: true);

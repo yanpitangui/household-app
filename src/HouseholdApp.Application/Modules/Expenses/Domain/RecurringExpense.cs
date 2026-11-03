@@ -63,10 +63,10 @@ public sealed class RecurringExpense : AggregateRoot
             id: RecurrenceSchedule.OccurrenceId(Id, date), recurringExpenseId: Id,
             coveredByPlanEvent: coveredByCreatedEvent);
 
-    public void MarkOccurred(DateOnly date, DateTimeOffset now)
+    public void MarkOccurred(DateOnly date, DateTimeOffset now, bool skipped = false)
     {
         var next = Schedule.NextAfter(new DateTimeOffset(date, Schedule.Time, TimeSpan.Zero));
-        var occurred = new RecurringExpenseOccurred(Guid.CreateVersion7(), now, Id, HouseholdId, date, next);
+        var occurred = new RecurringExpenseOccurred(Guid.CreateVersion7(), now, Id, HouseholdId, date, next, skipped);
         Apply(occurred);
         Raise(occurred);
     }

@@ -38,7 +38,9 @@ public sealed record RecurringExpenseOccurred(
     Guid RecurringExpenseId,
     Guid HouseholdId,
     DateOnly OccurrenceDate,
-    DateTimeOffset NextOccurrenceAt) : IDomainEvent;
+    DateTimeOffset NextOccurrenceAt,
+    // True when the date passed while the template's group was deleted, so no Expense was created for it.
+    bool Skipped = false) : IDomainEvent;
 
 public sealed record RecurringExpenseEnded(
     Guid EventId,

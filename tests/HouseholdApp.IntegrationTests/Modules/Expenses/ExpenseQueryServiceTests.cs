@@ -163,6 +163,29 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     }
 
     [Test]
+    public async Task Group_schedule_counts_count_active_recurring_and_active_plans()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var otherGroupId = Guid.NewGuid();
+        await SeedGroupAsync(householdId, groupId, "Home");
+        await SeedGroupAsync(householdId, otherGroupId, "Trip");
+        await StartTemplateAsync(householdId, groupId, "Rent", new DateOnly(2026, 11, 15));
+        await StartTemplateAsync(householdId, groupId, "Gym", new DateOnly(2026, 11, 20), pause: true);
+        await StartTemplateAsync(
+            householdId, groupId, "Streaming", new DateOnly(2026, 10, 20), createdAt: Now.AddDays(-30), end: true);
+        await CreatePlanAsync(householdId, groupId, "Sofa", new DateOnly(2026, 11, 12));
+        await CreatePlanAsync(householdId, groupId, "Laptop", new DateOnly(2026, 12, 1), cancel: true);
+        await StartTemplateAsync(householdId, otherGroupId, "Hotel", new DateOnly(2026, 11, 18));
+
+        await using var qs = Store.QuerySession();
+        var counts = await BuildSutAt(qs, Now).GetGroupScheduleCountsAsync(householdId, groupId);
+
+        await Assert.That(counts.ActiveRecurring).IsEqualTo(1);
+        await Assert.That(counts.ActivePlans).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task Plans_and_recurring_list_orders_active_by_next_date_then_paused_then_ended()
     {
         var householdId = Guid.NewGuid();

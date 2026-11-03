@@ -192,17 +192,33 @@ public sealed class RecurringExpenseCommandServiceTests(PostgresFixture db)
     }
 
     [Test]
-    public async Task Sweep_waits_while_the_group_is_deleted_and_creates_what_was_missed_after_restore()
+    public async Task Sweep_skips_dates_while_the_group_is_deleted_and_continues_after_restore()
     {
         var id = await CreateAsync(Monthly(2026, 11, 20));
         await SetGroupDeletedAsync(new DateTimeOffset(2026, 11, 19, 0, 0, 0, TimeSpan.Zero));
 
         await SweepAsync(new DateTimeOffset(2026, 12, 21, 0, 0, 0, TimeSpan.Zero));
         await Assert.That(await ExpensesAsync(id)).IsEmpty();
+        await Assert.That((await DocumentAsync(id)).NextOccurrenceAt)
+            .IsEqualTo(new DateTimeOffset(2027, 1, 20, 9, 0, 0, TimeSpan.Zero));
+        await using (var qs = Store.QuerySession())
+        {
+            var events = await qs.Events.FetchStreamAsync(id);
+            var skipped = events.Select(e => e.Data).OfType<RecurringExpenseOccurred>().Where(o => o.Skipped).ToList();
+            await Assert.That(skipped.Count).IsEqualTo(2);
+        }
+
+        await SweepAsync(new DateTimeOffset(2026, 12, 21, 0, 5, 0, TimeSpan.Zero));
+        await Assert.That(await ExpensesAsync(id)).IsEmpty();
 
         await SetGroupDeletedAsync(null);
-        await SweepAsync(new DateTimeOffset(2026, 12, 21, 0, 5, 0, TimeSpan.Zero));
-        await Assert.That((await ExpensesAsync(id)).Count).IsEqualTo(2);
+        await SweepAsync(new DateTimeOffset(2026, 12, 21, 0, 10, 0, TimeSpan.Zero));
+        await Assert.That(await ExpensesAsync(id)).IsEmpty();
+
+        await SweepAsync(new DateTimeOffset(2027, 1, 21, 0, 0, 0, TimeSpan.Zero));
+        var expenses = await ExpensesAsync(id);
+        await Assert.That(expenses.Count).IsEqualTo(1);
+        await Assert.That(expenses[0].Date).IsEqualTo(new DateTimeOffset(2027, 1, 20, 0, 0, 0, TimeSpan.Zero));
     }
 
     [Test]
