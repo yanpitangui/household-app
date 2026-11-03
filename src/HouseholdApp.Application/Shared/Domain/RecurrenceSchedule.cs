@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace HouseholdApp.Application.Shared.Domain;
 
 /// <summary>
-/// When a recurring template fires, in UTC. Occurrence n is computed from <see cref="FirstDate"/>, never from the one
+/// When a recurring template fires, as wall-clock dates and a time of day (no zone; see <see cref="ZonedSchedule"/>). Occurrence n is computed from <see cref="FirstDate"/>, never from the one
 /// before it, so a shorter month cannot shift the months after it (31 Oct, 30 Nov, 31 Dec).
 /// </summary>
 public sealed record RecurrenceSchedule(RecurrenceFrequency Frequency, DateOnly FirstDate, TimeOnly Time)
@@ -20,30 +20,8 @@ public sealed record RecurrenceSchedule(RecurrenceFrequency Frequency, DateOnly 
         _ => throw new ArgumentOutOfRangeException(nameof(Frequency), Frequency, null)
     };
 
-    public DateTimeOffset At(int n) => new(DateOf(n), Time, TimeSpan.Zero);
-
-    public DateTimeOffset NextAfter(DateTimeOffset instant)
-    {
-        var n = LowerBoundIndex(instant);
-        while (At(n) <= instant) n++;
-        return At(n);
-    }
-
-    /// <summary>Occurrences after <paramref name="from"/> and before <paramref name="to"/>.</summary>
-    public IEnumerable<DateTimeOffset> Between(DateTimeOffset from, DateTimeOffset to)
-    {
-        var n = LowerBoundIndex(from);
-        while (At(n) <= from) n++;
-        for (; At(n) < to; n++) yield return At(n);
-    }
-
-    /// <summary>How many occurrences fall at or before <paramref name="instant"/>.</summary>
-    public int CountThrough(DateTimeOffset instant)
-    {
-        var n = LowerBoundIndex(instant);
-        while (At(n) <= instant) n++;
-        return n;
-    }
+    /// <summary>Reads the schedule on a zone's wall clock; every instant computation lives there.</summary>
+    public ZonedSchedule In(TimeZoneInfo zone) => new(this, zone);
 
     /// <summary>
     /// Stable id of what a template creates on a date (UUID version 8, SHA-256 of the template id and the date), so a
@@ -60,21 +38,5 @@ public sealed record RecurrenceSchedule(RecurrenceFrequency Frequency, DateOnly 
         hash[6] = (byte)((hash[6] & 0x0F) | 0x80);
         hash[8] = (byte)((hash[8] & 0x3F) | 0x80);
         return new Guid(hash[..16], bigEndian: true);
-    }
-
-    // An index at or before the occurrence wanted, close enough that callers only step forward a few times.
-    private int LowerBoundIndex(DateTimeOffset instant)
-    {
-        var days = DateOnly.FromDateTime(instant.UtcDateTime).DayNumber - FirstDate.DayNumber;
-        if (days <= 0) return 0;
-        return Frequency switch
-        {
-            RecurrenceFrequency.Daily => Math.Max(0, days - 1),
-            RecurrenceFrequency.Weekly => Math.Max(0, days / 7 - 1),
-            RecurrenceFrequency.Biweekly => Math.Max(0, days / 14 - 1),
-            RecurrenceFrequency.Monthly => days / 31,
-            RecurrenceFrequency.Annually => days / 366,
-            _ => throw new ArgumentOutOfRangeException(nameof(Frequency), Frequency, null)
-        };
     }
 }

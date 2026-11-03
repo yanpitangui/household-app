@@ -2,12 +2,14 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using Marten;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
 public sealed class ExpenseMemberRemovalService(
-    IDocumentSession session, IExpenseQueries queries, ICurrentUser currentUser, TimeProvider time) : IExpenseMemberRemoval
+    IDocumentSession session, IExpenseQueries queries, ICurrentUser currentUser, TimeProvider time,
+    IHouseholdClock clock) : IExpenseMemberRemoval
 {
     public async Task<ExpenseRemovalImpact> PreviewAsync(Guid householdId, Guid userId, CancellationToken ct = default)
     {
@@ -31,11 +33,12 @@ public sealed class ExpenseMemberRemovalService(
     public async Task ApplyAsync(Guid householdId, Guid userId, CancellationToken ct = default)
     {
         var now = time.GetUtcNow();
+        var zone = await clock.ZoneAsync(householdId, ct);
         foreach (var doc in await TemplatesWithAsync(householdId, userId, ct))
         {
             var stream = await session.Events.FetchForExclusiveWriting<RecurringExpense>(doc.Id, ct);
             if (stream.Aggregate is not { } template) continue;
-            if (template.RemoveMember(userId, now, currentUser.Id))
+            if (template.RemoveMember(userId, now, zone, currentUser.Id))
                 stream.AppendMany(template.DomainEvents.ToArray());
         }
         await session.SaveChangesAsync(ct);

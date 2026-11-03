@@ -4,8 +4,10 @@ using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
@@ -19,8 +21,12 @@ public sealed class RecurringExpenseStreamMigrationTests(PostgresFixture db)
     private readonly Guid _ana = Guid.NewGuid();
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString, "expenses_recurring_migration_test");
 
-    private RecurringExpenseStreamMigration BuildSut() =>
-        new(db.DataSource, Store, new FakeTimeProvider(Now), NullLogger<RecurringExpenseStreamMigration>.Instance);
+    private RecurringExpenseStreamMigration BuildSut(TimeZoneInfo? zone = null) =>
+        new(db.DataSource, Store, new FakeTimeProvider(Now),
+            new ServiceCollection()
+                .AddSingleton<IHouseholdClock>(new FakeHouseholdClock(new FakeTimeProvider(Now), zone))
+                .BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<RecurringExpenseStreamMigration>.Instance);
 
     private async Task<Guid> InsertRowAsync(string frequency, DateTimeOffset startAt, bool isActive = true)
     {
@@ -62,6 +68,21 @@ public sealed class RecurringExpenseStreamMigrationTests(PostgresFixture db)
         await Assert.That(doc.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero));
         await using var qs = Store.QuerySession();
         await Assert.That(await qs.Query<ExpenseReadModel>().Where(e => e.RecurringExpenseId == id).ToListAsync()).IsEmpty();
+    }
+
+    [Test]
+    public async Task A_row_is_read_on_the_household_wall_clock()
+    {
+        var saoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var id = await InsertRowAsync("Monthly", new DateTimeOffset(2026, 1, 5, 1, 0, 0, TimeSpan.Zero));
+
+        await BuildSut(saoPaulo).RunAsync(CancellationToken.None);
+
+        var doc = await DocumentAsync(id);
+        await Assert.That(doc!.ScheduleIsLocal).IsTrue();
+        await Assert.That(doc.Schedule).IsEqualTo(
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 1, 4), new TimeOnly(22, 0)));
+        await Assert.That(doc.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 12, 5, 1, 0, 0, TimeSpan.Zero));
     }
 
     [Test]

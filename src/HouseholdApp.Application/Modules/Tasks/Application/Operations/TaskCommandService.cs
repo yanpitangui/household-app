@@ -4,6 +4,7 @@ using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 
 namespace HouseholdApp.Application.Modules.Tasks.Application.Operations;
 
@@ -12,7 +13,8 @@ public sealed class TaskCommandService(
     IUnitOfWork uow,
     IEventBus eventBus,
     TimeProvider time,
-    ICurrentUser currentUser) : ITaskCommands
+    ICurrentUser currentUser,
+    IHouseholdClock clock) : ITaskCommands
 {
     public async Task<Guid> CreateTaskAsync(
         Guid householdId, string title, string? description,
@@ -69,7 +71,8 @@ public sealed class TaskCommandService(
             return;
         }
 
-        foreach (var task in recurring.SpawnDue(time.GetUtcNow()))
+        var zone = await clock.ZoneAsync(recurring.HouseholdId, ct);
+        foreach (var task in recurring.SpawnDue(time.GetUtcNow(), zone))
         {
             // A conflict is a retry of a date already created; its event went out then.
             if (await repo.TryInsertTaskAsync(task, ct))
@@ -93,7 +96,8 @@ public sealed class TaskCommandService(
         Guid householdId, string title, string? description,
         Guid? defaultAssignedTo, RecurrenceSchedule schedule, CancellationToken ct = default)
     {
-        var recurring = RecurringTask.Create(householdId, title, description, defaultAssignedTo, schedule, time.GetUtcNow());
+        var zone = await clock.ZoneAsync(householdId, ct);
+        var recurring = RecurringTask.Create(householdId, title, description, defaultAssignedTo, schedule, zone, time.GetUtcNow());
         await uow.BeginTransactionAsync(ct);
         await repo.SaveRecurringTaskAsync(recurring, ct);
         await uow.CommitAsync(ct);

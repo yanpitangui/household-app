@@ -128,7 +128,7 @@ internal sealed class TaskRepository(IUnitOfWork uow) : ITaskRepository
             var schedule = new RecurrenceSchedule(
                 Enum.Parse<RecurrenceFrequency>(Frequency), FirstDate, RunTime);
             return RecurringTask.Rehydrate(
-                Id, HouseholdId, Title, Description, DefaultAssignedTo, schedule, IsActive, NextRunAt ?? schedule.At(0));
+                Id, HouseholdId, Title, Description, DefaultAssignedTo, schedule, IsActive, NextRunAt ?? schedule.In(TimeZoneInfo.Utc).At(0));
         }
     }
 

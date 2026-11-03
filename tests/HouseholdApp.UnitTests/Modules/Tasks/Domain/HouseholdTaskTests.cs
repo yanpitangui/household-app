@@ -87,9 +87,9 @@ public sealed class HouseholdTaskTests
     public async Task RecurringTask_SpawnDue_creates_task_linked_to_recurring()
     {
         var schedule = new RecurrenceSchedule(RecurrenceFrequency.Weekly, DateOnly.FromDateTime(Now.UtcDateTime), TimeOnly.MinValue);
-        var recurring = RecurringTask.Create(HouseholdId, "Weekly cleaning", null, UserId, schedule, Now);
+        var recurring = RecurringTask.Create(HouseholdId, "Weekly cleaning", null, UserId, schedule, TimeZoneInfo.Utc, Now);
 
-        var spawned = recurring.SpawnDue(Now).Single();
+        var spawned = recurring.SpawnDue(Now, TimeZoneInfo.Utc).Single();
 
         await Assert.That(spawned.HouseholdId).IsEqualTo(HouseholdId);
         await Assert.That(spawned.Title).IsEqualTo("Weekly cleaning");

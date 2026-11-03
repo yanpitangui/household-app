@@ -16,7 +16,9 @@ public sealed record RecurringExpenseCreated(
     DateTimeOffset NextOccurrenceAt,
     Guid PerformedByUserId,
     // True for rows moved from the old table: they keep the template's history out of the feed and pushes.
-    bool Imported = false) : IDomainEvent;
+    bool Imported = false,
+    // True when Schedule's date and time are wall-clock in the household's zone (false: entered in UTC).
+    bool LocalTime = false) : IDomainEvent;
 
 public sealed record RecurringExpenseUpdated(
     Guid EventId,
@@ -30,7 +32,16 @@ public sealed record RecurringExpenseUpdated(
     RecurrenceSchedule Schedule,
     DateTimeOffset NextOccurrenceAt,
     long PreviousAmountCents,
-    Guid PerformedByUserId) : IDomainEvent;
+    Guid PerformedByUserId,
+    bool LocalTime = false) : IDomainEvent;
+
+// Moves a template entered in UTC to the household's wall clock, keeping its instants.
+public sealed record RecurringExpenseScheduleLocalized(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid RecurringExpenseId,
+    Guid HouseholdId,
+    RecurrenceSchedule Schedule) : IDomainEvent;
 
 public sealed record RecurringExpenseOccurred(
     Guid EventId,

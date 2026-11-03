@@ -9,6 +9,7 @@ public sealed class RecurringExpenseTests
     private static readonly Guid Group = Guid.NewGuid();
     private static readonly Guid Ana = Guid.NewGuid();
     private static readonly Guid Leo = Guid.NewGuid();
+    private static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
     private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly IReadOnlyList<FundingSource> Funding = [new(Ana, 100_00)];
@@ -18,13 +19,13 @@ public sealed class RecurringExpenseTests
         new(RecurrenceFrequency.Monthly, new DateOnly(y, m, d), new TimeOnly(hour, 0));
 
     private static RecurringExpense Create(RecurrenceSchedule schedule, bool catchUp = false) =>
-        RecurringExpense.Create(Household, Group, "Rent", Funding, Split, schedule, catchUp, Now, Ana);
+        RecurringExpense.Create(Household, Group, "Rent", Funding, Split, schedule, Utc, catchUp, Now, Ana);
 
     [Test]
     public async Task Create_rejects_funding_that_differs_from_allocations()
     {
         await Assert.That(() => RecurringExpense.Create(
-                Household, Group, "Rent", Funding, [new Allocation(Ana, 1)], Monthly(2026, 12, 1), false, Now, Ana))
+                Household, Group, "Rent", Funding, [new Allocation(Ana, 1)], Monthly(2026, 12, 1), Utc, false, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
@@ -33,7 +34,7 @@ public sealed class RecurringExpenseTests
     {
         await Assert.That(() => RecurringExpense.Create(
                 Household, Group, "Rent", [new FundingSource(Ana, 0)], [new Allocation(Ana, 0)], Monthly(2026, 12, 1),
-                false, Now, Ana))
+                Utc, false, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
@@ -43,7 +44,7 @@ public sealed class RecurringExpenseTests
         var template = Create(Monthly(2026, 12, 1));
 
         await Assert.That(() => template.Update(
-                "Rent", [new FundingSource(Ana, 0)], [new Allocation(Ana, 0)], Monthly(2026, 12, 1), Now, Ana))
+                "Rent", [new FundingSource(Ana, 0)], [new Allocation(Ana, 0)], Monthly(2026, 12, 1), Utc, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
@@ -60,7 +61,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 11, 10, hour: 9));
 
-        await Assert.That(template.DueOccurrences(Now).Count).IsEqualTo(1);
+        await Assert.That(template.DueOccurrences(Now, Utc).Count).IsEqualTo(1);
     }
 
     [Test]
@@ -69,7 +70,7 @@ public sealed class RecurringExpenseTests
         var template = Create(Monthly(2026, 1, 15));
 
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero));
-        await Assert.That(template.DueOccurrences(Now)).IsEmpty();
+        await Assert.That(template.DueOccurrences(Now, Utc)).IsEmpty();
     }
 
     [Test]
@@ -77,7 +78,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 9, 1), catchUp: true);
 
-        var due = template.DueOccurrences(Now);
+        var due = template.DueOccurrences(Now, Utc);
 
         await Assert.That(due).IsEquivalentTo(new[]
         {
@@ -98,7 +99,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 10, 31), catchUp: true);
 
-        template.MarkOccurred(new DateOnly(2026, 10, 31), Now);
+        template.MarkOccurred(new DateOnly(2026, 10, 31), Now, Utc);
 
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero));
     }
@@ -108,7 +109,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 10, 31), catchUp: true);
 
-        template.MarkOccurred(new DateOnly(2026, 10, 31), Now, skipped: true);
+        template.MarkOccurred(new DateOnly(2026, 10, 31), Now, Utc, skipped: true);
 
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero));
         var occurred = template.DomainEvents.OfType<RecurringExpenseOccurred>().Last();
@@ -135,7 +136,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 12, 1));
 
-        template.Update("Rent", Funding, Split, Monthly(2026, 11, 20), Now, Ana);
+        template.Update("Rent", Funding, Split, Monthly(2026, 11, 20), Utc, Now, Ana);
 
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
     }
@@ -147,7 +148,7 @@ public sealed class RecurringExpenseTests
         template.ClearEvents();
 
         template.Update("Rent", [new FundingSource(Ana, 120_00)],
-            [new Allocation(Ana, 60_00), new Allocation(Leo, 60_00)], Monthly(2026, 12, 1), Now, Ana);
+            [new Allocation(Ana, 60_00), new Allocation(Leo, 60_00)], Monthly(2026, 12, 1), Utc, Now, Ana);
 
         var updated = (RecurringExpenseUpdated)template.DomainEvents.Single();
         await Assert.That(updated.PreviousAmountCents).IsEqualTo(100_00);
@@ -159,9 +160,9 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 1, 15));
 
-        template.Update("Renamed", Funding, Split, Monthly(2026, 1, 15), Now, Ana);
+        template.Update("Renamed", Funding, Split, Monthly(2026, 1, 15), Utc, Now, Ana);
 
-        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 2, 15), Now, Ana))
+        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 2, 15), Utc, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
@@ -173,8 +174,8 @@ public sealed class RecurringExpenseTests
         template.End(Now, Ana);
 
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Ended);
-        await Assert.That(template.DueOccurrences(Now.AddYears(1))).IsEmpty();
-        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 12, 1), Now, Ana))
+        await Assert.That(template.DueOccurrences(Now.AddYears(1), Utc)).IsEmpty();
+        await Assert.That(() => template.Update("Rent", Funding, Split, Monthly(2026, 12, 1), Utc, Now, Ana))
             .Throws<InvalidOperationException>();
     }
 
@@ -186,7 +187,7 @@ public sealed class RecurringExpenseTests
         template.Pause(Now, Ana);
 
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
-        await Assert.That(template.DueOccurrences(Now.AddYears(1))).IsEmpty();
+        await Assert.That(template.DueOccurrences(Now.AddYears(1), Utc)).IsEmpty();
         await Assert.That(template.DomainEvents.OfType<RecurringExpensePaused>().Count()).IsEqualTo(1);
     }
 
@@ -195,10 +196,10 @@ public sealed class RecurringExpenseTests
     {
         var created = new DateTimeOffset(2026, 1, 10, 12, 0, 0, TimeSpan.Zero);
         var template = RecurringExpense.Create(
-            Household, Group, "Rent", Funding, Split, Monthly(2026, 1, 10), false, created, Ana);
+            Household, Group, "Rent", Funding, Split, Monthly(2026, 1, 10), Utc, false, created, Ana);
         template.Pause(new DateTimeOffset(2026, 1, 11, 12, 0, 0, TimeSpan.Zero), Ana);
 
-        template.Resume(new DateTimeOffset(2026, 3, 15, 12, 0, 0, TimeSpan.Zero), Ana);
+        template.Resume(new DateTimeOffset(2026, 3, 15, 12, 0, 0, TimeSpan.Zero), Utc, Ana);
 
         var expected = new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero);
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Active);
@@ -214,7 +215,7 @@ public sealed class RecurringExpenseTests
         var first = template.NextOccurrenceAt;
         template.Pause(Now, Ana);
 
-        template.Resume(Now, Ana);
+        template.Resume(Now, Utc, Ana);
 
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(first);
     }
@@ -240,9 +241,9 @@ public sealed class RecurringExpenseTests
         var ended = Create(Monthly(2026, 12, 1));
         ended.End(Now, Ana);
 
-        await Assert.That(() => active.Resume(Now, Ana))
+        await Assert.That(() => active.Resume(Now, Utc, Ana))
             .Throws<InvalidOperationException>().WithMessage("This recurring expense is not paused.");
-        await Assert.That(() => ended.Resume(Now, Ana))
+        await Assert.That(() => ended.Resume(Now, Utc, Ana))
             .Throws<InvalidOperationException>().WithMessage("This recurring expense has ended.");
     }
 
@@ -252,7 +253,7 @@ public sealed class RecurringExpenseTests
         var template = Create(Monthly(2026, 12, 1));
         template.Pause(Now, Ana);
 
-        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Now, Ana);
+        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Utc, Now, Ana);
 
         await Assert.That(template.Description).IsEqualTo("Renamed");
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
@@ -273,7 +274,7 @@ public sealed class RecurringExpenseTests
     public async Task Replaying_the_events_rebuilds_the_same_state()
     {
         var template = Create(Monthly(2026, 12, 1));
-        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Now, Ana);
+        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Utc, Now, Ana);
         var events = template.DomainEvents.ToList();
 
         var replayed = RecurringExpense.Create((RecurringExpenseCreated)events[0]);
@@ -288,7 +289,7 @@ public sealed class RecurringExpenseTests
     {
         var template = Create(Monthly(2026, 12, 1));
         template.Pause(Now, Ana);
-        template.Resume(Now.AddDays(30), Ana);
+        template.Resume(Now.AddDays(30), Utc, Ana);
         var events = template.DomainEvents.ToList();
 
         var replayed = RecurringExpense.Create((RecurringExpenseCreated)events[0]);
@@ -305,10 +306,10 @@ public sealed class RecurringExpenseTests
         var bia = Guid.NewGuid();
         var template = RecurringExpense.Create(
             Household, Group, "Rent", Funding, [new(Ana, 50_00), new(bia, 25_00), new(Leo, 25_00)],
-            Monthly(2026, 12, 1), false, Now, Ana);
+            Monthly(2026, 12, 1), Utc, false, Now, Ana);
         var next = template.NextOccurrenceAt;
 
-        var changed = template.RemoveMember(bia, Now, Ana);
+        var changed = template.RemoveMember(bia, Now, Utc, Ana);
 
         // Bia's 25.00 splits 50:25 between Ana and Leo: Ana 16.67 (66.67 total), Leo 8.33 (33.33 total); the leftover cent goes to Ana.
         await Assert.That(changed).IsTrue();
@@ -324,7 +325,7 @@ public sealed class RecurringExpenseTests
         var template = Create(Monthly(2026, 12, 1));
         template.Pause(Now, Ana);
 
-        template.RemoveMember(Leo, Now, Ana);
+        template.RemoveMember(Leo, Now, Utc, Ana);
 
         // Leo leaving leaves only the payer, so the template ends.
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Ended);
@@ -336,10 +337,10 @@ public sealed class RecurringExpenseTests
         var bia = Guid.NewGuid();
         var template = RecurringExpense.Create(
             Household, Group, "Rent", Funding, [new(Ana, 40_00), new(bia, 30_00), new(Leo, 30_00)],
-            Monthly(2026, 12, 1), false, Now, Ana);
+            Monthly(2026, 12, 1), Utc, false, Now, Ana);
         template.Pause(Now, Ana);
 
-        template.RemoveMember(bia, Now, Ana);
+        template.RemoveMember(bia, Now, Utc, Ana);
 
         await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
         await Assert.That(template.Allocations.Select(a => a.UserId)).IsEquivalentTo(new[] { Ana, Leo });
@@ -351,6 +352,94 @@ public sealed class RecurringExpenseTests
         var template = Create(Monthly(2026, 12, 1));
         template.End(Now, Ana);
 
-        await Assert.That(template.RemoveMember(Leo, Now, Ana)).IsFalse();
+        await Assert.That(template.RemoveMember(Leo, Now, Utc, Ana)).IsFalse();
+    }
+
+    private static readonly TimeZoneInfo SaoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
+    [Test]
+    public async Task A_late_evening_occurrence_is_due_on_the_next_utc_day_and_dated_on_its_local_day()
+    {
+        // 31 Oct 22:00 in Sao Paulo is 1 Nov 01:00Z.
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 10, 31), new TimeOnly(22, 0));
+        var template = RecurringExpense.Create(
+            Household, Group, "Rent", Funding, Split, schedule, SaoPaulo, false, new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero), Ana);
+        var sweep = new DateTimeOffset(2026, 11, 1, 1, 0, 0, TimeSpan.Zero);
+
+        await Assert.That(template.DueOccurrences(sweep.AddMinutes(-1), SaoPaulo)).IsEmpty();
+        await Assert.That(template.DueOccurrences(sweep, SaoPaulo)).IsEquivalentTo(new[] { new DateOnly(2026, 10, 31) });
+    }
+
+    [Test]
+    public async Task A_first_date_that_is_yesterday_in_UTC_but_today_locally_is_not_in_the_past()
+    {
+        // 02:00Z on 2 Nov is still 1 Nov 23:00 in Sao Paulo.
+        var now = new DateTimeOffset(2026, 11, 2, 2, 0, 0, TimeSpan.Zero);
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 1), new TimeOnly(23, 30));
+
+        var template = RecurringExpense.Create(Household, Group, "Rent", Funding, Split, schedule, SaoPaulo, false, now, Ana);
+
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 2, 2, 30, 0, TimeSpan.Zero));
+    }
+
+    [Test]
+    public async Task New_templates_and_updates_read_their_schedule_in_the_household_zone()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+
+        template.Update("Rent", Funding, Split, Monthly(2026, 12, 5), Utc, Now, Ana);
+
+        await Assert.That(template.ScheduleIsLocal).IsTrue();
+        await Assert.That(template.DomainEvents.OfType<RecurringExpenseCreated>().Single().LocalTime).IsTrue();
+        await Assert.That(template.DomainEvents.OfType<RecurringExpenseUpdated>().Single().LocalTime).IsTrue();
+    }
+
+    [Test]
+    public async Task Localizing_a_template_changes_its_schedule_and_keeps_its_next_instant()
+    {
+        var created = new RecurringExpenseCreated(
+            Guid.NewGuid(), Now, Guid.NewGuid(), Household, Group, "Rent", Funding, Split,
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(1, 0)),
+            new DateTimeOffset(2026, 12, 1, 1, 0, 0, TimeSpan.Zero), Ana);
+        var template = RecurringExpense.Create(created);
+        var local = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 30), new TimeOnly(22, 0));
+
+        template.Apply(new RecurringExpenseScheduleLocalized(Guid.NewGuid(), Now, template.Id, Household, local));
+
+        await Assert.That(template.ScheduleIsLocal).IsTrue();
+        await Assert.That(template.Schedule).IsEqualTo(local);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 12, 1, 1, 0, 0, TimeSpan.Zero));
+        await Assert.That(template.Schedule.In(SaoPaulo).At(0)).IsEqualTo(template.NextOccurrenceAt);
+    }
+
+    [Test]
+    public async Task A_kept_instant_before_the_zones_occurrence_on_the_same_date_is_due_once()
+    {
+        // Scheduled at 22:00Z on the 4th, then the household moves to São Paulo: the kept instant is 19:00 there and
+        // the zone's own 22:00 on the 4th (01:00Z on the 5th) is the same occurrence.
+        var template = Create(Monthly(2026, 12, 4, hour: 22));
+        var now = new DateTimeOffset(2026, 12, 5, 2, 0, 0, TimeSpan.Zero);
+
+        var due = template.DueOccurrences(now, SaoPaulo);
+        foreach (var date in due) template.MarkOccurred(date, now, SaoPaulo);
+
+        await Assert.That(due).IsEquivalentTo(new[] { new DateOnly(2026, 12, 4) });
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2027, 1, 5, 1, 0, 0, TimeSpan.Zero));
+    }
+
+    [Test]
+    public async Task Saving_an_untouched_utc_schedule_keeps_its_instants_on_the_household_clock()
+    {
+        var next = new DateTimeOffset(2026, 12, 1, 1, 0, 0, TimeSpan.Zero);
+        var template = RecurringExpense.Create(new RecurringExpenseCreated(
+            Guid.NewGuid(), Now, Guid.NewGuid(), Household, Group, "Rent", Funding, Split,
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(1, 0)), next, Ana));
+
+        template.Update("Rent", Funding, Split, template.Schedule, SaoPaulo, Now, Ana);
+
+        await Assert.That(template.ScheduleIsLocal).IsTrue();
+        await Assert.That(template.Schedule).IsEqualTo(
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 30), new TimeOnly(22, 0)));
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(next);
     }
 }

@@ -4,6 +4,7 @@ using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Events;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.IntegrationTests.Infrastructure;
 using Marten;
 using Marten.Services;
@@ -25,31 +26,33 @@ public sealed class RecurringExpenseCommandServiceTests(PostgresFixture db)
 
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString, "expenses_recurring_sweep_test");
 
-    private RecurringExpenseCommandService BuildSut(IDocumentSession session, DateTimeOffset? now = null, IEventBus? bus = null)
+    private RecurringExpenseCommandService BuildSut(IDocumentSession session, DateTimeOffset? now = null, IEventBus? bus = null, TimeZoneInfo? zone = null)
     {
         bus ??= new RecurringRecordingBus();
         return new(
             session, new FakeCurrentUser(_ana), new FakeTimeProvider(now ?? Now), bus,
-            new RecurringSessionFactory(Store, bus), NullLogger<RecurringExpenseCommandService>.Instance);
+            new RecurringSessionFactory(Store, bus), new FakeHouseholdClock(new FakeTimeProvider(now ?? Now), zone),
+            NullLogger<RecurringExpenseCommandService>.Instance);
     }
 
     private static RecurrenceSchedule Monthly(int y, int m, int d) =>
         new(RecurrenceFrequency.Monthly, new DateOnly(y, m, d), new TimeOnly(9, 0));
 
-    private async Task<Guid> CreateAsync(RecurrenceSchedule schedule, bool catchUp = false, DateTimeOffset? now = null)
+    private async Task<Guid> CreateAsync(RecurrenceSchedule schedule, bool catchUp = false, DateTimeOffset? now = null,
+        TimeZoneInfo? zone = null)
     {
         await ExpenseTestData.SeedGroupAsync(Store, _householdId, _groupId);
         await using var session = Store.LightweightSession();
-        return await BuildSut(session, now).CreateAsync(
+        return await BuildSut(session, now, zone: zone).CreateAsync(
             _householdId, _groupId, "Rent", schedule,
             [new FundingSourceDto(_ana, 100_00)],
             [new AllocationDto(_ana, 50_00), new AllocationDto(_leo, 50_00)], catchUp);
     }
 
-    private async Task SweepAsync(DateTimeOffset now)
+    private async Task SweepAsync(DateTimeOffset now, TimeZoneInfo? zone = null)
     {
         await using var session = Store.LightweightSession();
-        await BuildSut(session, now).RunSweepAsync();
+        await BuildSut(session, now, zone: zone).RunSweepAsync();
     }
 
     private async Task<List<ExpenseReadModel>> ExpensesAsync(Guid templateId)
@@ -116,6 +119,24 @@ public sealed class RecurringExpenseCommandServiceTests(PostgresFixture db)
                 Guid.NewGuid(), _groupId, "Rent", Monthly(2026, 12, 1),
                 [new FundingSourceDto(_ana, 100)], [new AllocationDto(_ana, 100)], false))
             .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Sweep_dates_an_evening_occurrence_on_the_household_day()
+    {
+        var saoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 31), new TimeOnly(22, 0));
+        var id = await CreateAsync(schedule, zone: saoPaulo);
+
+        await SweepAsync(new DateTimeOffset(2027, 1, 1, 0, 59, 0, TimeSpan.Zero), saoPaulo);
+        await Assert.That(await ExpensesAsync(id)).IsEmpty();
+
+        await SweepAsync(new DateTimeOffset(2027, 1, 1, 1, 0, 0, TimeSpan.Zero), saoPaulo);
+
+        var expense = (await ExpensesAsync(id)).Single();
+        await Assert.That(expense.Date).IsEqualTo(new DateTimeOffset(2026, 12, 31, 0, 0, 0, TimeSpan.Zero));
+        await Assert.That((await DocumentAsync(id)).NextOccurrenceAt)
+            .IsEqualTo(new DateTimeOffset(2027, 2, 1, 1, 0, 0, TimeSpan.Zero)); // 31 Jan 22:00 local
     }
 
     [Test]

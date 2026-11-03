@@ -32,7 +32,7 @@ public sealed class UpcomingBuilderTests
     {
         var plan = Plan(new DateOnly(2026, 10, 10)); // #2 on Nov 10 is in the window, #3 on Dec 10 is out
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.Number).IsEqualTo(2);
@@ -49,7 +49,7 @@ public sealed class UpcomingBuilderTests
         plan.Segments = [new SplitSegment(0, [new Allocation(Ana, 75000), new Allocation(Leo, 75000)])];
         plan.PurchaseDate = new DateOnly(2026, 11, 5); // the down payment (Nov 5) is in the window, #1 on Nov 20 too
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int>())], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int>())], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.Number).IsEqualTo(0);
@@ -64,7 +64,7 @@ public sealed class UpcomingBuilderTests
     {
         var plan = Plan(new DateOnly(2026, 9, 10)); // #1 Sep 10 and #2 Oct 10 are past due, #3 Nov 10 is in the window
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int>())], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int>())], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.Number).IsEqualTo(3);
@@ -81,7 +81,7 @@ public sealed class UpcomingBuilderTests
             new SplitSegment(2, [new Allocation(Ana, 100000), new Allocation(Leo, 50000)])
         ];
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         await Assert.That(summary.Items.Single().ViewerShareCents).IsEqualTo(10000L); // #2: Leo pays a third
     }
@@ -91,7 +91,7 @@ public sealed class UpcomingBuilderTests
     {
         var weekly = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 31)); // Saturdays 09:00
 
-        var summary = UpcomingBuilder.Build([], [weekly], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([], [weekly], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.Occurrences).IsEqualTo(4);   // Oct 31, Nov 7, 14, 21
@@ -106,7 +106,7 @@ public sealed class UpcomingBuilderTests
         var inWindow = Template(Schedule(RecurrenceFrequency.Annually, 2026, 11, 15));
         var outOfWindow = Template(Schedule(RecurrenceFrequency.Annually, 2026, 3, 15));
 
-        var summary = UpcomingBuilder.Build([], [inWindow, outOfWindow], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([], [inWindow, outOfWindow], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         await Assert.That(summary.Items.Select(i => i.SourceId)).IsEquivalentTo(new[] { inWindow.Id });
     }
@@ -116,7 +116,7 @@ public sealed class UpcomingBuilderTests
     {
         var thursdays = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 29)); // today (Thu) 09:00 < now 12:00
 
-        var summary = UpcomingBuilder.Build([], [thursdays], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([], [thursdays], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.FirstDate).IsEqualTo(new DateOnly(2026, 11, 5));
@@ -129,7 +129,7 @@ public sealed class UpcomingBuilderTests
         var plan = Plan(new DateOnly(2026, 10, 10));
         var weekly = Template(Schedule(RecurrenceFrequency.Weekly, 2026, 10, 31));
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [weekly], Now, DateOnly.FromDateTime(Now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [weekly], Now, DateOnly.FromDateTime(Now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         await Assert.That(summary.TotalCents).IsEqualTo(62000L);
         await Assert.That(summary.ViewerShareCents).IsEqualTo(31000L);
@@ -142,7 +142,7 @@ public sealed class UpcomingBuilderTests
         var monthEnd = Template(Schedule(RecurrenceFrequency.Monthly, 2026, 1, 31));
         var now = new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
-        var summary = UpcomingBuilder.Build([], [monthEnd], now, DateOnly.FromDateTime(now.UtcDateTime), Leo);
+        var summary = UpcomingBuilder.Build([], [monthEnd], now, DateOnly.FromDateTime(now.UtcDateTime), TimeZoneInfo.Utc, Leo);
 
         await Assert.That(summary.Items.Single().FirstDate).IsEqualTo(new DateOnly(2026, 11, 30));
     }
@@ -154,10 +154,23 @@ public sealed class UpcomingBuilderTests
         var now = new DateTimeOffset(2026, 11, 11, 1, 30, 0, TimeSpan.Zero);
         var plan = Plan(new DateOnly(2026, 10, 10));
 
-        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], now, new DateOnly(2026, 11, 10), Leo);
+        var summary = UpcomingBuilder.Build([(plan, new HashSet<int> { 1 })], [], now, new DateOnly(2026, 11, 10), TimeZoneInfo.Utc, Leo);
 
         var item = summary.Items.Single();
         await Assert.That(item.Number).IsEqualTo(2);
         await Assert.That(item.FirstDate).IsEqualTo(new DateOnly(2026, 11, 10));
+    }
+
+    [Test]
+    public async Task A_late_evening_occurrence_is_listed_on_its_local_date()
+    {
+        var saoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var evening = Template(new RecurrenceSchedule(RecurrenceFrequency.Weekly, new DateOnly(2026, 10, 30), new TimeOnly(22, 0)));
+
+        var summary = UpcomingBuilder.Build([], [evening], Now, new DateOnly(2026, 10, 29), saoPaulo, Leo);
+
+        var item = summary.Items.Single();
+        await Assert.That(item.FirstDate).IsEqualTo(new DateOnly(2026, 10, 30)); // 01:00Z on the 31st
+        await Assert.That(item.Occurrences).IsEqualTo(5); // Oct 30, Nov 6, 13, 20, 27; the window ends at Nov 28 00:00 local
     }
 }

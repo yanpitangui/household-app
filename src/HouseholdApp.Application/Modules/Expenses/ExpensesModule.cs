@@ -36,6 +36,7 @@ public static class ExpensesModule
             opts.Events.AddEventType<InstallmentPlanCompleted>();
             opts.Events.AddEventType<RecurringExpenseCreated>();
             opts.Events.AddEventType<RecurringExpenseUpdated>();
+        opts.Events.AddEventType<RecurringExpenseScheduleLocalized>();
             opts.Events.AddEventType<RecurringExpenseOccurred>();
             opts.Events.AddEventType<RecurringExpenseEnded>();
             opts.Events.AddEventType<RecurringExpensePaused>();
@@ -62,6 +63,7 @@ public static class ExpensesModule
         .ApplyAllDatabaseChangesOnStartup();
 
         services.AddHostedService<RecurringExpenseStreamMigration>();
+        services.AddHostedService<RecurringExpenseLocalTimeMigration>();
 
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();
         services.AddScoped<IInstallmentPlanCommands, InstallmentPlanCommandService>();
