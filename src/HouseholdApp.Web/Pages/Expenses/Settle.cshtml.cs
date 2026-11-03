@@ -6,6 +6,7 @@ using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.Web.Shared.Web;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +18,7 @@ public class SettleModel(
     IExpenseCommands expenseCommands,
     IExpenseQueries expenseQueries,
     IHouseholdQueries householdQueries,
-    TimeProvider timeProvider) : HouseholdPageModel(currentUser, guard)
+    IHouseholdClock householdClock) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -36,7 +37,7 @@ public class SettleModel(
     public decimal Amount { get; set; }
 
     [BindProperty]
-    public DateOnly Date { get; set; } = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
+    public DateOnly Date { get; set; }
 
     public IReadOnlyList<HouseholdMemberDto> Members { get; private set; } = [];
     public string? GroupName { get; private set; }
@@ -46,6 +47,7 @@ public class SettleModel(
     {
         if (!await LoadAsync()) return NotFound();
 
+        Date = await householdClock.TodayAsync(HouseholdId);
         var balances = await expenseQueries.GetBalancesAsync(HouseholdId, CurrentUserId, GroupId);
         var defaults = SettleDefaults.From(balances, CurrentUserId, with, Members.Select(m => m.UserId).ToList());
         PayerId = defaults.PayerId;
@@ -62,6 +64,8 @@ public class SettleModel(
 
     public async Task<IActionResult> OnPostAsync()
     {
+        // A cleared or absent date falls back to household today, so a re-render shows a real date.
+        if (Date == default) Date = await householdClock.TodayAsync(HouseholdId);
         if (PayerId == RecipientId)
             ModelState.AddModelError(nameof(RecipientId), Loc["Expenses.Settle.SamePerson"].Value);
         if (!await LoadAsync()) return NotFound();

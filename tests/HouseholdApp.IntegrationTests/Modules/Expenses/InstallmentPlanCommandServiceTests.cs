@@ -30,11 +30,13 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString, "expenses_installment_sweep_test");
 
     private InstallmentPlanCommandService BuildSut(
-        IDocumentSession session, DateTimeOffset? now = null, IEventBus? bus = null, int timeoutSeconds = 10)
+        IDocumentSession session, DateTimeOffset? now = null, IEventBus? bus = null, int timeoutSeconds = 10,
+        TimeZoneInfo? zone = null)
     {
         bus ??= new RecordingBus();
+        var time = new FakeTimeProvider(now ?? Now);
         return new(
-            session, new FakeCurrentUser(_ana), new FakeTimeProvider(now ?? Now), bus,
+            session, new FakeCurrentUser(_ana), time, new FakeHouseholdClock(time, zone), bus,
             new TestSessionFactory(Store, bus, timeoutSeconds), NullLogger<InstallmentPlanCommandService>.Instance);
     }
 
@@ -95,7 +97,7 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
     private async Task SweepAsync(DateOnly today)
     {
         await using var session = Store.LightweightSession();
-        await BuildSut(session, new DateTimeOffset(today, new TimeOnly(3, 0), TimeSpan.Zero)).RunSweepAsync(today);
+        await BuildSut(session, new DateTimeOffset(today, new TimeOnly(3, 0), TimeSpan.Zero)).RunSweepAsync();
     }
 
     [Test]
@@ -108,6 +110,21 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
 
         var numbers = (await InstallmentsAsync(planId)).Select(e => e.Installment!.Number).Order().ToList();
         await Assert.That(numbers).IsEquivalentTo(new[] { 1, 2 });
+    }
+
+    [Test]
+    public async Task Sweep_creates_an_installment_at_local_midnight_of_the_household_zone()
+    {
+        var saoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var planId = await CreatePlanAsync(firstDate: new DateOnly(2026, 11, 10)); // #2 due 2026-12-10
+
+        await using (var early = Store.LightweightSession())
+            await BuildSut(early, new DateTimeOffset(2026, 12, 10, 1, 0, 0, TimeSpan.Zero), zone: saoPaulo).RunSweepAsync();
+        await Assert.That((await InstallmentsAsync(planId)).Count).IsEqualTo(1);
+
+        await using (var after = Store.LightweightSession())
+            await BuildSut(after, new DateTimeOffset(2026, 12, 10, 3, 30, 0, TimeSpan.Zero), zone: saoPaulo).RunSweepAsync();
+        await Assert.That((await InstallmentsAsync(planId)).Count).IsEqualTo(2);
     }
 
     [Test]
@@ -193,7 +210,7 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
             new SessionOptions { Listeners = { new ExpenseEventPublishingListener(bus) } }))
         {
             await BuildSut(s, new DateTimeOffset(sweepDay, new TimeOnly(3, 0), TimeSpan.Zero), bus)
-                .RunSweepAsync(sweepDay);
+                .RunSweepAsync();
         }
 
         await using var qs = Store.QuerySession();
@@ -465,7 +482,7 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
         await using (var s = Store.LightweightSession())
         {
             await BuildSut(s, new DateTimeOffset(sweepDay, new TimeOnly(3, 0), TimeSpan.Zero), bus, timeoutSeconds: 2)
-                .RunSweepAsync(sweepDay);
+                .RunSweepAsync();
         }
 
         await using var qs = Store.QuerySession();
@@ -493,7 +510,7 @@ public sealed class InstallmentPlanCommandServiceTests(PostgresFixture db)
 
         var sweepDay = new DateOnly(2027, 1, 10);
         await using var s = Store.LightweightSession();
-        await BuildSut(s, new DateTimeOffset(sweepDay, new TimeOnly(3, 0), TimeSpan.Zero)).RunSweepAsync(sweepDay);
+        await BuildSut(s, new DateTimeOffset(sweepDay, new TimeOnly(3, 0), TimeSpan.Zero)).RunSweepAsync();
 
         // Still inside the sweep's scope: the plan is free as soon as its own sweep ends.
         await using var other = Store.LightweightSession(new SessionOptions { Timeout = 2 });

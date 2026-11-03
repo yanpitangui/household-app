@@ -5,6 +5,7 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
+using HouseholdApp.Application.Shared.Time;
 using Marten;
 using Marten.Linq.MatchesSql;
 
@@ -14,7 +15,8 @@ public sealed class ExpenseQueryService(
     IQuerySession querySession,
     IUserQuery userQuery,
     IHouseholdQueries householdQueries,
-    TimeProvider timeProvider) : IExpenseQueries
+    TimeProvider timeProvider,
+    IHouseholdClock householdClock) : IExpenseQueries
 {
     private const int RecentLimit = 30;
     private const int RecentMarkerCap = 100;
@@ -529,7 +531,8 @@ public sealed class ExpenseQueryService(
             .ToList();
 
         var templates = (await LoadActiveTemplatesAsync(householdId, ct)).Where(t => InScope(t.GroupId)).ToList();
-        var summary = UpcomingBuilder.Build(withCreated, templates, timeProvider.GetUtcNow(), viewerId);
+        var summary = UpcomingBuilder.Build(
+            withCreated, templates, timeProvider.GetUtcNow(), await householdClock.TodayAsync(householdId, ct), viewerId);
         if (summary.Items.Count == 0) return UpcomingSummary.Empty;
 
         var profiles = await LoadProfilesAsync(summary.Items.Select(i => i.PayerId).Distinct(), ct);

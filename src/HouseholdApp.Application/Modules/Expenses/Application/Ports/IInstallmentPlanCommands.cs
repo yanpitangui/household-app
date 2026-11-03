@@ -20,6 +20,6 @@ public interface IInstallmentPlanCommands
 
     Task CancelAsync(Guid householdId, Guid planId, bool voidCreated, CancellationToken ct = default);
 
-    /// <summary>Creates every due installment that does not exist yet, for every active plan. Safe to rerun.</summary>
-    Task RunSweepAsync(DateOnly today, CancellationToken ct = default);
+    /// <summary>Creates every due installment that does not exist yet, for every active plan, with "today" in each plan's Household Time Zone. Safe to rerun.</summary>
+    Task RunSweepAsync(CancellationToken ct = default);
 }

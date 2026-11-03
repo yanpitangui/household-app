@@ -29,7 +29,7 @@ public sealed class MemberRemovalTests(PostgresFixture db)
 
     private ExpenseMemberRemovalService Sut(IDocumentSession session) => new(
         session,
-        new ExpenseQueryService(session, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System),
+        new ExpenseQueryService(session, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System, new FakeHouseholdClock(TimeProvider.System)),
         new FakeCurrentUser(_ana), new FakeTimeProvider(Now));
 
     private async Task InsertUsersAsync()

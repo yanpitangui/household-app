@@ -23,7 +23,8 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
-        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System);
+        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System,
+            new FakeHouseholdClock(TimeProvider.System));
 
     private async Task InsertUsersAsync(params Guid[] ids)
     {
@@ -102,7 +103,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
 
     private ExpenseQueryService BuildSutAt(IQuerySession querySession, DateTimeOffset now) =>
         new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(),
-            new FakeTimeProvider(now));
+            new FakeTimeProvider(now), new FakeHouseholdClock(new FakeTimeProvider(now)));
 
     private async Task SeedGroupAsync(Guid householdId, Guid groupId, string name, bool deleted = false)
     {
@@ -141,7 +142,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await InsertUsersAsync(ana, leo);
         await using var session = Store.LightweightSession();
         var sut = new InstallmentPlanCommandService(
-            session, new FakeCurrentUser(ana), new FakeTimeProvider(Now), Substitute.For<IEventBus>(),
+            session, new FakeCurrentUser(ana), new FakeTimeProvider(Now), new FakeHouseholdClock(new FakeTimeProvider(Now)), Substitute.For<IEventBus>(),
             Substitute.For<ISessionFactory>(), NullLogger<InstallmentPlanCommandService>.Instance);
         var id = await sut.CreateAsync(householdId, groupId, description, ana, 150000, 0, 5, firstDate, firstDate,
             [new AllocationDto(ana, 75000), new AllocationDto(leo, 75000)]);

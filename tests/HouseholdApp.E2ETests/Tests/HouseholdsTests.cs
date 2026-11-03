@@ -58,7 +58,7 @@ public class HouseholdsTests(PlaywrightFixture pw)
 
         var page = await ctx.NewPageAsync();
         await page.GotoAsync($"{pw.AppUrl}/h/{id}");
-        await Assert.That(await page.Locator("p.section-title:has-text('Members')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator(".household-hero-label:has-text('Your Household')").IsVisibleAsync()).IsTrue();
 
         await page.Locator("a.app-settings").ClickAsync();
         await page.WaitForURLAsync($"{pw.AppUrl}/settings");
@@ -66,10 +66,10 @@ public class HouseholdsTests(PlaywrightFixture pw)
 
         // Back on the household page, rendered in pt-BR rather than an English copy revalidated with a 304.
         await page.WaitForURLAsync($"{pw.AppUrl}/h/{id}");
-        await Assert.That(await page.Locator("p.section-title:has-text('Membros')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator(".household-hero-label:has-text('Sua Casa')").IsVisibleAsync()).IsTrue();
 
         await page.GotoAsync($"{pw.AppUrl}/h/{id}");
-        await Assert.That(await page.Locator("p.section-title:has-text('Membros')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator(".household-hero-label:has-text('Sua Casa')").IsVisibleAsync()).IsTrue();
     }
 
     [Test]
