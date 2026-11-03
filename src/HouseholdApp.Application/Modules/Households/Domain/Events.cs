@@ -19,13 +19,17 @@ public sealed record HouseholdMemberJoined(
     DateTimeOffset OccurredAt,
     Guid HouseholdId,
     Guid UserId,
-    HouseholdRole Role) : IDomainEvent;
+    HouseholdRole Role,
+    // Everyone else in the household: their household list shows the new member count.
+    IReadOnlyList<Guid> OtherMemberIds) : IDomainEvent;
 
 public sealed record HouseholdMemberRemoved(
     Guid EventId,
     DateTimeOffset OccurredAt,
     Guid HouseholdId,
-    Guid UserId) : IDomainEvent;
+    Guid UserId,
+    // The members who stay: their household list shows the new member count.
+    IReadOnlyList<Guid> OtherMemberIds) : IDomainEvent;
 
 public sealed record HouseholdRoleChanged(
     Guid EventId,

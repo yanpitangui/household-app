@@ -80,6 +80,7 @@ public sealed class HouseholdTests
         await Assert.That(household.Members.Count).IsEqualTo(2);
         await Assert.That(household.DomainEvents.Count).IsEqualTo(1);
         await Assert.That(household.DomainEvents[0] is HouseholdMemberJoined).IsTrue();
+        await Assert.That(((HouseholdMemberJoined)household.DomainEvents[0]).OtherMemberIds).IsEquivalentTo([OwnerId]);
     }
 
     [Test]
@@ -125,6 +126,7 @@ public sealed class HouseholdTests
         await Assert.That(household.Members.Count).IsEqualTo(1);
         await Assert.That(household.DomainEvents.Count).IsEqualTo(1);
         await Assert.That(household.DomainEvents[0] is HouseholdMemberRemoved).IsTrue();
+        await Assert.That(((HouseholdMemberRemoved)household.DomainEvents[0]).OtherMemberIds).IsEquivalentTo([OwnerId]);
     }
 
     [Test]
@@ -235,6 +237,7 @@ public sealed class HouseholdTests
         h.Leave(Leo, Now);
         await Assert.That(h.Members.Any(m => m.UserId == Leo)).IsFalse();
         await Assert.That(h.DomainEvents.OfType<HouseholdMemberRemoved>().Single().UserId).IsEqualTo(Leo);
+        await Assert.That(h.DomainEvents.OfType<HouseholdMemberRemoved>().Single().OtherMemberIds).IsEquivalentTo([Ana, Bia]);
     }
 
     [Test]
