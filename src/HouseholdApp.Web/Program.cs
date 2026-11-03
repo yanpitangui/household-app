@@ -42,6 +42,8 @@ using Quartz;
 using Quartz.Diagnostics;
 using StackExchange.Redis;
 using Valtuutus.Core.Configuration;
+using Valtuutus.Data;
+using Valtuutus.Data.BackgroundService;
 using Valtuutus.Data.Caching;
 using Valtuutus.Data.Postgres;
 using ZiggyCreatures.Caching.Fusion;
@@ -272,7 +274,11 @@ var authzConnStr = new NpgsqlConnectionStringBuilder(connStr)
 builder.Services.AddPostgres(
     _ => () => new NpgsqlConnection(authzConnStr),
     new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"))
-    .AddCaching();
+    .AddCaching()
+    // Removed memberships and role changes leave tombstoned tuples; the reaper clears them once they are older than
+    // any snap token a reader can still hold (default retention 7 days, hourly sweep).
+    .AddTombstoneReaper();
+builder.Services.AddTombstoneReaperHostedService();
 builder.Services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
