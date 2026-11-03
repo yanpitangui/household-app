@@ -5,9 +5,8 @@ using Quartz;
 namespace HouseholdApp.Application.Shared.Scheduler;
 
 /// <summary>
-/// Writes the app-wide jobs and drops every stored job that is not one of them, including the per-template jobs earlier
-/// releases stored. Every node of a cluster does this as it starts; each write is an upsert under the store's lock, so they
-/// converge on the same schedule.
+/// Writes the app-wide jobs and drops every stored job that is not one of them. Every node of a cluster does this as it
+/// starts; each write is an upsert under the store's lock, so they converge on the same schedule.
 /// </summary>
 internal sealed partial class SchedulerStartup(
     ISchedulerFactory schedulers,

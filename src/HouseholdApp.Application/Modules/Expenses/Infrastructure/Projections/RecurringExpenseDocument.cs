@@ -14,8 +14,6 @@ public sealed class RecurringExpenseDocument
     public IReadOnlyList<FundingSource> FundingSources { get; set; } = [];
     public IReadOnlyList<Allocation> Allocations { get; set; } = [];
     public RecurrenceSchedule Schedule { get; set; } = default!;
-    // False while the schedule still reads in UTC (before the localizing migration); the sweep leaves those alone.
-    public bool ScheduleIsLocal { get; set; }
     public DateTimeOffset NextOccurrenceAt { get; set; }
     public RecurringExpenseStatus Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -32,7 +30,6 @@ public partial class RecurringExpenseProjection : SingleStreamProjection<Recurri
         doc.FundingSources = e.FundingSources;
         doc.Allocations = e.Allocations;
         doc.Schedule = e.Schedule;
-        doc.ScheduleIsLocal = e.LocalTime;
         doc.NextOccurrenceAt = e.NextOccurrenceAt;
         doc.Status = RecurringExpenseStatus.Active;
         doc.CreatedAt = e.OccurredAt;
@@ -44,15 +41,10 @@ public partial class RecurringExpenseProjection : SingleStreamProjection<Recurri
         doc.FundingSources = e.FundingSources;
         doc.Allocations = e.Allocations;
         doc.Schedule = e.Schedule;
-        doc.ScheduleIsLocal = e.LocalTime;
         doc.NextOccurrenceAt = e.NextOccurrenceAt;
     }
 
-    public void Apply(RecurringExpenseScheduleLocalized e, RecurringExpenseDocument doc)
-    {
-        doc.Schedule = e.Schedule;
-        doc.ScheduleIsLocal = true;
-    }
+    public void Apply(RecurringExpenseScheduleLocalized e, RecurringExpenseDocument doc) => doc.Schedule = e.Schedule;
 
     public void Apply(RecurringExpenseOccurred e, RecurringExpenseDocument doc) =>
         doc.NextOccurrenceAt = e.NextOccurrenceAt;

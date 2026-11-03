@@ -22,7 +22,6 @@ public sealed class RecurringExpense : AggregateRoot
     public IReadOnlyList<FundingSource> FundingSources { get; private set; } = [];
     public IReadOnlyList<Allocation> Allocations { get; private set; } = [];
     public RecurrenceSchedule Schedule { get; private set; } = default!;
-    public bool ScheduleIsLocal { get; private set; }
     public DateTimeOffset NextOccurrenceAt { get; private set; }
     public RecurringExpenseStatus Status { get; private set; }
 
@@ -87,9 +86,7 @@ public sealed class RecurringExpense : AggregateRoot
         if (schedule.FirstDate != Schedule.FirstDate && schedule.FirstDate < HouseholdTime.Today(zone, now))
             throw new InvalidOperationException("A changed first date must be today or later.");
 
-        // An untouched schedule still entered in UTC saves as its wall-clock equivalent, keeping its next instant.
         var unchanged = schedule == Schedule;
-        if (unchanged && !ScheduleIsLocal) schedule = LocalSchedule(zone);
         var next = unchanged ? NextOccurrenceAt : schedule.In(zone).NextAfter(now);
         var updated = new RecurringExpenseUpdated(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, description, fundingSources, allocations,
@@ -124,26 +121,6 @@ public sealed class RecurringExpense : AggregateRoot
         }
     }
 
-    /// <summary>
-    /// Moves a schedule entered in UTC to <paramref name="zone"/>'s wall clock: the first occurrence keeps its instant, the
-    /// ones after it follow the zone. False when the schedule is already local.
-    /// </summary>
-    public bool Localize(TimeZoneInfo zone, DateTimeOffset now)
-    {
-        if (ScheduleIsLocal) return false;
-        var localized = new RecurringExpenseScheduleLocalized(Guid.CreateVersion7(), now, Id, HouseholdId, LocalSchedule(zone));
-        Apply(localized);
-        Raise(localized);
-        return true;
-    }
-
-    // The UTC-entered schedule on zone's wall clock, its first occurrence at the same instant.
-    private RecurrenceSchedule LocalSchedule(TimeZoneInfo zone)
-    {
-        var local = HouseholdTime.ToLocal(zone, Schedule.In(TimeZoneInfo.Utc).At(0)).DateTime;
-        return new RecurrenceSchedule(Schedule.Frequency, DateOnly.FromDateTime(local), TimeOnly.FromDateTime(local));
-    }
-
     public void Pause(DateTimeOffset now, Guid performedByUserId)
     {
         if (Status != RecurringExpenseStatus.Active)
@@ -176,7 +153,6 @@ public sealed class RecurringExpense : AggregateRoot
         FundingSources = e.FundingSources,
         Allocations = e.Allocations,
         Schedule = e.Schedule,
-        ScheduleIsLocal = e.LocalTime,
         NextOccurrenceAt = e.NextOccurrenceAt,
         Status = RecurringExpenseStatus.Active
     };
@@ -187,15 +163,10 @@ public sealed class RecurringExpense : AggregateRoot
         FundingSources = e.FundingSources;
         Allocations = e.Allocations;
         Schedule = e.Schedule;
-        ScheduleIsLocal = e.LocalTime;
         NextOccurrenceAt = e.NextOccurrenceAt;
     }
 
-    public void Apply(RecurringExpenseScheduleLocalized e)
-    {
-        Schedule = e.Schedule;
-        ScheduleIsLocal = true;
-    }
+    public void Apply(RecurringExpenseScheduleLocalized e) => Schedule = e.Schedule;
 
     public void Apply(RecurringExpenseOccurred e) => NextOccurrenceAt = e.NextOccurrenceAt;
     public void Apply(RecurringExpenseEnded e) => Status = RecurringExpenseStatus.Ended;

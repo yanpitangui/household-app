@@ -40,18 +40,8 @@ internal static class QuartzJobs
     }
 }
 
-// Every stored job names its runner type, so the two runners keep their names and namespace: moving or renaming one
-// would leave each stored job pointing at a type that no longer exists.
-
-/// <summary>
-/// Earlier releases stored one job per template under this runner, and a due one can fire before startup removes it. It
-/// only needs to load and do nothing, since the sweeps create what is due. Removed with the old recurring table.
-/// </summary>
-[DisallowConcurrentExecution]
-internal sealed class RecurringJobRunner : IJob
-{
-    public ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default) => default;
-}
+// Every stored job names its runner type, so the runner keeps its name and namespace: moving or renaming it would
+// leave each stored job pointing at a type that no longer exists.
 
 /// <summary>Quartz's entry point for every app-wide job: the key name says which one. An unregistered one is skipped.</summary>
 [DisallowConcurrentExecution]

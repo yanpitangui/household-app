@@ -389,13 +389,12 @@ public sealed class RecurringExpenseTests
 
         template.Update("Rent", Funding, Split, Monthly(2026, 12, 5), Utc, Now, Ana);
 
-        await Assert.That(template.ScheduleIsLocal).IsTrue();
         await Assert.That(template.DomainEvents.OfType<RecurringExpenseCreated>().Single().LocalTime).IsTrue();
         await Assert.That(template.DomainEvents.OfType<RecurringExpenseUpdated>().Single().LocalTime).IsTrue();
     }
 
     [Test]
-    public async Task Localizing_a_template_changes_its_schedule_and_keeps_its_next_instant()
+    public async Task Replaying_a_localized_schedule_changes_it_and_keeps_the_next_instant()
     {
         var created = new RecurringExpenseCreated(
             Guid.NewGuid(), Now, Guid.NewGuid(), Household, Group, "Rent", Funding, Split,
@@ -406,7 +405,6 @@ public sealed class RecurringExpenseTests
 
         template.Apply(new RecurringExpenseScheduleLocalized(Guid.NewGuid(), Now, template.Id, Household, local));
 
-        await Assert.That(template.ScheduleIsLocal).IsTrue();
         await Assert.That(template.Schedule).IsEqualTo(local);
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 12, 1, 1, 0, 0, TimeSpan.Zero));
         await Assert.That(template.Schedule.In(SaoPaulo).At(0)).IsEqualTo(template.NextOccurrenceAt);
@@ -425,21 +423,5 @@ public sealed class RecurringExpenseTests
 
         await Assert.That(due).IsEquivalentTo(new[] { new DateOnly(2026, 12, 4) });
         await Assert.That(template.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2027, 1, 5, 1, 0, 0, TimeSpan.Zero));
-    }
-
-    [Test]
-    public async Task Saving_an_untouched_utc_schedule_keeps_its_instants_on_the_household_clock()
-    {
-        var next = new DateTimeOffset(2026, 12, 1, 1, 0, 0, TimeSpan.Zero);
-        var template = RecurringExpense.Create(new RecurringExpenseCreated(
-            Guid.NewGuid(), Now, Guid.NewGuid(), Household, Group, "Rent", Funding, Split,
-            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(1, 0)), next, Ana));
-
-        template.Update("Rent", Funding, Split, template.Schedule, SaoPaulo, Now, Ana);
-
-        await Assert.That(template.ScheduleIsLocal).IsTrue();
-        await Assert.That(template.Schedule).IsEqualTo(
-            new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 30), new TimeOnly(22, 0)));
-        await Assert.That(template.NextOccurrenceAt).IsEqualTo(next);
     }
 }

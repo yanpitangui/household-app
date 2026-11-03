@@ -44,7 +44,7 @@ public class ExpensesIndexModel(
     }
 
     // Target of the Undo button in the flash shown after a group is deleted.
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostRestoreGroupAsync(Guid groupId)
     {
         try

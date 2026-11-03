@@ -22,7 +22,7 @@ public class EditExpenseGroupModel(
     [BindProperty]
     public GroupFormInput Form { get; set; } = new();
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnGetAsync()
     {
         // Active groups only: a deleted group can't be edited.
@@ -33,7 +33,7 @@ public class EditExpenseGroupModel(
         return Page();
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!GroupIcons.IsValid(Form.ResolvedIcon))

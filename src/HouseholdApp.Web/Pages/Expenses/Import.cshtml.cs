@@ -46,17 +46,17 @@ public partial class ImportExpensesModel(
     public bool MappingValid { get; private set; }
     private bool FileChanged { get; set; }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public void OnGet() { }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostPreviewAsync()
     {
         Preview = await BuildPreviewAsync();
         return Partial("_ImportPreview", this);
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostImportAsync()
     {
         Preview = await BuildPreviewAsync();
