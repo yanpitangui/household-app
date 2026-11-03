@@ -23,7 +23,7 @@ public sealed class CachingHouseholdQueryServiceTests
     public async Task GetAsync_caches_result_so_inner_is_called_once()
     {
         var householdId = Guid.NewGuid();
-        var detail = new HouseholdDetail(householdId, "Casa", DateTime.UtcNow, []);
+        var detail = new HouseholdDetail(householdId, "Casa", "America/Sao_Paulo", DateTime.UtcNow, []);
         _inner.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(detail);
 
         var first = await _sut.GetAsync(householdId);
@@ -64,7 +64,7 @@ public sealed class CachingHouseholdQueryServiceTests
     public async Task GetWithLastModifiedAsync_returns_same_timestamp_until_cache_invalidated()
     {
         var householdId = Guid.NewGuid();
-        var detail = new HouseholdDetail(householdId, "Casa", DateTime.UtcNow, []);
+        var detail = new HouseholdDetail(householdId, "Casa", "America/Sao_Paulo", DateTime.UtcNow, []);
         _inner.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(detail);
 
         var first = await _sut.GetWithLastModifiedAsync(householdId);

@@ -92,7 +92,6 @@
   <data name="Page.Privacy"><value>Privacy Policy</value></data>
 
   <!-- Confirm dialogs -->
-  <data name="Confirm.RemoveMember"><value>Remove {0}?</value></data>
   <data name="Confirm.DeleteTask"><value>Delete this task?</value></data>
   <data name="Confirm.DeleteList"><value>Delete this list?</value></data>
   <data name="Confirm.DeleteRecipe"><value>Delete this recipe?</value></data>
@@ -285,6 +284,7 @@
   <data name="Expenses.NetOwe"><value>You owe in total</value></data>
   <data name="Expenses.OwesYouName"><value>{0} owes you</value></data>
   <data name="Expenses.YouOweName"><value>You owe {0}</value></data>
+  <data name="Expenses.FormerMember"><value>former member</value></data>
   <data name="Expenses.SettleWith"><value>Settle</value></data>
   <data name="Expenses.YouPaid"><value>you paid</value></data>
   <data name="Expenses.Payment.YouPaid"><value>You paid {0}</value></data>
@@ -547,4 +547,45 @@
   <data name="Recurrence.Describe.Biweekly"><value>Every two weeks on {0} at {1} UTC</value></data>
   <data name="Recurrence.Describe.Monthly"><value>Monthly on day {0} at {1} UTC</value></data>
   <data name="Recurrence.Describe.Annually"><value>Annually on {0} at {1} UTC</value></data>
+  <data name="Settings.Household.Title"><value>Household settings</value></data>
+  <data name="Settings.Household.Name"><value>Name</value></data>
+  <data name="Settings.Household.TimeZone"><value>Time zone</value></data>
+  <data name="Settings.Household.TimeZoneHint"><value>Decides which day it is for everyone in this household.</value></data>
+  <data name="Settings.Household.TimeZoneInvalid"><value>Pick a time zone from the list.</value></data>
+  <data name="Settings.Household.You"><value>(you)</value></data>
+  <data name="Settings.Household.MakeRole.Admin"><value>Make admin</value></data>
+  <data name="Settings.Household.MakeRole.Member"><value>Make member</value></data>
+  <data name="Settings.Household.MakeOwner"><value>Make owner</value></data>
+  <data name="Settings.Household.InviteExpires"><value>Invite link, expires {0}</value></data>
+  <data name="Settings.Household.Revoke"><value>Revoke</value></data>
+  <data name="Settings.Household.Leave"><value>Leave household</value></data>
+  <data name="Settings.Household.TransferBeforeLeaving"><value>Transfer ownership to someone else before leaving.</value></data>
+  <data name="Role.Owner"><value>Owner</value></data>
+  <data name="Role.Admin"><value>Admin</value></data>
+  <data name="Role.Member"><value>Member</value></data>
+  <data name="Dashboard.Share"><value>Share</value></data>
+  <data name="Confirm.TransferOwnership"><value>Make {0} the owner? You become an admin.</value></data>
+  <data name="Flash.HouseholdRenamed"><value>Household renamed.</value></data>
+  <data name="Flash.TimeZoneChanged"><value>Time zone updated.</value></data>
+  <data name="Flash.RoleChanged"><value>Role updated.</value></data>
+  <data name="Flash.OwnershipTransferred"><value>Ownership transferred.</value></data>
+  <data name="Flash.InvitationRevoked"><value>Invite revoked.</value></data>
+  <data name="Flash.LeftHousehold"><value>You left the household.</value></data>
+  <data name="Removal.Title"><value>Remove {0}?</value></data>
+  <data name="Removal.Intro"><value>Removing {0} from the household will:</value></data>
+  <data name="Removal.IntroLeave"><value>Leaving the household will:</value></data>
+  <data name="Removal.Owes"><value>keep {0}'s debt of {1} visible so it can still be settled</value></data>
+  <data name="Removal.IsOwed"><value>keep the {1} owed to {0} visible so it can still be settled</value></data>
+  <data name="Removal.Recurring.Redistributed"><value>split {1}'s share of "{0}" among the others</value></data>
+  <data name="Removal.Recurring.Ended"><value>end "{0}", which {1} pays</value></data>
+  <data name="Removal.Plan"><value>keep {1} owing their share of "{0}" as installments fall due</value></data>
+  <data name="Removal.Tasks"><value>unassign {0} open task(s)</value></data>
+  <data name="Removal.Access"><value>remove {0}'s access to this household</value></data>
+  <data name="Removal.Leave.Owes"><value>you keep owing {0}; others can still settle it</value></data>
+  <data name="Removal.Leave.IsOwed"><value>you are still owed {0}; others can still settle it</value></data>
+  <data name="Removal.Leave.Recurring.Redistributed"><value>your share of "{0}" is split among the others</value></data>
+  <data name="Removal.Leave.Recurring.Ended"><value>end "{0}", which you pay</value></data>
+  <data name="Removal.Leave.Plan"><value>keep you owing your share of "{0}" as installments fall due</value></data>
+  <data name="Removal.Leave.Tasks"><value>unassign your {0} open task(s)</value></data>
+  <data name="Removal.Leave.Access"><value>you lose access to this household</value></data>
 </root>

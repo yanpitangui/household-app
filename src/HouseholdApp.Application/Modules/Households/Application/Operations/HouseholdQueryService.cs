@@ -5,9 +5,9 @@ using Npgsql;
 
 namespace HouseholdApp.Application.Modules.Households.Application.Operations;
 
-internal sealed record HouseholdDetailRow(Guid Id, string Name, DateTime CreatedAt);
+internal sealed record HouseholdDetailRow(Guid Id, string Name, string TimeZone, DateTime CreatedAt);
 
-public sealed class HouseholdQueryService(NpgsqlDataSource db) : IHouseholdQueries
+public sealed class HouseholdQueryService(NpgsqlDataSource db, TimeProvider time) : IHouseholdQueries
 {
     public async Task<IReadOnlyList<HouseholdSummary>> ListForUserAsync(Guid userId, CancellationToken ct = default)
     {
@@ -48,7 +48,7 @@ public sealed class HouseholdQueryService(NpgsqlDataSource db) : IHouseholdQueri
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var multi = await conn.QueryMultipleAsync(
             """
-            SELECT id, name, created_at AS CreatedAt
+            SELECT id, name, time_zone AS TimeZone, created_at AS CreatedAt
             FROM households.households
             WHERE id = @householdId;
 
@@ -65,7 +65,7 @@ public sealed class HouseholdQueryService(NpgsqlDataSource db) : IHouseholdQueri
         if (household is null) return null;
 
         var members = (await multi.ReadAsync<HouseholdMemberDto>()).ToList();
-        return new HouseholdDetail(household.Id, household.Name, household.CreatedAt, members);
+        return new HouseholdDetail(household.Id, household.Name, household.TimeZone, household.CreatedAt, members);
     }
 
     public async Task<IReadOnlyList<HouseholdMemberDto>> GetMembersAsync(Guid householdId, CancellationToken ct = default)
@@ -81,6 +81,19 @@ public sealed class HouseholdQueryService(NpgsqlDataSource db) : IHouseholdQueri
             WHERE m.household_id = @householdId
             """,
             new { householdId });
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<PendingInvitation>> ListPendingInvitationsAsync(Guid householdId, CancellationToken ct = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<PendingInvitation>(
+            """
+            SELECT id, created_at AS CreatedAt, expires_at AS ExpiresAt
+            FROM households.invitations
+            WHERE household_id = @householdId AND status = 0 AND expires_at > @now
+            ORDER BY created_at DESC
+            """, new { householdId, now = time.GetUtcNow() });
         return rows.ToList();
     }
 }

@@ -13,7 +13,10 @@
 
 <div class="household-hero">
     <div class="household-hero-label">@L["Dashboard.YourHousehold"]</div>
-    <div class="household-hero-name">@Model.Household.Name</div>
+    <div class="household-hero-name">
+        @Model.Household.Name
+        <a href="/h/@Model.Household.Id/settings" class="household-settings-link" title="@L["Settings.Household.Title"]">⚙</a>
+    </div>
 </div>
 
 <div id="push-opt-in-banner" class="push-opt-in-banner" style="display:none" data-vapid-public-key="@Model.VapidPublicKey">
@@ -50,68 +53,6 @@
         <div class="feature-card-icon">💳</div>
     </a>
 </div>
-
-<p class="section-title">@L["Dashboard.Members"]</p>
-<div class="app-card">
-    @foreach (var m in Model.Household.Members)
-    {
-        <div class="member-item">
-            <div style="display:flex;align-items:center">
-                <div class="member-avatar">
-                    @if (!string.IsNullOrEmpty(m.PictureUrl))
-                    {
-                        <img src="@m.PictureUrl" alt="@m.DisplayName" />
-                    }
-                    else
-                    {
-                        @(m.DisplayName.Length > 0 ? m.DisplayName[0].ToString().ToUpper() : "?")
-                    }
-                </div>
-                <div>
-                    <div style="font-size:14px;font-weight:500;color:var(--text-secondary)">@m.DisplayName</div>
-                    <div style="font-size:11px;color:var(--text-muted)">@m.Role</div>
-                </div>
-            </div>
-            @if (m.UserId != Model.CurrentUserId)
-            {
-                <form method="post" asp-page-handler="RemoveMember">
-                    <input type="hidden" name="targetUserId" value="@m.UserId" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            data-confirm="@L["Confirm.RemoveMember", m.DisplayName]">@L["Dashboard.Remove"]</button>
-                </form>
-            }
-        </div>
-    }
-</div>
-
-<p class="section-title">@L["Dashboard.Invite"]</p>
-<form method="post" asp-page-handler="Invite">
-    <button type="submit" class="btn btn-outline-secondary btn-sm">@L["Dashboard.GenerateInvite"]</button>
-</form>
-
-@if (Model.InviteToken is not null)
-{
-    var joinUrl = $"{Request.Scheme}://{Request.Host}/households/join?token={Model.InviteToken}";
-    var displayUrl = joinUrl.Length > 60 ? joinUrl[..60] + "…" : joinUrl;
-    <div class="invite-card">
-        <div class="invite-card-label">@L["Dashboard.InviteSingleUse"]</div>
-        <div class="invite-card-url">@displayUrl</div>
-        <div class="invite-card-actions">
-            <button class="invite-card-btn invite-btn-copy"
-                    data-invite-url="@joinUrl"
-                    onclick="copyInviteUrl(this)">
-                ⧉ @L["Dashboard.Copy"]
-            </button>
-            <button class="invite-card-btn invite-btn-share"
-                    data-invite-url="@joinUrl"
-                    style="display:none"
-                    onclick="shareInviteUrl(this)">
-                ↗ Share
-            </button>
-        </div>
-        <div class="invite-card-hint">@L["Dashboard.InviteSingleUseHint"]</div>
-    </div>
-}
 
 @section Scripts {
     <script src="~/js/push.js" asp-append-version="true"></script>

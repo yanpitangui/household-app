@@ -109,7 +109,7 @@ public sealed class PlaywrightFixture : IAsyncInitializer, IAsyncDisposable
     public async Task<IBrowserContext> AddMemberAsync(IBrowserContext ownerCtx, Guid householdId, E2EUser member)
     {
         var ownerPage = await ownerCtx.NewPageAsync();
-        await ownerPage.GotoAsync($"{AppUrl}/h/{householdId}");
+        await ownerPage.GotoAsync($"{AppUrl}/h/{householdId}/settings");
         await ownerPage.ClickAsync("button:has-text('Generate invite link')");
         var inviteButton = ownerPage.Locator("[data-invite-url]").First;
         await inviteButton.WaitForAsync();

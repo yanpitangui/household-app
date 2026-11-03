@@ -69,6 +69,8 @@ public static class ExpensesModule
         services.AddScoped<IExpenseImport, ExpenseImportService>();
         services.AddScoped<IExpenseQueries, ExpenseQueryService>();
         services.AddScoped<IActivityFeedQueries, ActivityFeedQueryService>();
+        services.AddScoped<IExpenseMemberRemoval, ExpenseMemberRemovalService>();
+        services.AddEventHandler<HouseholdMemberRemoved, MemberRemovedExpenseHandler>();
         services.AddEventHandler<HouseholdCreated, DefaultExpenseGroupHandler>();
         services.AddEventHandler<ExpenseRecorded, ExpensePushNotificationHandler>();
         services.AddEventHandler<ExpenseVoided, ExpensePushNotificationHandler>();

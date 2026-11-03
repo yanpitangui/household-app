@@ -97,6 +97,23 @@ public sealed class RecurringExpense : AggregateRoot
         Raise(ended);
     }
 
+    /// <summary>Applies <see cref="MemberRemoval"/>; false when the template is ended or the member has no part in it.</summary>
+    public bool RemoveMember(Guid userId, DateTimeOffset now, Guid performedByUserId)
+    {
+        if (Status == RecurringExpenseStatus.Ended) return false;
+        switch (MemberRemoval.For(FundingSources, Allocations, userId))
+        {
+            case MemberRemoval.Ended:
+                End(now, performedByUserId);
+                return true;
+            case MemberRemoval.Redistributed r:
+                Update(Description, FundingSources, r.Allocations, Schedule, now, performedByUserId);
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public void Pause(DateTimeOffset now, Guid performedByUserId)
     {
         if (Status != RecurringExpenseStatus.Active)

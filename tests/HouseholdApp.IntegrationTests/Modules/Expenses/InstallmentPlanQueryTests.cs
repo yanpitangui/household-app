@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Modules.Households.Application.Ports;
 using Dapper;
 using HouseholdApp.Application.Modules.Expenses.Application.Operations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
@@ -27,7 +28,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService Queries(IQuerySession qs) =>
-        new(qs, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()),
+        new(qs, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(),
             new FakeTimeProvider(Now));
 
     private async Task InsertUsersAsync(params Guid[] ids)

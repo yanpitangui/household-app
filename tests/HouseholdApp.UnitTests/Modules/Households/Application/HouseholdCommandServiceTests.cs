@@ -26,10 +26,10 @@ public sealed class HouseholdCommandServiceTests
     [Test]
     public async Task CreateAsync_saves_household_and_returns_id()
     {
-        var id = await _sut.CreateAsync("My House");
+        var id = await _sut.CreateAsync("My House", "America/Sao_Paulo");
 
         await Assert.That(id).IsNotEqualTo(Guid.Empty);
-        await _repo.Received(1).SaveAsync(
+        await _repo.Received(1).InsertAsync(
             Arg.Is<Household>(h => h.Name == "My House"),
             Arg.Any<CancellationToken>());
     }
@@ -39,7 +39,7 @@ public sealed class HouseholdCommandServiceTests
     {
         var householdId = Guid.NewGuid();
         var ownerId = _currentUser.Id;
-        var household = Household.Create("House", ownerId, DateTimeOffset.UtcNow);
+        var household = Household.Create("House", ownerId, HouseholdTimeZone.Default, DateTimeOffset.UtcNow);
         _repo.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(household);
 
         var token = await _sut.InviteAsync(householdId);
@@ -74,7 +74,7 @@ public sealed class HouseholdCommandServiceTests
     {
         var ownerId = Guid.NewGuid();
         var newUserId = _currentUser.Id;
-        var household = Household.Create("House", ownerId, DateTimeOffset.UtcNow);
+        var household = Household.Create("House", ownerId, HouseholdTimeZone.Default, DateTimeOffset.UtcNow);
         var invitation = household.Invite(ownerId, DateTimeOffset.UtcNow, TimeSpan.FromDays(7));
         household.ClearEvents();
 
@@ -105,7 +105,7 @@ public sealed class HouseholdCommandServiceTests
     {
         var ownerId = _currentUser.Id;
         var memberId = Guid.NewGuid();
-        var household = Household.Create("House", ownerId, DateTimeOffset.UtcNow);
+        var household = Household.Create("House", ownerId, HouseholdTimeZone.Default, DateTimeOffset.UtcNow);
         var invitation = household.Invite(ownerId, DateTimeOffset.UtcNow, TimeSpan.FromDays(7));
         household.AcceptInvitation(invitation, memberId, DateTimeOffset.UtcNow);
         household.ClearEvents();
@@ -137,7 +137,7 @@ public sealed class HouseholdCommandServiceTests
     public async Task RevokeInvitationAsync_revokes_invitation()
     {
         var ownerId = Guid.NewGuid();
-        var household = Household.Create("House", ownerId, DateTimeOffset.UtcNow);
+        var household = Household.Create("House", ownerId, HouseholdTimeZone.Default, DateTimeOffset.UtcNow);
         var invitation = household.Invite(ownerId, DateTimeOffset.UtcNow, TimeSpan.FromDays(7));
 
         _repo.GetInvitationAsync(invitation.Id, Arg.Any<CancellationToken>()).Returns(invitation);
@@ -145,5 +145,18 @@ public sealed class HouseholdCommandServiceTests
         await _sut.RevokeInvitationAsync(household.Id, invitation.Id);
 
         await Assert.That(invitation.Status).IsEqualTo(InvitationStatus.Revoked);
+    }
+
+    [Test]
+    public async Task RemoveMemberAsync_deletes_the_member_row()
+    {
+        var householdId = Guid.NewGuid(); var bia = Guid.NewGuid();
+        var household = Household.Reconstitute(householdId, "Casa", "America/Sao_Paulo", DateTimeOffset.UtcNow,
+            [new(householdId, _currentUser.Id, HouseholdRole.Owner), new(householdId, bia, HouseholdRole.Member)]);
+        _repo.GetAsync(householdId, Arg.Any<CancellationToken>()).Returns(household);
+
+        await _sut.RemoveMemberAsync(householdId, bia);
+
+        await _repo.Received(1).RemoveMemberAsync(householdId, bia, Arg.Any<CancellationToken>());
     }
 }

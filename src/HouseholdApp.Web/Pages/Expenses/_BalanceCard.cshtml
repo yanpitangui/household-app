@@ -38,6 +38,11 @@
                     </span>
                     <span class="expenses-person-name">
                         @sentence
+                        @* Former Members keep a settleable balance (ADR 0015); the tag tells them apart from current Members. *@
+                        @if (b.IsFormerMember)
+                        {
+                            <span class="former-member-tag">@L["Expenses.FormerMember"]</span>
+                        }
                         <span class="expenses-person-amount" style="color:@personColor">@currencySymbol @((Math.Abs(b.Cents) / 100m).ToString("F2"))</span>
                     </span>
                     <a href="/h/@Model.HouseholdId/expenses/settle?with=@b.UserId@(Model.GroupId is { } g ? $"&group={g}" : "")" class="expenses-settle-with" aria-label="@L["Expenses.SettleWith"] — @sentence">@L["Expenses.SettleWith"]</a>

@@ -298,4 +298,59 @@ public sealed class RecurringExpenseTests
         await Assert.That(replayed.Status).IsEqualTo(template.Status);
         await Assert.That(replayed.NextOccurrenceAt).IsEqualTo(template.NextOccurrenceAt);
     }
+
+    [Test]
+    public async Task RemoveMember_hands_their_share_to_the_others_and_keeps_the_schedule()
+    {
+        var bia = Guid.NewGuid();
+        var template = RecurringExpense.Create(
+            Household, Group, "Rent", Funding, [new(Ana, 50_00), new(bia, 25_00), new(Leo, 25_00)],
+            Monthly(2026, 12, 1), false, Now, Ana);
+        var next = template.NextOccurrenceAt;
+
+        var changed = template.RemoveMember(bia, Now, Ana);
+
+        // Bia's 25.00 splits 50:25 between Ana and Leo: Ana 16.67 (66.67 total), Leo 8.33 (33.33 total); the leftover cent goes to Ana.
+        await Assert.That(changed).IsTrue();
+        await Assert.That(template.Allocations.Select(a => a.UserId)).IsEquivalentTo(new[] { Ana, Leo });
+        await Assert.That(template.Allocations.Sum(a => a.Cents)).IsEqualTo(100_00);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(next);
+        await Assert.That(template.DomainEvents.OfType<RecurringExpenseUpdated>().Count()).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task RemoveMember_ends_a_paused_template_left_with_only_its_payer()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.Pause(Now, Ana);
+
+        template.RemoveMember(Leo, Now, Ana);
+
+        // Leo leaving leaves only the payer, so the template ends.
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Ended);
+    }
+
+    [Test]
+    public async Task RemoveMember_leaves_a_paused_template_paused_when_others_remain()
+    {
+        var bia = Guid.NewGuid();
+        var template = RecurringExpense.Create(
+            Household, Group, "Rent", Funding, [new(Ana, 40_00), new(bia, 30_00), new(Leo, 30_00)],
+            Monthly(2026, 12, 1), false, Now, Ana);
+        template.Pause(Now, Ana);
+
+        template.RemoveMember(bia, Now, Ana);
+
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
+        await Assert.That(template.Allocations.Select(a => a.UserId)).IsEquivalentTo(new[] { Ana, Leo });
+    }
+
+    [Test]
+    public async Task RemoveMember_ignores_an_ended_template()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.End(Now, Ana);
+
+        await Assert.That(template.RemoveMember(Leo, Now, Ana)).IsFalse();
+    }
 }

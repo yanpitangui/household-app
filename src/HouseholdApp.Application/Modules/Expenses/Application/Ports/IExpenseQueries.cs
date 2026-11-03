@@ -120,9 +120,10 @@ public sealed record ExpenseDetail(
 
 /// <summary>
 /// Balance between the viewer and one other member. Positive Cents: the member owes the viewer;
-/// negative: the viewer owes the member.
+/// negative: the viewer owes the member. IsFormerMember marks someone who left or was removed but still
+/// has a settleable balance (ADR 0015).
 /// </summary>
-public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, string? PictureUrl);
+public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, string? PictureUrl, bool IsFormerMember = false);
 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description, string Icon = GroupIcons.Default);
 

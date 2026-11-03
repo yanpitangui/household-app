@@ -33,3 +33,10 @@ public sealed record HouseholdRoleChanged(
     Guid HouseholdId,
     Guid UserId,
     HouseholdRole NewRole) : IDomainEvent;
+
+public sealed record HouseholdRenamed(
+    Guid EventId, DateTimeOffset OccurredAt, Guid HouseholdId, string Name,
+    IReadOnlyList<Guid> MemberIds) : IDomainEvent;
+
+public sealed record HouseholdTimeZoneChanged(
+    Guid EventId, DateTimeOffset OccurredAt, Guid HouseholdId, string TimeZone) : IDomainEvent;

@@ -1,0 +1,33 @@
+@model HouseholdApp.Web.Pages.Households.RemoveMemberModel
+@{
+    var p = Model.Preview;
+    var name = p.Member.DisplayName;
+    ViewData["Title"] = Model.IsLeaving ? L["Settings.Household.Leave"] : L["Removal.Title", name];
+    var culture = System.Globalization.CultureInfo.CurrentCulture;
+    string Money(long cents) => $"{culture.NumberFormat.CurrencySymbol} {(Math.Abs(cents) / 100m).ToString("F2", culture)}";
+    var key = Model.IsLeaving ? "Removal.Leave." : "Removal.";
+}
+
+<div class="page-heading"><span>@ViewData["Title"]</span></div>
+
+<div class="app-card">
+    <p>@L[Model.IsLeaving ? "Removal.IntroLeave" : "Removal.Intro", name]</p>
+    <ul class="removal-consequences">
+        @if (p.Expenses.NetCents < 0) { <li>@(Model.IsLeaving ? L[key + "Owes", Money(p.Expenses.NetCents)] : L[key + "Owes", name, Money(p.Expenses.NetCents)])</li> }
+        else if (p.Expenses.NetCents > 0) { <li>@(Model.IsLeaving ? L[key + "IsOwed", Money(p.Expenses.NetCents)] : L[key + "IsOwed", name, Money(p.Expenses.NetCents)])</li> }
+        @foreach (var r in p.Expenses.Recurring)
+        {
+            <li>@L[$"{key}Recurring.{r.Effect}", r.Description, name]</li>
+        }
+        @foreach (var plan in p.Expenses.InstallmentPlans)
+        {
+            <li>@L[key + "Plan", plan, name]</li>
+        }
+        @if (p.OpenTasks > 0) { <li>@L[key + "Tasks", p.OpenTasks]</li> }
+        <li>@L[key + "Access", name]</li>
+    </ul>
+    <form method="post" class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">@L[Model.IsLeaving ? "Settings.Household.Leave" : "Dashboard.Remove"]</button>
+        <a href="/h/@Model.Id/settings" class="btn btn-outline-secondary">@L["Action.Cancel"]</a>
+    </form>
+</div>

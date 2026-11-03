@@ -2,7 +2,11 @@ using HouseholdApp.Application.Shared.Domain;
 using Dapper;
 using HouseholdApp.Application.Modules.Tasks.Application.Operations;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
+using HouseholdApp.Application.Modules.Tasks.Infrastructure;
+using HouseholdApp.Application.Shared.Events;
+using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.IntegrationTests.Infrastructure;
+using NSubstitute;
 
 namespace HouseholdApp.IntegrationTests.Modules.Tasks;
 
@@ -93,5 +97,43 @@ public sealed class TaskQueryServiceTests(PostgresFixture db)
         await Assert.That(result[0].Schedule).IsEqualTo(
             new RecurrenceSchedule(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, 9), new TimeOnly(9, 0)));
         await Assert.That(result[0].IsActive).IsTrue();
+    }
+
+    [Test]
+    public async Task Removing_a_member_unassigns_their_open_tasks_and_recurring_defaults()
+    {
+        var householdId = Guid.NewGuid();
+        var bia = Guid.NewGuid();
+        var leo = Guid.NewGuid();
+        var openTask = Guid.NewGuid();
+        var doneTask = Guid.NewGuid();
+        var leosTask = Guid.NewGuid();
+        await using (var conn = await db.DataSource.OpenConnectionAsync())
+        {
+            const string insertTask =
+                "INSERT INTO tasks.tasks (id, household_id, title, assigned_to, status) VALUES (@id, @householdId, 'T', @assignee, @status)";
+            await conn.ExecuteAsync(insertTask, new { id = openTask, householdId, assignee = bia, status = 0 });
+            await conn.ExecuteAsync(insertTask, new { id = doneTask, householdId, assignee = bia, status = 1 });
+            await conn.ExecuteAsync(insertTask, new { id = leosTask, householdId, assignee = leo, status = 0 });
+            await conn.ExecuteAsync(
+                "INSERT INTO tasks.recurring_tasks (id, household_id, title, default_assigned_to, frequency, first_date, run_time, is_active) VALUES (@id, @householdId, 'Weekly clean', @bia, 'Weekly', '2026-11-09', '09:00', true)",
+                new { id = Guid.NewGuid(), householdId, bia });
+        }
+
+        await Assert.That(await _sut.CountOpenAssignedAsync(householdId, bia)).IsEqualTo(1);
+
+        await using (var uow = new DapperUnitOfWork(db.DataSource, Substitute.For<IEventBus>()))
+        {
+            await uow.BeginTransactionAsync();
+            await new TaskRepository(uow).UnassignMemberAsync(householdId, bia);
+            await uow.CommitAsync();
+        }
+
+        await Assert.That((await _sut.GetAsync(openTask))!.AssignedTo).IsNull();
+        // A completed task keeps the person who did it.
+        await Assert.That((await _sut.GetAsync(doneTask))!.AssignedTo).IsEqualTo(bia);
+        await Assert.That((await _sut.GetAsync(leosTask))!.AssignedTo).IsEqualTo(leo);
+        await Assert.That((await _sut.ListRecurringAsync(householdId)).Single().DefaultAssignedTo).IsNull();
+        await Assert.That(await _sut.CountOpenAssignedAsync(householdId, bia)).IsEqualTo(0);
     }
 }

@@ -247,6 +247,16 @@ html, body {
     line-height: 1.15;
 }
 
+.household-settings-link {
+    margin-left: 8px;
+    font-size: 16px;
+    color: var(--text-muted);
+    text-decoration: none;
+    vertical-align: middle;
+}
+
+.household-settings-link:hover { color: var(--text-primary); }
+
 /* ── Feature card grid ────────────────────────── */
 .feature-grid {
     display: grid;
@@ -2307,3 +2317,5 @@ a.page-menu-item { color: inherit; text-decoration: none; }
 .upcoming-amount { font-size: 12px; font-weight: 700; text-align: right; display: flex; flex-direction: column; }
 .upcoming-amount small { font-weight: 500; font-size: 10px; color: var(--text-muted); }
 .upcoming-more { width: 100%; background: none; border: none; color: #93c5fd; font-size: 12px; padding: 8px 0 2px; cursor: pointer; }
+
+.former-member-tag { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
