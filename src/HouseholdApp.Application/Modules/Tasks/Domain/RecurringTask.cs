@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 
 namespace HouseholdApp.Application.Modules.Tasks.Domain;
 
@@ -17,9 +18,9 @@ public sealed class RecurringTask
 
     public static RecurringTask Create(
         Guid householdId, string title, string? description, Guid? defaultAssignedTo,
-        RecurrenceSchedule schedule, DateTimeOffset now)
+        RecurrenceSchedule schedule, TimeZoneInfo zone, DateTimeOffset now)
     {
-        if (schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime))
+        if (schedule.FirstDate < HouseholdTime.Today(zone, now))
             throw new InvalidOperationException("The first date must be today or later.");
 
         return new RecurringTask
@@ -31,7 +32,7 @@ public sealed class RecurringTask
             DefaultAssignedTo = defaultAssignedTo,
             Schedule = schedule,
             IsActive = true,
-            NextRunAt = schedule.At(0)
+            NextRunAt = schedule.In(zone).At(0)
         };
     }
 
@@ -50,21 +51,22 @@ public sealed class RecurringTask
     };
 
     /// <summary>
-    /// The Tasks due at <paramref name="now"/>, each due on its own occurrence date, and moves the cursor past them.
+    /// The Tasks due at <paramref name="now"/>, each due on its own occurrence date in <paramref name="zone"/>, and moves the cursor past them.
     /// Their ids are derived from the template and the date, so a retry produces the same ones.
     /// </summary>
-    public IReadOnlyList<HouseholdTask> SpawnDue(DateTimeOffset now)
+    public IReadOnlyList<HouseholdTask> SpawnDue(DateTimeOffset now, TimeZoneInfo zone)
     {
         if (!IsActive) return [];
+        var zoned = Schedule.In(zone);
         var tasks = new List<HouseholdTask>();
-        for (var at = NextRunAt; at <= now; at = Schedule.NextAfter(at))
+        for (var at = NextRunAt; at <= now; at = zoned.NextAfterDateOf(at))
         {
-            var date = DateOnly.FromDateTime(at.UtcDateTime);
+            var date = zoned.DateOf(at);
             tasks.Add(HouseholdTask.Create(
                 HouseholdId, Title, Description, DefaultAssignedTo,
                 new DateTimeOffset(date, TimeOnly.MinValue, TimeSpan.Zero), now, Id,
                 RecurrenceSchedule.OccurrenceId(Id, date)));
-            NextRunAt = Schedule.NextAfter(at);
+            NextRunAt = zoned.NextAfterDateOf(at);
         }
         return tasks;
     }

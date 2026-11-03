@@ -61,7 +61,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
             _householdId, groupId, description, [new FundingSource(_leo, 12000)],
             [new Allocation(_ana, 6000), new Allocation(_leo, 6000)],
             new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 11, 20), new TimeOnly(9, 0)),
-            catchUp: false, Now, _ana);
+            TimeZoneInfo.Utc, catchUp: false, Now, _ana);
         if (!active) template.End(Now, _ana);
         await using var s = Store.LightweightSession();
         s.Events.StartStream(template.Id, template.DomainEvents.ToArray());

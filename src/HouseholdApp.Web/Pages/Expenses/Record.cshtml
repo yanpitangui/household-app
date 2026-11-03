@@ -618,19 +618,19 @@
         let next = first;
         let past = 0;
         while (index < 101) {
-            const at = new Date(next.getTime());
             const [hour, minute] = hourMinute.split(':').map(Number);
-            at.setUTCHours(hour, minute, 0, 0);
+            // Schedules read on the wall clock, so the preview compares against the browser's local time.
+            const at = new Date(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate(), hour, minute, 0, 0);
             if (at > now) break;
             past++; index++; next = recurrenceDate(recurringFirstDate.value, recurringFrequency.value, index);
         }
         const label = recurringFrequency.options[recurringFrequency.selectedIndex]?.text || recurringFrequency.value;
-        main.textContent = fill(repeatMeta.recurringPreview, `${label} at ${hourMinute} UTC`, fmtDate(next.toISOString().slice(0, 10)));
+        main.textContent = fill(repeatMeta.recurringPreview, `${label} at ${hourMinute}`, fmtDate(next.toISOString().slice(0, 10)));
         const mine = (computeAllocations() || []).find(a => a.userId === repeatMeta.currentUserId);
         share.textContent = mine ? fill(repeatMeta.recurringShare, `${currencySymbol} ${centsToDisplay(mine.cents)}`) : '';
         if (shortMonth) shortMonth.style.display = recurringFrequency.value === 'Monthly' && first.getUTCDate() >= 29 ? 'block' : 'none';
         if (catchUp) {
-            catchUp.style.display = first < new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) ? 'block' : 'none';
+            catchUp.style.display = first < new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) ? 'block' : 'none';
             const catchUpLabel = document.getElementById('recurring-catch-up-label');
             if (catchUpLabel) catchUpLabel.textContent = fill(repeatMeta.catchUp, past);
         }

@@ -148,7 +148,7 @@ public class RecordExpenseModel(
         }
 
         if (Repeat == "recurring" && RecurringFirstDate is null) RecurringFirstDate = Date;
-        UpdateRecurringCatchUpCount();
+        await UpdateRecurringCatchUpCountAsync();
 
         await LoadLookups();
         return Page();
@@ -160,7 +160,7 @@ public class RecordExpenseModel(
         if (Date == default) Date = await householdClock.TodayAsync(HouseholdId);
         if (RecurringId.HasValue && await LoadEditableRecurringExpenseAsync() is { } ended) return ended;
         if (PlanId.HasValue && await LoadEditablePlanAsync() is { } endedPlan) return endedPlan;
-        UpdateRecurringCatchUpCount();
+        await UpdateRecurringCatchUpCountAsync();
 
         if (!ModelState.IsValid)
         {
@@ -366,14 +366,15 @@ public class RecordExpenseModel(
         return null;
     }
 
-    private void UpdateRecurringCatchUpCount()
+    private async Task UpdateRecurringCatchUpCountAsync()
     {
         if (!RecurringId.HasValue && RecurringFirstDate is { } firstDate)
         {
             var now = timeProvider.GetUtcNow();
+            var zone = await householdClock.ZoneAsync(HouseholdId);
             var schedule = new RecurrenceSchedule(RecurringFrequency, firstDate, RecurringTime);
-            RecurringCatchUpCount = firstDate < DateOnly.FromDateTime(now.UtcDateTime)
-                ? schedule.CountThrough(now)
+            RecurringCatchUpCount = firstDate < HouseholdTime.Today(zone, now)
+                ? schedule.In(zone).CountThrough(now)
                 : 0;
         }
     }

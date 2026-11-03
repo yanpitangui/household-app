@@ -9,7 +9,7 @@ public class RecurringExpensesTests(PlaywrightFixture pw)
 {
     private static bool IsRecurringPage(string url) => url.Contains("/expenses/recurring/", StringComparison.OrdinalIgnoreCase);
 
-    // First dates are whole days ahead at noon UTC, so the template stays upcoming and untouched by the sweep
+    // First dates are whole days ahead at noon on the household clock, so the template stays upcoming and untouched by the sweep
     // whatever time of day the test runs.
     private static async Task<Guid> RecordRecurringAsync(
         IPage page, string appUrl, Guid householdId, Guid groupId, string description, string amount, int daysAhead)

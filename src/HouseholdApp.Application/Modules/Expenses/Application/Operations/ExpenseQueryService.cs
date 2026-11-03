@@ -532,7 +532,8 @@ public sealed class ExpenseQueryService(
 
         var templates = (await LoadActiveTemplatesAsync(householdId, ct)).Where(t => InScope(t.GroupId)).ToList();
         var summary = UpcomingBuilder.Build(
-            withCreated, templates, timeProvider.GetUtcNow(), await householdClock.TodayAsync(householdId, ct), viewerId);
+            withCreated, templates, timeProvider.GetUtcNow(), await householdClock.TodayAsync(householdId, ct),
+            await householdClock.ZoneAsync(householdId, ct), viewerId);
         if (summary.Items.Count == 0) return UpcomingSummary.Empty;
 
         var profiles = await LoadProfilesAsync(summary.Items.Select(i => i.PayerId).Distinct(), ct);

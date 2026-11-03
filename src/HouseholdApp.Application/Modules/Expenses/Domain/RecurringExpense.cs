@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 
 namespace HouseholdApp.Application.Modules.Expenses.Domain;
 
@@ -6,7 +7,8 @@ namespace HouseholdApp.Application.Modules.Expenses.Domain;
 public enum RecurringExpenseStatus { Active = 0, Ended = 1, Paused = 2 }
 
 /// <summary>
-/// A template that creates one Expense per occurrence of its schedule. Event-sourced: each operation builds its event,
+/// A template that creates one Expense per occurrence of its schedule, read on the household's wall clock (the zone
+/// every operation receives). Event-sourced: each operation builds its event,
 /// applies it and raises it, so replaying the stream (Create + Apply) rebuilds the same state.
 /// </summary>
 public sealed class RecurringExpense : AggregateRoot
@@ -20,6 +22,7 @@ public sealed class RecurringExpense : AggregateRoot
     public IReadOnlyList<FundingSource> FundingSources { get; private set; } = [];
     public IReadOnlyList<Allocation> Allocations { get; private set; } = [];
     public RecurrenceSchedule Schedule { get; private set; } = default!;
+    public bool ScheduleIsLocal { get; private set; }
     public DateTimeOffset NextOccurrenceAt { get; private set; }
     public RecurringExpenseStatus Status { get; private set; }
 
@@ -28,18 +31,20 @@ public sealed class RecurringExpense : AggregateRoot
     public static RecurringExpense Create(
         Guid householdId, Guid expenseGroupId, string description,
         IReadOnlyList<FundingSource> fundingSources, IReadOnlyList<Allocation> allocations,
-        RecurrenceSchedule schedule, bool catchUp, DateTimeOffset now, Guid performedByUserId, Guid? id = null)
+        RecurrenceSchedule schedule, TimeZoneInfo zone, bool catchUp, DateTimeOffset now, Guid performedByUserId,
+        Guid? id = null)
     {
         Validate(fundingSources, allocations);
 
-        var startsInThePast = schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime);
-        if (startsInThePast && catchUp && schedule.CountThrough(now) > MaxCatchUp)
+        var zoned = schedule.In(zone);
+        var startsInThePast = schedule.FirstDate < HouseholdTime.Today(zone, now);
+        if (startsInThePast && catchUp && zoned.CountThrough(now) > MaxCatchUp)
             throw new InvalidOperationException($"A catch-up can create at most {MaxCatchUp} expenses.");
 
-        var next = startsInThePast && !catchUp ? schedule.NextAfter(now) : schedule.At(0);
+        var next = startsInThePast && !catchUp ? zoned.NextAfter(now) : zoned.At(0);
         var created = new RecurringExpenseCreated(
             Guid.CreateVersion7(), now, id ?? Guid.CreateVersion7(), householdId, expenseGroupId, description,
-            fundingSources, allocations, schedule, next, performedByUserId);
+            fundingSources, allocations, schedule, next, performedByUserId, LocalTime: true);
 
         var template = Create(created);
         template.Raise(created);
@@ -47,12 +52,13 @@ public sealed class RecurringExpense : AggregateRoot
     }
 
     /// <summary>Dates due at <paramref name="now"/>, oldest first. Empty unless the template is active.</summary>
-    public IReadOnlyList<DateOnly> DueOccurrences(DateTimeOffset now)
+    public IReadOnlyList<DateOnly> DueOccurrences(DateTimeOffset now, TimeZoneInfo zone)
     {
         if (Status != RecurringExpenseStatus.Active) return [];
+        var zoned = Schedule.In(zone);
         var due = new List<DateOnly>();
-        for (var at = NextOccurrenceAt; at <= now; at = Schedule.NextAfter(at))
-            due.Add(DateOnly.FromDateTime(at.UtcDateTime));
+        for (var at = NextOccurrenceAt; at <= now; at = zoned.NextAfterDateOf(at))
+            due.Add(zoned.DateOf(at));
         return due;
     }
 
@@ -63,9 +69,10 @@ public sealed class RecurringExpense : AggregateRoot
             id: RecurrenceSchedule.OccurrenceId(Id, date), recurringExpenseId: Id,
             coveredByPlanEvent: coveredByCreatedEvent);
 
-    public void MarkOccurred(DateOnly date, DateTimeOffset now, bool skipped = false)
+    public void MarkOccurred(DateOnly date, DateTimeOffset now, TimeZoneInfo zone, bool skipped = false)
     {
-        var next = Schedule.NextAfter(new DateTimeOffset(date, Schedule.Time, TimeSpan.Zero));
+        var zoned = Schedule.In(zone);
+        var next = zoned.NextAfter(zoned.AtDate(date));
         var occurred = new RecurringExpenseOccurred(Guid.CreateVersion7(), now, Id, HouseholdId, date, next, skipped);
         Apply(occurred);
         Raise(occurred);
@@ -73,17 +80,20 @@ public sealed class RecurringExpense : AggregateRoot
 
     public void Update(
         string description, IReadOnlyList<FundingSource> fundingSources, IReadOnlyList<Allocation> allocations,
-        RecurrenceSchedule schedule, DateTimeOffset now, Guid performedByUserId)
+        RecurrenceSchedule schedule, TimeZoneInfo zone, DateTimeOffset now, Guid performedByUserId)
     {
         EnsureNotEnded();
         Validate(fundingSources, allocations);
-        if (schedule.FirstDate != Schedule.FirstDate && schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime))
+        if (schedule.FirstDate != Schedule.FirstDate && schedule.FirstDate < HouseholdTime.Today(zone, now))
             throw new InvalidOperationException("A changed first date must be today or later.");
 
-        var next = schedule == Schedule ? NextOccurrenceAt : schedule.NextAfter(now);
+        // An untouched schedule still entered in UTC saves as its wall-clock equivalent, keeping its next instant.
+        var unchanged = schedule == Schedule;
+        if (unchanged && !ScheduleIsLocal) schedule = LocalSchedule(zone);
+        var next = unchanged ? NextOccurrenceAt : schedule.In(zone).NextAfter(now);
         var updated = new RecurringExpenseUpdated(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, description, fundingSources, allocations,
-            schedule, next, FundingSources.Sum(f => f.Cents), performedByUserId);
+            schedule, next, FundingSources.Sum(f => f.Cents), performedByUserId, LocalTime: true);
         Apply(updated);
         Raise(updated);
     }
@@ -98,7 +108,7 @@ public sealed class RecurringExpense : AggregateRoot
     }
 
     /// <summary>Applies <see cref="MemberRemoval"/>; false when the template is ended or the member has no part in it.</summary>
-    public bool RemoveMember(Guid userId, DateTimeOffset now, Guid performedByUserId)
+    public bool RemoveMember(Guid userId, DateTimeOffset now, TimeZoneInfo zone, Guid performedByUserId)
     {
         if (Status == RecurringExpenseStatus.Ended) return false;
         switch (MemberRemoval.For(FundingSources, Allocations, userId))
@@ -107,11 +117,31 @@ public sealed class RecurringExpense : AggregateRoot
                 End(now, performedByUserId);
                 return true;
             case MemberRemoval.Redistributed r:
-                Update(Description, FundingSources, r.Allocations, Schedule, now, performedByUserId);
+                Update(Description, FundingSources, r.Allocations, Schedule, zone, now, performedByUserId);
                 return true;
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Moves a schedule entered in UTC to <paramref name="zone"/>'s wall clock: the first occurrence keeps its instant, the
+    /// ones after it follow the zone. False when the schedule is already local.
+    /// </summary>
+    public bool Localize(TimeZoneInfo zone, DateTimeOffset now)
+    {
+        if (ScheduleIsLocal) return false;
+        var localized = new RecurringExpenseScheduleLocalized(Guid.CreateVersion7(), now, Id, HouseholdId, LocalSchedule(zone));
+        Apply(localized);
+        Raise(localized);
+        return true;
+    }
+
+    // The UTC-entered schedule on zone's wall clock, its first occurrence at the same instant.
+    private RecurrenceSchedule LocalSchedule(TimeZoneInfo zone)
+    {
+        var local = HouseholdTime.ToLocal(zone, Schedule.In(TimeZoneInfo.Utc).At(0)).DateTime;
+        return new RecurrenceSchedule(Schedule.Frequency, DateOnly.FromDateTime(local), TimeOnly.FromDateTime(local));
     }
 
     public void Pause(DateTimeOffset now, Guid performedByUserId)
@@ -125,13 +155,13 @@ public sealed class RecurringExpense : AggregateRoot
         Raise(paused);
     }
 
-    public void Resume(DateTimeOffset now, Guid performedByUserId)
+    public void Resume(DateTimeOffset now, TimeZoneInfo zone, Guid performedByUserId)
     {
         if (Status != RecurringExpenseStatus.Paused)
             throw new InvalidOperationException(Status == RecurringExpenseStatus.Ended
                 ? "This recurring expense has ended." : "This recurring expense is not paused.");
         var resumed = new RecurringExpenseResumed(
-            Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, Schedule.NextAfter(now),
+            Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, Schedule.In(zone).NextAfter(now),
             performedByUserId);
         Apply(resumed);
         Raise(resumed);
@@ -146,6 +176,7 @@ public sealed class RecurringExpense : AggregateRoot
         FundingSources = e.FundingSources,
         Allocations = e.Allocations,
         Schedule = e.Schedule,
+        ScheduleIsLocal = e.LocalTime,
         NextOccurrenceAt = e.NextOccurrenceAt,
         Status = RecurringExpenseStatus.Active
     };
@@ -156,7 +187,14 @@ public sealed class RecurringExpense : AggregateRoot
         FundingSources = e.FundingSources;
         Allocations = e.Allocations;
         Schedule = e.Schedule;
+        ScheduleIsLocal = e.LocalTime;
         NextOccurrenceAt = e.NextOccurrenceAt;
+    }
+
+    public void Apply(RecurringExpenseScheduleLocalized e)
+    {
+        Schedule = e.Schedule;
+        ScheduleIsLocal = true;
     }
 
     public void Apply(RecurringExpenseOccurred e) => NextOccurrenceAt = e.NextOccurrenceAt;

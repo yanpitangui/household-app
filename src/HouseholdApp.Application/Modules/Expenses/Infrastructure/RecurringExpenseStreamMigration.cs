@@ -2,8 +2,10 @@ using System.Text.Json;
 using Dapper;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 using Marten;
 using Marten.Exceptions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -20,6 +22,7 @@ internal sealed class RecurringExpenseStreamMigration(
     NpgsqlDataSource db,
     IDocumentStore store,
     TimeProvider time,
+    IServiceScopeFactory scopes,
     ILogger<RecurringExpenseStreamMigration> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken) => RunAsync(cancellationToken);
@@ -57,9 +60,11 @@ internal sealed class RecurringExpenseStreamMigration(
         await using var session = store.LightweightSession();
         if (await session.Events.FetchStreamStateAsync(row.Id, ct) is not null) return;
 
-        var utc = row.StartAt.UtcDateTime;
+        await using var scope = scopes.CreateAsyncScope();
+        var zone = await scope.ServiceProvider.GetRequiredService<IHouseholdClock>().ZoneAsync(row.HouseholdId, ct);
+        var local = HouseholdTime.ToLocal(zone, row.StartAt).DateTime;
         var schedule = new RecurrenceSchedule(
-            Enum.Parse<RecurrenceFrequency>(row.RecurrenceFrequency), DateOnly.FromDateTime(utc), TimeOnly.FromDateTime(utc));
+            Enum.Parse<RecurrenceFrequency>(row.RecurrenceFrequency), DateOnly.FromDateTime(local), TimeOnly.FromDateTime(local));
         var funding = JsonSerializer.Deserialize<List<FundingSource>>(row.FundingSources) ?? [];
         var allocations = JsonSerializer.Deserialize<List<Allocation>>(row.Allocations) ?? [];
         var now = time.GetUtcNow();
@@ -67,7 +72,8 @@ internal sealed class RecurringExpenseStreamMigration(
 
         IDomainEvent created = new RecurringExpenseCreated(
             Guid.CreateVersion7(), row.StartAt, row.Id, row.HouseholdId, row.ExpenseGroupId, row.Description, funding,
-            allocations, schedule, schedule.NextAfter(now), actor, Imported: true);
+            allocations, schedule, schedule.In(zone).NextAfter(now), actor, Imported: true,
+            LocalTime: true);
 
         if (row.IsActive)
             session.Events.StartStream(row.Id, created);

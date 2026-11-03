@@ -30,7 +30,7 @@ public sealed class MemberRemovalTests(PostgresFixture db)
     private ExpenseMemberRemovalService Sut(IDocumentSession session) => new(
         session,
         new ExpenseQueryService(session, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System, new FakeHouseholdClock(TimeProvider.System)),
-        new FakeCurrentUser(_ana), new FakeTimeProvider(Now));
+        new FakeCurrentUser(_ana), new FakeTimeProvider(Now), new FakeHouseholdClock(new FakeTimeProvider(Now)));
 
     private async Task InsertUsersAsync()
     {
@@ -49,7 +49,7 @@ public sealed class MemberRemovalTests(PostgresFixture db)
             [new FundingSource(payer, shares.Sum(s => s.Cents))],
             shares.Select(s => new Allocation(s.User, s.Cents)).ToList(),
             new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 12, 1), new TimeOnly(9, 0)),
-            false, Now, _ana);
+            TimeZoneInfo.Utc, false, Now, _ana);
         await using var session = Store.LightweightSession();
         session.Events.StartStream(template.Id, template.DomainEvents.ToArray());
         await session.SaveChangesAsync();

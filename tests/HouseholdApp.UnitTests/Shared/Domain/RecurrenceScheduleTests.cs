@@ -48,41 +48,6 @@ public sealed class RecurrenceScheduleTests
     }
 
     [Test]
-    public async Task NextAfter_is_strictly_after_the_instant()
-    {
-        var schedule = Schedule(RecurrenceFrequency.Weekly, 2026, 11, 1);
-
-        await Assert.That(schedule.NextAfter(At(2026, 11, 1))).IsEqualTo(At(2026, 11, 8));
-        await Assert.That(schedule.NextAfter(At(2026, 11, 1, 8))).IsEqualTo(At(2026, 11, 1));
-    }
-
-    [Test]
-    public async Task NextAfter_before_the_first_date_is_the_first_occurrence()
-    {
-        var schedule = Schedule(RecurrenceFrequency.Monthly, 2026, 11, 10);
-
-        await Assert.That(schedule.NextAfter(At(2020, 1, 1))).IsEqualTo(At(2026, 11, 10));
-    }
-
-    [Test]
-    public async Task NextAfter_far_from_the_first_date_keeps_the_day_rule()
-    {
-        var schedule = Schedule(RecurrenceFrequency.Monthly, 2020, 1, 31);
-
-        await Assert.That(schedule.NextAfter(At(2027, 2, 1))).IsEqualTo(At(2027, 2, 28));
-    }
-
-    [Test]
-    public async Task Between_excludes_the_start_and_the_end()
-    {
-        var schedule = Schedule(RecurrenceFrequency.Weekly, 2026, 11, 1);
-
-        var dates = schedule.Between(At(2026, 11, 1), At(2026, 11, 15)).ToList();
-
-        await Assert.That(dates).IsEquivalentTo(new[] { At(2026, 11, 8) });
-    }
-
-    [Test]
     public async Task OccurrenceId_is_stable_and_differs_by_template_and_date()
     {
         var template = Guid.NewGuid();

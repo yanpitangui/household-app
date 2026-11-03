@@ -125,7 +125,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var template = RecurringExpense.Create(
             householdId, groupId, description, [new FundingSource(userId, 100_00)], [new Allocation(userId, 100_00)],
             new RecurrenceSchedule(RecurrenceFrequency.Monthly, firstDate, new TimeOnly(9, 0)),
-            catchUp: false, at, userId);
+            TimeZoneInfo.Utc, catchUp: false, at, userId);
         if (pause) template.Pause(at, userId);
         if (end) template.End(at, userId);
         await using var s = Store.LightweightSession();

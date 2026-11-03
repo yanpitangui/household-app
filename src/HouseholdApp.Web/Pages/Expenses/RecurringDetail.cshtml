@@ -4,12 +4,13 @@
 @using HouseholdApp.Application.Modules.Expenses.Application.Ports
 @using HouseholdApp.Application.Modules.Expenses.Domain
 @using HouseholdApp.Web.Shared.Web
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
 @{
     var r = Model.Recurring;
     ViewData["Title"] = r.Description;
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2", CultureInfo.CurrentCulture)}";
-    var first = r.Schedule.At(0);
+    var runsAt = r.Schedule.Time;
 }
 
 <div class="page-heading">
@@ -21,11 +22,11 @@
 <div class="app-card plan-card">
     <div class="plan-meta">@L["Expenses.Recurring.Meta", $"{r.GroupIcon} {r.GroupName}", r.PayerName]</div>
     <div class="plan-total">@Money(r.TotalCents) <small>@L["Expenses.Amount"]</small></div>
-    <div class="plan-kv">@L[$"Expenses.Frequency.{r.Schedule.Frequency}"] · @first.ToString("HH:mm", CultureInfo.CurrentCulture) UTC</div>
+    <div class="plan-kv">@L[$"Expenses.Frequency.{r.Schedule.Frequency}"] · @runsAt.ToString("HH:mm", CultureInfo.CurrentCulture)</div>
     @switch (r.Status)
     {
         case RecurringExpenseStatus.Active:
-            <div class="plan-kv">@L["Expenses.Recurring.NextOccurrence", r.NextOccurrenceAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)]</div>
+            <div class="plan-kv">@L["Expenses.Recurring.NextOccurrence", Tz.ToLocal(r.NextOccurrenceAt).ToString("d", CultureInfo.CurrentCulture)]</div>
             break;
         case RecurringExpenseStatus.Paused:
             <div class="plan-kv">@L["Expenses.Recurring.PausedNote"]</div>
@@ -51,7 +52,7 @@
         <div class="list-row" style="align-items:center">
             <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">○</div>
             <div class="list-row-body">
-                <div class="list-row-name">@L["Expenses.Recurring.NextOccurrence", r.NextOccurrenceAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)]</div>
+                <div class="list-row-name">@L["Expenses.Recurring.NextOccurrence", Tz.ToLocal(r.NextOccurrenceAt).ToString("d", CultureInfo.CurrentCulture)]</div>
                 <div class="list-row-meta">@L[$"Expenses.Frequency.{r.Schedule.Frequency}"]</div>
             </div>
             <div class="list-row-amount">@Money(r.TotalCents)</div>
@@ -69,7 +70,7 @@
                 <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">@(expense.IsVoided ? "✕" : "✓")</div>
                 <div class="list-row-body">
                     <div class="list-row-name">@expense.Description</div>
-                    <div class="list-row-meta">@expense.Date.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</div>
+                    <div class="list-row-meta">@expense.Date.ToString("d", CultureInfo.CurrentCulture)</div>
                 </div>
                 <div class="list-row-amount">@Money(expense.TotalCents)</div>
             </div>

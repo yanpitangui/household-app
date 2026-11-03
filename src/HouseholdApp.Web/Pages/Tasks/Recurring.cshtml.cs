@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.Application.Modules.Tasks.Application.Ports;
 using HouseholdApp.Web.Shared.Web;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,7 @@ public class RecurringTasksModel(
     ITaskCommands taskCommands,
     ITaskQueries taskQueries,
     IHouseholdQueries householdQueries,
-    TimeProvider time) : HouseholdPageModel(currentUser, guard)
+    IHouseholdClock householdClock) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
@@ -43,14 +44,14 @@ public class RecurringTasksModel(
 
     public async Task OnGetAsync()
     {
-        NewFirstDate = Today();
+        NewFirstDate = await TodayAsync();
         await Load();
     }
 
     [RequireManage]
     public async Task<IActionResult> OnPostCreateAsync()
     {
-        var today = Today();
+        var today = await TodayAsync();
         if (NewFirstDate != default && NewFirstDate < today)
             ModelState.AddModelError(nameof(NewFirstDate), Loc["Recurrence.FirstDatePast"].Value);
 
@@ -84,7 +85,7 @@ public class RecurringTasksModel(
         return RedirectToPage(new { householdId = HouseholdId });
     }
 
-    private DateOnly Today() => DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
+    private Task<DateOnly> TodayAsync() => householdClock.TodayAsync(HouseholdId);
 
     private async Task Load()
     {

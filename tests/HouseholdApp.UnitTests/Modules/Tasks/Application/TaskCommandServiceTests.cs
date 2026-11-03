@@ -6,6 +6,7 @@ using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Persistence;
+using HouseholdApp.Application.Shared.Time;
 using NSubstitute;
 
 namespace HouseholdApp.UnitTests.Modules.Tasks.Application;
@@ -26,7 +27,9 @@ public sealed class TaskCommandServiceTests
     public TaskCommandServiceTests()
     {
         _currentUser.Id.Returns(Guid.NewGuid());
-        _sut = new TaskCommandService(_repo, _uow, _eventBus, new FakeTimeProvider(Now), _currentUser);
+        var clock = Substitute.For<IHouseholdClock>();
+        clock.ZoneAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(TimeZoneInfo.Utc);
+        _sut = new TaskCommandService(_repo, _uow, _eventBus, new FakeTimeProvider(Now), _currentUser, clock);
     }
 
     [Test]
@@ -182,7 +185,7 @@ public sealed class TaskCommandServiceTests
     [Test]
     public async Task DeactivateRecurringTaskAsync_throws_for_another_household()
     {
-        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), Now);
+        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), TimeZoneInfo.Utc, Now);
         _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
 
         await Assert.That(async () => await _sut.DeactivateRecurringTaskAsync(Guid.NewGuid(), task.Id))
@@ -194,7 +197,7 @@ public sealed class TaskCommandServiceTests
     [Test]
     public async Task DeactivateRecurringTaskAsync_marks_task_inactive()
     {
-        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), Now);
+        var task = RecurringTask.Create(Guid.NewGuid(), "Daily sweep", null, null, Weekly(), TimeZoneInfo.Utc, Now);
         _repo.GetRecurringTaskAsync(task.Id, Arg.Any<CancellationToken>()).Returns(task);
 
         await _sut.DeactivateRecurringTaskAsync(task.HouseholdId, task.Id);

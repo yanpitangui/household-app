@@ -21,11 +21,13 @@ public sealed class RecurringTaskSweepTests(PostgresFixture db)
     private static RecurrenceSchedule Weekly() =>
         new(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, 12), new TimeOnly(9, 0));
 
-    private async Task<T> WithSutAsync<T>(DateTimeOffset now, Func<TaskCommandService, Task<T>> action)
+    private async Task<T> WithSutAsync<T>(
+        DateTimeOffset now, Func<TaskCommandService, Task<T>> action, TimeZoneInfo? zone = null)
     {
         await using var uow = new DapperUnitOfWork(db.DataSource, Substitute.For<IEventBus>());
         var sut = new TaskCommandService(
-            new TaskRepository(uow), uow, Substitute.For<IEventBus>(), new FakeTimeProvider(now), Substitute.For<ICurrentUser>());
+            new TaskRepository(uow), uow, Substitute.For<IEventBus>(), new FakeTimeProvider(now), Substitute.For<ICurrentUser>(),
+            new FakeHouseholdClock(new FakeTimeProvider(now), zone));
         return await action(sut);
     }
 
@@ -52,6 +54,23 @@ public sealed class RecurringTaskSweepTests(PostgresFixture db)
         await Assert.That(tasks.Select(t => t.DueDate!.Value.Day)).IsEquivalentTo(new[] { 12, 19 });
         var template = (await new TaskQueryService(db.DataSource).ListRecurringAsync(_householdId)).Single();
         await Assert.That(template.NextRunAt).IsEqualTo(new DateTimeOffset(2026, 11, 26, 9, 0, 0, TimeSpan.Zero));
+    }
+
+    [Test]
+    public async Task A_late_evening_template_creates_its_task_on_the_local_date()
+    {
+        var saoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var evening = new RecurrenceSchedule(RecurrenceFrequency.Weekly, new DateOnly(2026, 11, 12), new TimeOnly(22, 0));
+        var id = await WithSutAsync(Now, sut => sut.CreateRecurringTaskAsync(_householdId, "Trash", null, null, evening), saoPaulo);
+
+        // 22:00 on the 12th in São Paulo is 01:00Z on the 13th.
+        await WithSutAsync(new DateTimeOffset(2026, 11, 13, 1, 5, 0, TimeSpan.Zero), async sut =>
+        {
+            await sut.SpawnRecurringTaskAsync(id);
+            return true;
+        }, saoPaulo);
+
+        await Assert.That((await TasksAsync()).Single().DueDate!.Value.Day).IsEqualTo(12);
     }
 
     [Test]

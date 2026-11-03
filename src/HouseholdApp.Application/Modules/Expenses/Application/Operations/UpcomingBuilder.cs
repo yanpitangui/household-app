@@ -1,6 +1,8 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Shared.Domain;
+using HouseholdApp.Application.Shared.Time;
 
 namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 
@@ -16,10 +18,12 @@ public static class UpcomingBuilder
     public static UpcomingSummary Build(
         IReadOnlyList<(InstallmentPlanDocument Plan, HashSet<int> CreatedNumbers)> plans,
         IReadOnlyList<RecurringTemplate> templates,
-        DateTimeOffset now, DateOnly today, Guid viewerId)
+        DateTimeOffset now, DateOnly today, TimeZoneInfo zone, Guid viewerId)
     {
         var end = today.AddDays(WindowDays);
         var items = new List<UpcomingItem>();
+        // The window closes at the start of the day after it, on the household's wall clock.
+        var endInstant = new RecurrenceSchedule(RecurrenceFrequency.Daily, end, TimeOnly.MinValue).In(zone).At(0);
 
         foreach (var (plan, created) in plans)
         {
@@ -41,9 +45,9 @@ public static class UpcomingBuilder
 
         foreach (var template in templates)
         {
-            var dates = template.Schedule
-                .Between(now, new DateTimeOffset(end, TimeOnly.MinValue, TimeSpan.Zero))
-                .Select(at => DateOnly.FromDateTime(at.UtcDateTime))
+            var zoned = template.Schedule.In(zone);
+            var dates = zoned.Between(now, endInstant)
+                .Select(zoned.DateOf)
                 .ToList();
             if (dates.Count == 0) continue;
 

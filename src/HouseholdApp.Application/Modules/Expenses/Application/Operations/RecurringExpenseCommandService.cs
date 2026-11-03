@@ -4,6 +4,7 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using Marten;
 using Marten.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public sealed class RecurringExpenseCommandService(
     TimeProvider time,
     IEventBus eventBus,
     ISessionFactory sessionFactory,
+    IHouseholdClock clock,
     ILogger<RecurringExpenseCommandService> logger) : IRecurringExpenseCommands
 {
     public async Task<Guid> CreateAsync(
@@ -29,20 +31,22 @@ public sealed class RecurringExpenseCommandService(
     {
         await EnsureActiveOwnedGroupAsync(householdId, groupId, ct);
         var now = time.GetUtcNow();
+        var zone = await clock.ZoneAsync(householdId, ct);
         var template = RecurringExpense.Create(
-            householdId, groupId, description, ToDomain(fundingSources), ToDomain(allocations), schedule, catchUp, now,
+            householdId, groupId, description, ToDomain(fundingSources), ToDomain(allocations), schedule, zone, catchUp, now,
             currentUser.Id);
 
         // A past catch-up and today's already-due first occurrence are both committed with their template.
-        var startsInThePast = schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime);
+        var today = HouseholdTime.Today(zone, now);
+        var startsInThePast = schedule.FirstDate < today;
         var catchUps = new List<Expense>();
-        var firstOccurrenceIsDue = schedule.FirstDate == DateOnly.FromDateTime(now.UtcDateTime) && schedule.At(0) <= now;
+        var firstOccurrenceIsDue = schedule.FirstDate == today && schedule.In(zone).At(0) <= now;
         if ((catchUp && startsInThePast) || firstOccurrenceIsDue)
         {
-            foreach (var date in template.DueOccurrences(now))
+            foreach (var date in template.DueOccurrences(now, zone))
             {
                 catchUps.Add(template.BuildExpense(date, now, coveredByCreatedEvent: true));
-                template.MarkOccurred(date, now);
+                template.MarkOccurred(date, now, zone);
             }
         }
 
@@ -60,7 +64,9 @@ public sealed class RecurringExpenseCommandService(
         CancellationToken ct = default)
     {
         var (stream, template) = await LoadAsync(householdId, recurringExpenseId, ct);
-        template.Update(description, ToDomain(fundingSources), ToDomain(allocations), schedule, time.GetUtcNow(), currentUser.Id);
+        var zone = await clock.ZoneAsync(householdId, ct);
+        template.Update(
+            description, ToDomain(fundingSources), ToDomain(allocations), schedule, zone, time.GetUtcNow(), currentUser.Id);
         stream.AppendMany(template.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
     }
@@ -84,7 +90,7 @@ public sealed class RecurringExpenseCommandService(
     public async Task ResumeAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default)
     {
         var (stream, template) = await LoadAsync(householdId, recurringExpenseId, ct);
-        template.Resume(time.GetUtcNow(), currentUser.Id);
+        template.Resume(time.GetUtcNow(), await clock.ZoneAsync(householdId, ct), currentUser.Id);
         stream.AppendMany(template.DomainEvents.ToArray());
         await session.SaveChangesAsync(ct);
     }
@@ -93,7 +99,7 @@ public sealed class RecurringExpenseCommandService(
     {
         var now = time.GetUtcNow();
         var ids = await session.Query<RecurringExpenseDocument>()
-            .Where(t => t.Status == RecurringExpenseStatus.Active && t.NextOccurrenceAt <= now)
+            .Where(t => t.Status == RecurringExpenseStatus.Active && t.ScheduleIsLocal && t.NextOccurrenceAt <= now)
             .OrderBy(t => t.NextOccurrenceAt).ThenBy(t => t.Id)
             .Select(t => t.Id)
             .ToListAsync(ct);
@@ -126,7 +132,8 @@ public sealed class RecurringExpenseCommandService(
         var template = stream.Aggregate;
         if (template is null) return;
 
-        var due = template.DueOccurrences(now);
+        var zone = await clock.ZoneAsync(template.HouseholdId, ct);
+        var due = template.DueOccurrences(now, zone);
         if (due.Count == 0) return;
 
         // A deleted group means the group is done: its dates pass without Expenses, so a restore continues from the next
@@ -134,7 +141,7 @@ public sealed class RecurringExpenseCommandService(
         var group = await templateSession.LoadAsync<ExpenseGroupDocument>(template.ExpenseGroupId, ct);
         if (group?.DeletedAt is not null)
         {
-            foreach (var date in due) template.MarkOccurred(date, now, skipped: true);
+            foreach (var date in due) template.MarkOccurred(date, now, zone, skipped: true);
             logger.LogInformation(
                 "Skipped {Count} occurrence(s) of recurring expense {RecurringExpenseId}: group {GroupId} is deleted",
                 due.Count, id, template.ExpenseGroupId);
@@ -150,7 +157,7 @@ public sealed class RecurringExpenseCommandService(
                     var expense = template.BuildExpense(date, now, coveredByCreatedEvent: false);
                     templateSession.Events.StartStream(expense.Id, expense.DomainEvents.ToArray());
                 }
-                template.MarkOccurred(date, now);
+                template.MarkOccurred(date, now, zone);
             }
         }
 
