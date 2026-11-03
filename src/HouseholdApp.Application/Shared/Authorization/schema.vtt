@@ -12,4 +12,9 @@ entity household {
     permission invite             := owner or admin;
     permission leave              := admin or member;
     permission transfer_ownership := owner;
+    permission remove_member      := (owner or admin) and notOwner(context.target_role) and notSelf(context.subject_id, context.target_id);
+    permission change_role        := owner and notOwner(context.target_role);
 }
+
+fn notOwner(role string) => role != "owner";
+fn notSelf(subjectId string, targetId string) => subjectId != targetId;

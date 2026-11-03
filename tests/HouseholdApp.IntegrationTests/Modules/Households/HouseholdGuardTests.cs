@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 using Valtuutus.Core.Configuration;
+using Valtuutus.Data.Caching;
 using Valtuutus.Data.Postgres;
 
 namespace HouseholdApp.IntegrationTests.Modules.Households;
@@ -19,7 +20,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
 {
     private readonly ServiceProvider _provider = BuildProvider(db);
 
-    private static ServiceProvider BuildProvider(PostgresFixture db)
+    internal static ServiceProvider BuildProvider(PostgresFixture db, bool caching = false)
     {
         var schemaStream = typeof(HouseholdsModule).Assembly
             .GetManifestResourceStream("HouseholdApp.Application.Shared.Authorization.schema.vtt")!;
@@ -34,9 +35,10 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         services.AddHouseholdsModule();
         services.AddEventBus();
         services.AddValtuutusCore(schemaStream);
-        services.AddPostgres(
+        var valtuutus = services.AddPostgres(
             _ => () => new NpgsqlConnection(db.ConnectionString),
             new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"));
+        if (caching) valtuutus.AddCaching();
         services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
         return services.BuildServiceProvider();
     }

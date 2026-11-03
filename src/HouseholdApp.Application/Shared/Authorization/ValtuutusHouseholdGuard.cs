@@ -42,18 +42,28 @@ public sealed class ValtuutusHouseholdGuard(ICheckEngine checkEngine) : IHouseho
             .Select(p => ByName[p.Key]).ToHashSet());
     }
 
-    // Target rules live here because Valtuutus's check cache keys ignore request context, so a
-    // context-dependent permission would return the first target's answer for every target.
-    public async Task<bool> CanRemoveMemberAsync(Guid householdId, Guid userId, Guid targetUserId, string targetRole, CancellationToken ct = default) =>
-        userId != targetUserId && !IsOwnerRole(targetRole) && await CanManageAsync(householdId, userId, ct);
+    // Target-scoped rules are schema permissions evaluated over request context; Valtuutus 2.3.1
+    // keys cached results by that context, so each target gets its own answer.
+    public Task<bool> CanRemoveMemberAsync(Guid householdId, Guid userId, Guid targetUserId, string targetRole, CancellationToken ct = default) =>
+        CheckAsync(householdId, userId, SchemaConstsGen.Household.Permissions.RemoveMember, ct, new Dictionary<string, object>
+        {
+            ["target_role"] = targetRole.ToLowerInvariant(),
+            ["target_id"] = targetUserId.ToString(),
+            ["subject_id"] = userId.ToString()
+        });
 
-    public async Task<bool> CanChangeRoleAsync(Guid householdId, Guid userId, string targetRole, CancellationToken ct = default) =>
-        !IsOwnerRole(targetRole) && await CanManageRolesAsync(householdId, userId, ct);
+    public Task<bool> CanChangeRoleAsync(Guid householdId, Guid userId, string targetRole, CancellationToken ct = default) =>
+        CheckAsync(householdId, userId, SchemaConstsGen.Household.Permissions.ChangeRole, ct, new Dictionary<string, object>
+        {
+            ["target_role"] = targetRole.ToLowerInvariant()
+        });
 
-    private static bool IsOwnerRole(string role) => string.Equals(role, "owner", StringComparison.OrdinalIgnoreCase);
-
-    private async Task<bool> CheckAsync(Guid householdId, Guid userId, string permission, CancellationToken ct) =>
+    private async Task<bool> CheckAsync(Guid householdId, Guid userId, string permission, CancellationToken ct,
+        Dictionary<string, object>? context = null) =>
         (await checkEngine.Check(new CheckRequest(
             SchemaConstsGen.Household.Name, householdId.ToString(), permission,
-            SchemaConstsGen.User.Name, userId.ToString()), ct)).Allowed;
+            SchemaConstsGen.User.Name, userId.ToString())
+        {
+            Context = context ?? new Dictionary<string, object>()
+        }, ct)).Allowed;
 }
