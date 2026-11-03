@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -6,14 +7,18 @@ namespace HouseholdApp.Web.Shared.Web;
 
 public static class LastModifiedPageModelExtensions
 {
+    /// <summary>
+    /// Answers 304 when the browser's copy is still current. The ETag combines the data's last change with the UI
+    /// culture, so switching language yields a fresh page instead of the copy rendered in the previous language.
+    /// </summary>
     public static IActionResult? NotModifiedOr304(this PageModel page, DateTimeOffset lastModified)
     {
-        var formatted = lastModified.UtcDateTime.ToString("R");
+        var etag = $"\"{lastModified.UtcTicks:x}-{CultureInfo.CurrentUICulture.Name}\"";
 
-        if (page.Request.Headers.IfModifiedSince == formatted)
+        if (page.Request.Headers.IfNoneMatch == etag)
         {
             page.Response.Headers.CacheControl = "private, no-cache";
-            page.Response.Headers.LastModified = formatted;
+            page.Response.Headers.ETag = etag;
             return page.StatusCode(StatusCodes.Status304NotModified);
         }
 
@@ -25,7 +30,7 @@ public static class LastModifiedPageModelExtensions
         {
             page.Response.Headers.CacheControl = "private, no-cache";
             page.Response.Headers.Remove("Pragma");
-            page.Response.Headers.LastModified = formatted;
+            page.Response.Headers.ETag = etag;
             return Task.CompletedTask;
         });
         return null;

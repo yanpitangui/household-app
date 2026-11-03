@@ -50,6 +50,29 @@ public class HouseholdsTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Switching_language_returns_to_the_page_in_the_new_language()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var uid = Guid.NewGuid().ToString("N")[..8];
+        var id = await pw.CreateHouseholdAsync(ctx, $"Culture Test {uid}");
+
+        var page = await ctx.NewPageAsync();
+        await page.GotoAsync($"{pw.AppUrl}/h/{id}");
+        await Assert.That(await page.Locator("p.section-title:has-text('Members')").IsVisibleAsync()).IsTrue();
+
+        await page.Locator("a.app-settings").ClickAsync();
+        await page.WaitForURLAsync($"{pw.AppUrl}/settings");
+        await page.Locator("a:has-text('Português')").ClickAsync();
+
+        // Back on the household page, rendered in pt-BR rather than an English copy revalidated with a 304.
+        await page.WaitForURLAsync($"{pw.AppUrl}/h/{id}");
+        await Assert.That(await page.Locator("p.section-title:has-text('Membros')").IsVisibleAsync()).IsTrue();
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{id}");
+        await Assert.That(await page.Locator("p.section-title:has-text('Membros')").IsVisibleAsync()).IsTrue();
+    }
+
+    [Test]
     public async Task Create_household_appears_in_list()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
