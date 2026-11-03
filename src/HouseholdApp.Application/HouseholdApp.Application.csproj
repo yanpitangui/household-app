@@ -14,6 +14,7 @@
     <PackageReference Include="Scrutor" />
     <PackageReference Include="Quartz" />
     <PackageReference Include="Quartz.Weasel.PostgreSQL" />
+    <PackageReference Include="Valtuutus.Data.BackgroundService" />
     <PackageReference Include="Valtuutus.Data.Caching" />
     <PackageReference Include="Valtuutus.Data.Postgres" />
     <PackageReference Include="Valtuutus.Lang.SourceGen" />
