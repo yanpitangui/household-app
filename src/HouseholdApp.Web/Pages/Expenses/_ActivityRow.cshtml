@@ -3,86 +3,184 @@
 @inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
 @using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections
 @{
+    var householdId = ViewContext.RouteData.Values["householdId"];
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     string Money(long? cents) => $"{currencySymbol} {((cents ?? 0) / 100m).ToString("F2")}";
-    var settlementAmount = $"{currencySymbol} {((Model.SettlementCents ?? 0) / 100m).ToString("F2")}";
-    var text = Model.Kind switch
+    var actor = NameFormat.First(Model.ActorDisplayName);
+    var local = Tz.ToLocal(Model.OccurredAt);
+
+    var isExpense = Model.Kind is ActivityKind.Added or ActivityKind.Edited or ActivityKind.RecurringAdded
+        or ActivityKind.InstallmentAdded or ActivityKind.Removed;
+    var isPayment = Model.Kind is ActivityKind.Settlement or ActivityKind.HouseholdSettlement;
+    var isGroup = Model.Kind is ActivityKind.GroupDeleted or ActivityKind.GroupRestored or ActivityKind.GroupRenamed;
+
+    var title = Model.Kind switch
     {
-        ActivityKind.Added => string.Format(L["Expenses.Activity.Added"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
-        ActivityKind.Edited => string.Format(L["Expenses.Activity.Edited"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
-        ActivityKind.Removed => string.Format(L["Expenses.Activity.Removed"].Value, Model.ActorDisplayName, Model.Description),
-        ActivityKind.RecurringAdded => string.Format(L["Expenses.Activity.RecurringAdded"].Value, Model.ActorDisplayName, Model.Description, Model.GroupName),
-        ActivityKind.Settlement => string.Format(L["Expenses.Activity.Settlement"].Value, Model.ActorDisplayName, Model.PayerDisplayName, Model.RecipientDisplayName),
-        ActivityKind.HouseholdSettlement => string.Format(L["Expenses.Activity.HouseholdSettlement"].Value,
-            Model.ActorDisplayName, Model.PayerDisplayName, Model.RecipientDisplayName, settlementAmount,
-            string.Join(", ", Model.GroupNames ?? [])),
-        ActivityKind.GroupDeleted => string.Format(L["Expenses.Activity.GroupDeleted"].Value, Model.ActorDisplayName, Model.GroupName),
-        ActivityKind.GroupRestored => string.Format(L["Expenses.Activity.GroupRestored"].Value, Model.ActorDisplayName, Model.GroupName),
-        ActivityKind.GroupRenamed => string.Format(L["Expenses.Activity.GroupRenamed"].Value, Model.ActorDisplayName, Model.RenamedFrom, Model.RenamedTo),
-        ActivityKind.InstallmentPlanCreated when Model.DownPaymentCents > 0 => string.Format(L["Expenses.Activity.PlanCreatedDown"].Value,
-            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentCount, Money(Model.AmountCents),
-            Money(Model.DownPaymentCents)),
-        ActivityKind.InstallmentPlanCreated => string.Format(L["Expenses.Activity.PlanCreated"].Value,
-            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentCount, Money(Model.AmountCents)),
-        ActivityKind.InstallmentAdded when Model.InstallmentNumber == 0 => string.Format(L["Expenses.Activity.DownPaymentAdded"].Value,
-            Model.ActorDisplayName, Model.Description, Model.GroupName, Money(Model.AmountCents)),
-        ActivityKind.InstallmentAdded => string.Format(L["Expenses.Activity.InstallmentAdded"].Value,
-            Model.ActorDisplayName, Model.Description, Model.GroupName, Model.InstallmentNumber, Model.InstallmentCount,
-            Money(Model.AmountCents)),
-        ActivityKind.InstallmentPlanPaidEarly => string.Format(L["Expenses.Activity.PlanPaidEarly"].Value,
-            Model.ActorDisplayName, Model.Description, Model.InstallmentNumber, Model.InstallmentCount,
-            Money(Model.AmountCents), Money(Model.ReferenceCents)),
-        ActivityKind.InstallmentPlanCancelled => Model.VoidedCount > 0
-            ? string.Format(L["Expenses.Activity.PlanCancelledVoided"].Value, Model.ActorDisplayName, Model.Description, Model.VoidedCount)
-            : string.Format(L["Expenses.Activity.PlanCancelled"].Value, Model.ActorDisplayName, Model.Description),
-        ActivityKind.InstallmentPlanEdited => string.Format(L["Expenses.Activity.PlanEdited"].Value,
-            Model.ActorDisplayName, Model.Description),
-        ActivityKind.RecurringExpenseCreated => string.Format(L["Expenses.Activity.RecurringCreated"].Value,
-            Model.ActorDisplayName, Model.Description, L[$"Expenses.Frequency.{Model.Frequency}"].Value, Money(Model.AmountCents)),
-        ActivityKind.RecurringExpenseEdited when Model.AmountCents > Model.ReferenceCents => string.Format(L["Expenses.Activity.RecurringRaised"].Value,
-            Model.ActorDisplayName, Model.Description, Money(Model.AmountCents)),
-        ActivityKind.RecurringExpenseEdited when Model.AmountCents < Model.ReferenceCents => string.Format(L["Expenses.Activity.RecurringLowered"].Value,
-            Model.ActorDisplayName, Model.Description, Money(Model.AmountCents)),
-        ActivityKind.RecurringExpenseEdited => string.Format(L["Expenses.Activity.RecurringEdited"].Value,
-            Model.ActorDisplayName, Model.Description),
-        ActivityKind.RecurringExpenseEnded => string.Format(L["Expenses.Activity.RecurringEnded"].Value,
-            Model.ActorDisplayName, Model.Description),
-        ActivityKind.RecurringExpensePaused => string.Format(L["Expenses.Activity.RecurringPaused"].Value,
-            Model.ActorDisplayName, Model.Description),
-        ActivityKind.RecurringExpenseResumed => string.Format(L["Expenses.Activity.RecurringResumed"].Value,
-            Model.ActorDisplayName, Model.Description),
+        _ when isPayment => L["Expenses.Payment.Paid",
+            NameFormat.First(Model.PayerDisplayName ?? "?"), NameFormat.First(Model.RecipientDisplayName ?? "?")].Value,
+        ActivityKind.GroupRenamed => Model.RenamedTo ?? Model.GroupName ?? "",
+        _ when isGroup => Model.GroupName ?? "",
         _ => Model.Description
     };
+
+    var meta = Model.Kind switch
+    {
+        ActivityKind.Added => L["Expenses.Activity.Meta.Added", actor].Value,
+        ActivityKind.Edited => L["Expenses.Activity.Meta.Edited", actor].Value,
+        ActivityKind.Removed => L["Expenses.Activity.Meta.Removed", actor].Value,
+        ActivityKind.RecurringAdded => L["Expenses.Activity.Meta.RecurringAdded"].Value,
+        ActivityKind.InstallmentAdded => L["Expenses.Activity.Meta.InstallmentAdded"].Value,
+        ActivityKind.Settlement => L["Expenses.Activity.Meta.Settlement", actor].Value,
+        ActivityKind.HouseholdSettlement => L["Expenses.Activity.Meta.HouseholdSettlement", actor].Value,
+        ActivityKind.GroupDeleted => L["Expenses.Activity.Meta.GroupDeleted", actor].Value,
+        ActivityKind.GroupRestored => L["Expenses.Activity.Meta.GroupRestored", actor].Value,
+        ActivityKind.GroupRenamed => L["Expenses.Activity.Meta.GroupRenamed", actor, Model.RenamedFrom ?? ""].Value,
+        ActivityKind.InstallmentPlanCreated when Model.DownPaymentCents > 0 => L["Expenses.Activity.Meta.PlanCreatedDown",
+            actor, Model.InstallmentCount ?? 0, Money(Model.AmountCents), Money(Model.DownPaymentCents)].Value,
+        ActivityKind.InstallmentPlanCreated => L["Expenses.Activity.Meta.PlanCreated",
+            actor, Model.InstallmentCount ?? 0, Money(Model.AmountCents)].Value,
+        ActivityKind.InstallmentPlanPaidEarly => L["Expenses.Activity.Meta.PlanPaidEarly",
+            actor, Model.InstallmentNumber ?? 0, Model.InstallmentCount ?? 0, Money(Model.ReferenceCents)].Value,
+        ActivityKind.InstallmentPlanCancelled when Model.VoidedCount > 0 =>
+            L["Expenses.Activity.Meta.PlanCancelledVoided", actor, Model.VoidedCount].Value,
+        ActivityKind.InstallmentPlanCancelled => L["Expenses.Activity.Meta.PlanCancelled", actor].Value,
+        ActivityKind.InstallmentPlanEdited => L["Expenses.Activity.Meta.PlanEdited", actor].Value,
+        ActivityKind.RecurringExpenseCreated => L["Expenses.Activity.Meta.RecurringCreated",
+            actor, L[$"Expenses.Frequency.{Model.Frequency}"].Value].Value,
+        ActivityKind.RecurringExpenseEdited when Model.AmountCents > Model.ReferenceCents =>
+            L["Expenses.Activity.Meta.RecurringRaised", actor, Money(Model.AmountCents)].Value,
+        ActivityKind.RecurringExpenseEdited when Model.AmountCents < Model.ReferenceCents =>
+            L["Expenses.Activity.Meta.RecurringLowered", actor, Money(Model.AmountCents)].Value,
+        ActivityKind.RecurringExpenseEdited => L["Expenses.Activity.Meta.RecurringEdited", actor].Value,
+        ActivityKind.RecurringExpenseEnded => L["Expenses.Activity.Meta.RecurringEnded", actor].Value,
+        ActivityKind.RecurringExpensePaused => L["Expenses.Activity.Meta.RecurringPaused", actor].Value,
+        ActivityKind.RecurringExpenseResumed => L["Expenses.Activity.Meta.RecurringResumed", actor].Value,
+        _ => ""
+    };
+
+    var icon = Model.Kind switch
+    {
+        ActivityKind.Added => "💳",
+        ActivityKind.Edited => "✏️",
+        ActivityKind.Removed or ActivityKind.GroupDeleted => "🗑️",
+        ActivityKind.RecurringAdded => "🔁",
+        _ when isPayment => "💸",
+        ActivityKind.GroupRestored => "↩️",
+        ActivityKind.GroupRenamed => "🏷️",
+        _ when Model.RecurringExpenseId is not null => "🔁",
+        _ => "📆"
+    };
+    var tone = Model.Kind switch
+    {
+        ActivityKind.Removed or ActivityKind.GroupDeleted or ActivityKind.InstallmentPlanCancelled
+            or ActivityKind.RecurringExpenseEnded => "removed",
+        _ when isPayment => "payment",
+        _ when isGroup => "group",
+        _ => "expense"
+    };
+
+    long? badgeCents = Model.Kind switch
+    {
+        _ when isExpense => Model.AmountCents,
+        _ when isPayment => Model.SettlementCents,
+        ActivityKind.InstallmentPlanPaidEarly or ActivityKind.RecurringExpenseCreated => Model.AmountCents,
+        _ => null
+    };
+
+    string? pill = isExpense && Model.InstallmentNumber is { } number
+        ? number == 0 ? L["Expenses.Plan.DownTag"].Value : $"{number}/{Model.InstallmentCount}"
+        : null;
+
+    // One target per row: an expense opens its sheet, a plan or template its page, a group event its group.
+    var opensSheet = Model.ExpenseId is not null && isExpense && Model.Kind != ActivityKind.Removed;
+    string? href = opensSheet ? null
+        : Model.RecurringExpenseId is { } recurringId
+            ? Url.Page("/Expenses/RecurringDetail", new { householdId, recurringId })
+        : Model.InstallmentPlanId is { } planId
+            ? Url.Page("/Expenses/Plan", new { householdId, planId })
+        : Model.Kind is ActivityKind.Settlement or ActivityKind.GroupRenamed or ActivityKind.GroupRestored
+            && Model.GroupId is { } targetGroupId
+            ? Url.Page("/Expenses/Group", new { householdId, groupId = targetGroupId })
+            : null;
+
+    // The group chip links unless it names a deleted group or is the row's own target.
+    var chipLinks = Model.Kind != ActivityKind.GroupDeleted && !isGroup;
 }
-<div class="activity-row" data-row>
-    <div class="activity-text">
-        @if (Model.RecurringExpenseId is { } recurringLink)
+<div class="activity-row activity-tone-@tone @(opensSheet || href is not null ? "activity-row-link" : "")" data-row>
+    <div class="expenses-date-col">
+        <span class="expenses-date-month">@local.ToString("MMM", CultureInfo.CurrentCulture)</span>
+        <span class="expenses-date-day">@local.Day</span>
+    </div>
+    <div class="list-row-icon activity-icon" aria-hidden="true">@icon</div>
+    <div class="list-row-body">
+        <div class="activity-title">
+            @if (opensSheet)
+            {
+                <button type="button" class="activity-link"
+                        hx-get="@Url.Page("/Expenses/Activity", "Expense", new { householdId, expenseId = Model.ExpenseId })"
+                        hx-target="#expense-sheet-body" hx-swap="innerHTML"
+                        hx-on::after-request="if(event.detail.successful) document.getElementById('expense-sheet').showModal()">@title</button>
+            }
+            else if (href is not null)
+            {
+                <a href="@href" class="activity-link">@title</a>
+            }
+            else
+            {
+                <span>@title</span>
+            }
+            @if (pill is not null)
+            {
+                <span class="installment-pill">@pill</span>
+            }
+        </div>
+        <div class="list-row-meta activity-meta">
+            <span>@meta</span>
+            @if (Model.Kind == ActivityKind.HouseholdSettlement)
+            {
+                foreach (var g in Model.SettledGroups ?? [])
+                {
+                    if (g.Id is { } settledGroupId)
+                    {
+                        <a class="expense-group-chip activity-chip" asp-page="/Expenses/Group" asp-route-householdId="@householdId" asp-route-groupId="@settledGroupId">@g.Icon @g.Name</a>
+                    }
+                    else
+                    {
+                        <span class="expense-group-chip">@g.Icon @g.Name</span>
+                    }
+                }
+            }
+            else if (Model.GroupName is not null && !isGroup)
+            {
+                if (chipLinks && Model.GroupId is { } chipGroupId)
+                {
+                    <a class="expense-group-chip activity-chip" asp-page="/Expenses/Group" asp-route-householdId="@householdId" asp-route-groupId="@chipGroupId">@Model.GroupIcon @Model.GroupName</a>
+                }
+                else
+                {
+                    <span class="expense-group-chip">@Model.GroupIcon @Model.GroupName</span>
+                }
+            }
+        </div>
+        @if (Model.CanRestore && Model.GroupId is { } restoreGroupId)
         {
-            <a asp-page="/Expenses/RecurringDetail" asp-route-householdId="@ViewContext.RouteData.Values["householdId"]" asp-route-recurringId="@recurringLink" class="activity-plan-link"><strong>@text</strong></a>
-        }
-        else if (Model.InstallmentPlanId is { } planLink)
-        {
-            <a asp-page="/Expenses/Plan" asp-route-householdId="@ViewContext.RouteData.Values["householdId"]" asp-route-planId="@planLink" class="activity-plan-link"><strong>@text</strong></a>
-        }
-        else
-        {
-            <strong>@text</strong>
+            <form method="post" asp-page="/Expenses/Activity" asp-page-handler="Restore" asp-route-householdId="@householdId" asp-route-groupId="@restoreGroupId" class="activity-restore">
+                <button type="submit" class="activity-restore-btn">↺ @L["Expenses.Activity.Restore"]</button>
+            </form>
         }
     </div>
-    @if (Model.CanRestore && Model.GroupId is { } restoreGroupId)
+    @if (badgeCents is not null || Model.ViewerDeltaCents is not null and not 0)
     {
-        <form method="post" asp-page="/Expenses/Activity" asp-page-handler="Restore" asp-route-groupId="@restoreGroupId" class="activity-restore">
-            <button type="submit" class="activity-restore-btn">↺ @L["Expenses.Activity.Restore"]</button>
-        </form>
+        <div class="expense-row-right">
+            @if (badgeCents is { } cents)
+            {
+                <span class="list-row-badge activity-badge">@Money(cents)</span>
+            }
+            @if (Model.ViewerDeltaCents is { } delta and not 0)
+            {
+                <span class="expenses-user-share @(delta > 0 ? "lent" : "borrowed")">@(delta > 0 ? "+" : "−")@Money(Math.Abs(delta))</span>
+                <span class="expenses-share-label">@L["Expenses.Activity.YourBalance"]</span>
+            }
+        </div>
     }
-    @if (Model.ViewerDeltaCents is { } cents)
-    {
-        var color = cents >= 0 ? "var(--accent-tasks)" : "#f87171";
-        var amount = $"{currencySymbol} {(Math.Abs(cents) / 100m).ToString("F2")}";
-        var label = cents >= 0
-            ? string.Format(L["Expenses.Activity.YouAreOwed"].Value, amount)
-            : string.Format(L["Expenses.Activity.YouOwe"].Value, amount);
-        <div class="activity-delta" style="color:@color">@label</div>
-    }
-    <div class="activity-date">@Tz.ToLocal(Model.OccurredAt).ToString("d", CultureInfo.CurrentCulture)</div>
 </div>

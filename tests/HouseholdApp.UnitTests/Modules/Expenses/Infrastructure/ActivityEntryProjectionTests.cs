@@ -29,6 +29,21 @@ public sealed class ActivityEntryProjectionTests
     }
 
     [Test]
+    public async Task Map_ExpenseRecorded_carries_the_expense_and_its_total_so_the_row_can_open_it()
+    {
+        var other = Guid.NewGuid();
+        var evt = new ExpenseRecorded(
+            Guid.NewGuid(), Now, ExpenseId, HouseholdId, GroupId, "Groceries", Now,
+            [new FundingSource(ActorId, 600), new FundingSource(other, 400)],
+            [new Allocation(ActorId, 500), new Allocation(other, 500)], ActorId);
+
+        var entry = ActivityEntryProjection.MapRecorded(Guid.NewGuid(), evt, groupName: "Casa")!;
+
+        await Assert.That(entry.ExpenseId).IsEqualTo(ExpenseId);
+        await Assert.That(entry.AmountCents).IsEqualTo(1000L);
+    }
+
+    [Test]
     public async Task Map_ExpenseRecorded_with_RecurringExpenseId_yields_RecurringAdded()
     {
         var evt = new ExpenseRecorded(
@@ -71,6 +86,8 @@ public sealed class ActivityEntryProjectionTests
         await Assert.That(entry.Description).IsEqualTo("Groceries");
         await Assert.That(entry.ViewerDeltaCents[payer]).IsEqualTo(-500L);
         await Assert.That(entry.ViewerDeltaCents[debtor]).IsEqualTo(500L);
+        await Assert.That(entry.ExpenseId).IsEqualTo(ExpenseId);
+        await Assert.That(entry.AmountCents).IsEqualTo(1000L);
     }
 
     [Test]

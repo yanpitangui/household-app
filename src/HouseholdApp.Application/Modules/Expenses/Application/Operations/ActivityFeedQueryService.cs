@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
+using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
@@ -37,25 +38,34 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             .Distinct();
         var profiles = (await userQuery.GetByIdsAsync(profileIds, ct)).ToDictionary(p => p.Id);
 
-        var deletedSet = deleted.ToHashSet();
-        var items = entries.Select(e => Render(e, viewerId, profiles, deletedSet)).ToList();
+        var groupMap = groups.ToDictionary(g => g.Id);
+        var items = entries.Select(e => Render(e, viewerId, profiles, groupMap)).ToList();
         var nextCursor = hasMore ? Encode(new Cursor(entries[^1].OccurredAt)) : null;
 
         return new ActivityFeedPage(items, nextCursor);
     }
 
+    // Group names and icons come from the groups as they are now, so every row shows the current name.
     private static ActivityFeedItem Render(
-        ActivityEntry e, Guid viewerId, Dictionary<Guid, UserProfile> profiles, ISet<Guid> deletedGroups)
+        ActivityEntry e, Guid viewerId, Dictionary<Guid, UserProfile> profiles,
+        Dictionary<Guid, ExpenseGroupDocument> groups)
     {
+        var group = e.GroupId is { } gid ? groups.GetValueOrDefault(gid) : null;
+        // Rows stored before GroupIds existed carry names only, so they render as unlinked chips.
+        var settledGroups = e.GroupIds.Count == 0
+            ? e.GroupNames.Select(n => new ActivityGroupRef(null, n, GroupIcons.Default)).ToList()
+            : e.GroupIds.Select((id, i) => groups.GetValueOrDefault(id) is { } g
+            ? new ActivityGroupRef(g.DeletedAt is null ? g.Id : null, g.Name, GroupIcons.Display(g.Icon))
+            : new ActivityGroupRef(null, e.GroupNames.ElementAtOrDefault(i) ?? "?", GroupIcons.Display(null))).ToList();
         var actor = profiles.GetValueOrDefault(e.ActorUserId)?.DisplayName ?? "?";
         var payer = e.SettlementPayerId is { } p ? profiles.GetValueOrDefault(p)?.DisplayName ?? "?" : null;
         var recipient = e.SettlementRecipientId is { } r ? profiles.GetValueOrDefault(r)?.DisplayName ?? "?" : null;
         var viewerDelta = e.ViewerDeltaCents.TryGetValue(viewerId, out var cents) ? cents : (long?)null;
 
         return new ActivityFeedItem(
-            e.Id, e.OccurredAt, e.Kind, actor, e.Description, e.GroupName, payer, recipient, viewerDelta,
-            e.GroupId, e.GroupNames, e.SettlementCents,
-            CanRestore: e.Kind == ActivityKind.GroupDeleted && e.GroupId is { } g && deletedGroups.Contains(g),
+            e.Id, e.OccurredAt, e.Kind, actor, e.Description, group?.Name ?? e.GroupName, payer, recipient, viewerDelta,
+            e.GroupId, settledGroups.Select(g => g.Name).ToList(), e.SettlementCents,
+            CanRestore: e.Kind == ActivityKind.GroupDeleted && group?.DeletedAt is not null,
             RenamedFrom: e.RenamedFrom,
             RenamedTo: e.RenamedTo,
             InstallmentPlanId: e.InstallmentPlanId,
@@ -66,7 +76,10 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             VoidedCount: e.VoidedCount,
             DownPaymentCents: e.DownPaymentCents,
             RecurringExpenseId: e.RecurringExpenseId,
-            Frequency: e.Frequency);
+            Frequency: e.Frequency,
+            ExpenseId: e.ExpenseId,
+            GroupIcon: group is null ? null : GroupIcons.Display(group.Icon),
+            SettledGroups: settledGroups);
     }
 
     public async Task<IReadOnlyList<ActivityFeedItem>> GetPlanHistoryAsync(
@@ -76,9 +89,7 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             .Where(a => a.HouseholdId == householdId && a.InstallmentPlanId == planId)
             .OrderByDescending(a => a.OccurredAt)
             .ToListAsync(ct);
-        var profiles = (await userQuery.GetByIdsAsync(entries.Select(e => e.ActorUserId).Distinct(), ct))
-            .ToDictionary(p => p.Id);
-        return entries.Select(e => Render(e, viewerId, profiles, new HashSet<Guid>())).ToList();
+        return await RenderHistoryAsync(householdId, entries, viewerId, ct);
     }
 
     public async Task<IReadOnlyList<ActivityFeedItem>> GetRecurringHistoryAsync(
@@ -89,9 +100,17 @@ public sealed class ActivityFeedQueryService(IQuerySession session, IUserQuery u
             .OrderByDescending(a => a.OccurredAt)
             .ThenByDescending(a => a.Id)
             .ToListAsync(ct);
+        return await RenderHistoryAsync(householdId, entries, viewerId, ct);
+    }
+
+    private async Task<IReadOnlyList<ActivityFeedItem>> RenderHistoryAsync(
+        Guid householdId, IReadOnlyList<ActivityEntry> entries, Guid viewerId, CancellationToken ct)
+    {
         var profiles = (await userQuery.GetByIdsAsync(entries.Select(e => e.ActorUserId).Distinct(), ct))
             .ToDictionary(p => p.Id);
-        return entries.Select(e => Render(e, viewerId, profiles, new HashSet<Guid>())).ToList();
+        var groups = (await session.QueryAsync(new AllExpenseGroupsForHousehold { HouseholdId = householdId }, ct))
+            .ToDictionary(g => g.Id);
+        return entries.Select(e => Render(e, viewerId, profiles, groups)).ToList();
     }
 
     private static Cursor? Decode(string? cursor) =>

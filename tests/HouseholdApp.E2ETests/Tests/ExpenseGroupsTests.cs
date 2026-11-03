@@ -135,7 +135,7 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
         await Assert.That(await page.Locator(".activity-row:has-text('Hotel')").CountAsync()).IsEqualTo(0);
         await page.ClickAsync(".activity-restore-btn");
-        await page.Locator(".activity-row:has-text('restored group')").WaitForAsync();
+        await page.Locator(".activity-row:has-text('restored the group')").WaitForAsync();
         await Assert.That(await page.Locator(".activity-row:has-text('Hotel')").CountAsync()).IsEqualTo(1);
         await Assert.That(await page.Locator(".activity-restore-btn").CountAsync()).IsEqualTo(0);
     }
@@ -317,6 +317,49 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Activity_expense_row_opens_its_sheet_and_voiding_there_returns_to_activity()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewTrackedPageAsync();
+        var home = await page.CreateGroupAsync(pw.AppUrl, householdId, "Home");
+        await page.RecordEqualSplitAsync(pw.AppUrl, householdId, home, "Groceries", "80");
+
+        await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
+        var row = page.Locator(".activity-row:has-text('Groceries')");
+        await Assert.That(await row.InnerTextAsync()).Contains("Home").And.Contains("80.00");
+        await row.Locator(".activity-link").ClickAsync();
+        var sheet = page.Locator("#expense-sheet[open]");
+        await sheet.Locator(".expense-breakdown-entry").First.WaitForAsync();
+        await Assert.That(await sheet.InnerTextAsync()).Contains("Test User").And.Contains("80.00");
+
+        await sheet.Locator("button:has-text('Void')").ClickAsync();
+        await page.RunAndWaitForNavigationAsync(
+            () => page.ClickAsync("#confirm-ok"),
+            new() { UrlString = $"**/h/{householdId}/expenses/activity" });
+        await page.Locator(".activity-row.activity-tone-removed:has-text('Groceries')").WaitForAsync();
+    }
+
+    [Test]
+    public async Task Activity_expense_sheet_of_another_household_shows_nothing()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var otherHousehold = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewTrackedPageAsync();
+        var otherGroup = await page.CreateGroupAsync(pw.AppUrl, otherHousehold, "Secret");
+        await page.RecordEqualSplitAsync(pw.AppUrl, otherHousehold, otherGroup, "Hidden", "50");
+        await page.GotoAsync($"{pw.AppUrl}/h/{otherHousehold}/expenses/activity");
+        var sheetUrl = await page.Locator(".activity-row:has-text('Hidden') .activity-link").GetAttributeAsync("hx-get");
+        var expenseId = sheetUrl!.Split("expenseId=")[1];
+
+        var response = await page.APIRequest.GetAsync(
+            $"{pw.AppUrl}/h/{householdId}/expenses/activity?handler=Expense&expenseId={expenseId}");
+        var body = await response.TextAsync();
+        await Assert.That(body).Contains("no longer available").And.DoesNotContain("Hidden");
+    }
+
+    [Test]
     public async Task Import_page_links_back_to_the_expenses_home()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();
@@ -362,9 +405,9 @@ public class ExpenseGroupsTests(PlaywrightFixture pw)
             .Contains("🗾 Japan");
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/activity");
-        await page.Locator(".activity-row:has-text('renamed group')").WaitForAsync();
-        await Assert.That(await page.Locator(".activity-row:has-text('renamed group')").InnerTextAsync())
-            .Contains("'Trip' to 'Japan'");
+        await page.Locator(".activity-row:has-text('renamed the group')").WaitForAsync();
+        await Assert.That(await page.Locator(".activity-row:has-text('renamed the group')").InnerTextAsync())
+            .Contains("Japan").And.Contains("was 'Trip'");
         await Assert.That(await page.Locator(".activity-row:has-text('Hotel')").InnerTextAsync()).Contains("Japan");
     }
 

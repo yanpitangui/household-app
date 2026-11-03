@@ -10,6 +10,7 @@ public class ActivityModel(
     ICurrentUser currentUser,
     IHouseholdGuard guard,
     IActivityFeedQueries activityFeedQueries,
+    IExpenseQueries expenseQueries,
     IExpenseCommands expenseCommands) : HouseholdPageModel(currentUser, guard)
 {
     private const int PageSize = 20;
@@ -17,20 +18,32 @@ public class ActivityModel(
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
 
-    public IReadOnlyList<ActivityFeedItem> Items { get; private set; } = [];
-    public string? NextCursor { get; private set; }
+    public ActivityListViewModel List { get; private set; } = new([], null, null);
 
     public async Task OnGetAsync()
     {
         var page = await activityFeedQueries.GetActivityFeedAsync(HouseholdId, CurrentUserId, null, PageSize);
-        Items = await ForViewerAsync(page.Items);
-        NextCursor = page.NextCursor;
+        List = new ActivityListViewModel(await ForViewerAsync(page.Items), page.NextCursor, null);
     }
 
-    public async Task<IActionResult> OnGetLoadMoreAsync(string cursor)
+    public async Task<IActionResult> OnGetLoadMoreAsync(string cursor, string? month)
     {
         var page = await activityFeedQueries.GetActivityFeedAsync(HouseholdId, CurrentUserId, cursor, PageSize);
-        return Partial("_ActivityRows", page with { Items = await ForViewerAsync(page.Items) });
+        return Partial("_ActivityList", new ActivityListViewModel(await ForViewerAsync(page.Items), page.NextCursor, month));
+    }
+
+    // Loaded into the expense sheet dialog from the activity page and the plan and recurring histories.
+    public async Task<IActionResult> OnGetExpenseAsync(Guid expenseId)
+    {
+        var sheet = await expenseQueries.GetExpenseSheetAsync(HouseholdId, expenseId);
+        return Partial("_ExpenseSheet", new ExpenseSheetViewModel(HouseholdId, sheet, ReturnPath()));
+    }
+
+    public async Task<IActionResult> OnPostVoidAsync(Guid expenseId, string? returnUrl)
+    {
+        await expenseCommands.VoidExpenseAsync(HouseholdId, expenseId, null);
+        TempData["Success"] = Loc["Flash.ExpenseVoided"].Value;
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToPage(new { householdId = HouseholdId });
     }
 
     [RequirePermission(HouseholdPermission.Manage)]
@@ -49,6 +62,12 @@ public class ActivityModel(
         TempData["Success"] = Loc["Flash.GroupRestored"].Value;
         return RedirectToPage(new { householdId = HouseholdId });
     }
+
+    // The page the sheet was opened from, so voiding returns there; htmx sends it as HX-Current-URL.
+    private string ReturnPath() =>
+        Uri.TryCreate(Request.Headers["HX-Current-URL"].ToString(), UriKind.Absolute, out var current)
+            ? current.PathAndQuery
+            : Url.Page("/Expenses/Activity", new { householdId = HouseholdId })!;
 
     // Restore needs manage rights, so members without them get rows without the button.
     private async Task<IReadOnlyList<ActivityFeedItem>> ForViewerAsync(IReadOnlyList<ActivityFeedItem> items) =>

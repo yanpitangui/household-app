@@ -854,4 +854,34 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         var groups = await sut.ListExpenseGroupsAsync(sc.HouseholdId);
         await Assert.That(groups.Single(g => g.Id == sc.Trip).Icon).IsEqualTo("✈️");
     }
+
+    [Test]
+    public async Task Expense_sheet_names_the_people_and_stays_inside_its_household()
+    {
+        var householdId = Guid.NewGuid();
+        Guid payerId = Guid.NewGuid(), debtorId = Guid.NewGuid();
+        await InsertUsersAsync(payerId, debtorId);
+        var expenseId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = groupId, HouseholdId = householdId, Name = "Home", Icon = "🏠" });
+            s.Events.Append(expenseId, new ExpenseRecorded(
+                Guid.NewGuid(), DateTimeOffset.UtcNow, expenseId, householdId, groupId, "Groceries", DateTimeOffset.UtcNow,
+                [new FundingSource(payerId, 1000)], [new Allocation(payerId, 500), new Allocation(debtorId, 500)], payerId));
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var sut = BuildSut(qs);
+        var sheet = await sut.GetExpenseSheetAsync(householdId, expenseId);
+        var elsewhere = await sut.GetExpenseSheetAsync(Guid.NewGuid(), expenseId);
+
+        await Assert.That(sheet!.GroupId).IsEqualTo(groupId);
+        await Assert.That(sheet.Expense.GroupIcon).IsEqualTo("🏠");
+        await Assert.That(sheet.Expense.FundingSources.Single().DisplayName).IsEqualTo($"User {payerId}");
+        await Assert.That(sheet.Expense.Allocations.Count).IsEqualTo(2);
+        await Assert.That(elsewhere).IsNull();
+    }
 }
+
