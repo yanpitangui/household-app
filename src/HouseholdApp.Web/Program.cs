@@ -112,6 +112,8 @@ builder.Services.AddEventHandler<InstallmentPlanCancelled, ExpenseRealtimeNotifi
 builder.Services.AddEventHandler<RecurringExpenseCreated, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<RecurringExpenseUpdated, ExpenseRealtimeNotifier>();
 builder.Services.AddEventHandler<RecurringExpenseEnded, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<RecurringExpensePaused, ExpenseRealtimeNotifier>();
+builder.Services.AddEventHandler<RecurringExpenseResumed, ExpenseRealtimeNotifier>();
 
 var redisConnStr = builder.Configuration.GetConnectionString("redis")
     ?? throw new InvalidOperationException("Missing connection string 'redis'");

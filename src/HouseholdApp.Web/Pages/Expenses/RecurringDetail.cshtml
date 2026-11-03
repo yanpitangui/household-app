@@ -2,6 +2,7 @@
 @model HouseholdApp.Web.Pages.Expenses.RecurringDetailModel
 @using System.Globalization
 @using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@using HouseholdApp.Application.Modules.Expenses.Domain
 @using HouseholdApp.Web.Shared.Web
 @{
     var r = Model.Recurring;
@@ -13,22 +14,23 @@
 
 <div class="page-heading">
     <span>🔁 @r.Description</span>
-    @if (r.IsActive)
-    {
-        <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
-    }
-    else
-    {
-        <span class="list-row-badge" style="background:rgba(74,56,40,0.3); color:var(--text-muted)">@L["Expenses.Recurring.Ended"]</span>
-    }
+    <partial name="_RecurringStatusPill" model="r.Status" />
 </div>
-<a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="plan-back">← @L["Expenses.RecurringHeading"]</a>
+<a asp-page="Recurring" asp-route-householdId="@Model.HouseholdId" class="plan-back">← @L["Expenses.PlansAndRecurringHeading"]</a>
 
 <div class="app-card plan-card">
     <div class="plan-meta">@L["Expenses.Recurring.Meta", $"{r.GroupIcon} {r.GroupName}", r.PayerName]</div>
     <div class="plan-total">@Money(r.TotalCents) <small>@L["Expenses.Amount"]</small></div>
     <div class="plan-kv">@L[$"Expenses.Frequency.{r.Schedule.Frequency}"] · @first.ToString("HH:mm", CultureInfo.CurrentCulture) UTC</div>
-    <div class="plan-kv">@L["Expenses.Recurring.NextOccurrence", r.NextOccurrenceAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)]</div>
+    @switch (r.Status)
+    {
+        case RecurringExpenseStatus.Active:
+            <div class="plan-kv">@L["Expenses.Recurring.NextOccurrence", r.NextOccurrenceAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)]</div>
+            break;
+        case RecurringExpenseStatus.Paused:
+            <div class="plan-kv">@L["Expenses.Recurring.PausedNote"]</div>
+            break;
+    }
     <div class="plan-share">@L["Expenses.Recurring.ViewerShare", Money(r.ViewerShareCents)]</div>
 </div>
 
@@ -44,7 +46,7 @@
 
 <div class="app-card plan-card">
     <div class="plan-heading">@L["Expenses.Recurring.CreatedHeading"]</div>
-    @if (r.IsActive)
+    @if (r.Status == RecurringExpenseStatus.Active)
     {
         <div class="list-row" style="align-items:center">
             <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">○</div>
@@ -83,10 +85,22 @@
     }
 </div>
 
-@if (r.IsActive)
+@if (r.Status != RecurringExpenseStatus.Ended)
 {
     <div class="plan-actions">
         <a class="btn btn-sm btn-outline-secondary" asp-page="Record" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@Model.RecurringId">✏️ @L["Action.Edit"]</a>
+        @if (r.Status == RecurringExpenseStatus.Active)
+        {
+            <form method="post" asp-page-handler="Pause" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@Model.RecurringId" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">⏸ @L["Expenses.Recurring.Pause"]</button>
+            </form>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="Resume" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@Model.RecurringId" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">▶ @L["Expenses.Recurring.Resume"]</button>
+            </form>
+        }
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('end-recurring-sheet').showModal()">@L["Expenses.Recurring.End"]</button>
     </div>
 

@@ -17,7 +17,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         await Assert.That(await page.Locator(".page-heading:has-text('Expenses')").IsVisibleAsync()).IsTrue();
         await Assert.That(await page.Locator("a:has-text('New Group')").IsVisibleAsync()).IsTrue();
-        await Assert.That(await page.Locator("a:has-text('Recurring')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator("a:has-text('Plans & recurring')").IsVisibleAsync()).IsTrue();
     }
 
     [Test]
@@ -81,7 +81,7 @@ public class ExpensesTests(PlaywrightFixture pw)
 
         await page.GotoAsync($"{pw.AppUrl}/h/{householdId}/expenses/recurring");
 
-        await Assert.That(await page.Locator(".page-heading:has-text('Recurring Expenses')").IsVisibleAsync()).IsTrue();
+        await Assert.That(await page.Locator(".page-heading:has-text('Plans & recurring')").IsVisibleAsync()).IsTrue();
     }
 
     [Test]

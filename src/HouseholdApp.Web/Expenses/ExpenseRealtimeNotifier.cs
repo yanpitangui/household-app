@@ -17,7 +17,9 @@ public sealed class ExpenseRealtimeNotifier(IConnectionMultiplexer redis, EventD
       IEventHandler<InstallmentPlanCancelled>,
       IEventHandler<RecurringExpenseCreated>,
       IEventHandler<RecurringExpenseUpdated>,
-      IEventHandler<RecurringExpenseEnded>
+      IEventHandler<RecurringExpenseEnded>,
+      IEventHandler<RecurringExpensePaused>,
+      IEventHandler<RecurringExpenseResumed>
 {
     private Task Notify(Guid householdId) =>
         dispatchScope.SuppressNotifications
@@ -40,4 +42,6 @@ public sealed class ExpenseRealtimeNotifier(IConnectionMultiplexer redis, EventD
     public Task HandleAsync(RecurringExpenseCreated evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
     public Task HandleAsync(RecurringExpenseUpdated evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
     public Task HandleAsync(RecurringExpenseEnded evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
+    public Task HandleAsync(RecurringExpensePaused evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
+    public Task HandleAsync(RecurringExpenseResumed evt, CancellationToken ct = default) => Notify(evt.HouseholdId);
 }

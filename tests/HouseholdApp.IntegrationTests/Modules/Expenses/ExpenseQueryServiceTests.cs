@@ -8,7 +8,10 @@ using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Modules.Identity.Infrastructure;
 using HouseholdApp.Application.Shared.Events;
 using HouseholdApp.IntegrationTests.Infrastructure;
+using HouseholdApp.Application.Shared.Persistence;
 using Marten;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 namespace HouseholdApp.IntegrationTests.Modules.Expenses;
@@ -94,63 +97,139 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
         await Assert.That(only.Cents).IsEqualTo(-300L);
     }
 
-    [Test]
-    public async Task ListRecurringExpensesAsync_returns_empty_for_unknown_household()
-    {
-        await using var qs = Store.QuerySession();
-        var results = await BuildSut(qs).ListRecurringExpensesAsync(Guid.NewGuid());
+    private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
-        await Assert.That(results).IsEmpty();
+    private ExpenseQueryService BuildSutAt(IQuerySession querySession, DateTimeOffset now) =>
+        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()),
+            new FakeTimeProvider(now));
+
+    private async Task SeedGroupAsync(Guid householdId, Guid groupId, string name, bool deleted = false)
+    {
+        await using var s = Store.LightweightSession();
+        s.Store(new ExpenseGroupDocument
+        {
+            Id = groupId, HouseholdId = householdId, Name = name, DeletedAt = deleted ? Now : null
+        });
+        await s.SaveChangesAsync();
     }
 
+    // Each template is created at createdAt and then has its lifecycle ops applied, all on one stream.
     private async Task<Guid> StartTemplateAsync(
-        Guid householdId, Guid groupId, string description, RecurrenceSchedule schedule)
+        Guid householdId, Guid groupId, string description, DateOnly firstDate,
+        DateTimeOffset? createdAt = null, bool pause = false, bool end = false)
     {
+        var at = createdAt ?? Now;
         var userId = Guid.NewGuid();
         var template = RecurringExpense.Create(
             householdId, groupId, description, [new FundingSource(userId, 100_00)], [new Allocation(userId, 100_00)],
-            schedule, catchUp: false, new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero), userId);
+            new RecurrenceSchedule(RecurrenceFrequency.Monthly, firstDate, new TimeOnly(9, 0)),
+            catchUp: false, at, userId);
+        if (pause) template.Pause(at, userId);
+        if (end) template.End(at, userId);
         await using var s = Store.LightweightSession();
         s.Events.StartStream(template.Id, template.DomainEvents.ToArray());
         await s.SaveChangesAsync();
         return template.Id;
     }
 
-    [Test]
-    public async Task ListRecurringExpensesAsync_returns_recurring_expenses_with_correct_fields()
+    private async Task<Guid> CreatePlanAsync(
+        Guid householdId, Guid groupId, string description, DateOnly firstDate, bool cancel = false)
     {
-        var householdId = Guid.NewGuid();
-        var groupId = Guid.NewGuid();
-        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Monthly, new DateOnly(2026, 7, 1), new TimeOnly(9, 0));
-        var id = await StartTemplateAsync(householdId, groupId, "Rent", schedule);
-
-        await using var qs = Store.QuerySession();
-        var results = await BuildSut(qs).ListRecurringExpensesAsync(householdId);
-
-        await Assert.That(results.Count).IsEqualTo(1);
-        var item = results[0];
-        await Assert.That(item.Id).IsEqualTo(id);
-        await Assert.That(item.Description).IsEqualTo("Rent");
-        await Assert.That(item.Schedule).IsEqualTo(schedule);
-        await Assert.That(item.IsActive).IsTrue();
-        await Assert.That(item.ExpenseGroupId).IsEqualTo(groupId);
+        var ana = Guid.NewGuid();
+        var leo = Guid.NewGuid();
+        await InsertUsersAsync(ana, leo);
+        await using var session = Store.LightweightSession();
+        var sut = new InstallmentPlanCommandService(
+            session, new FakeCurrentUser(ana), new FakeTimeProvider(Now), Substitute.For<IEventBus>(),
+            Substitute.For<ISessionFactory>(), NullLogger<InstallmentPlanCommandService>.Instance);
+        var id = await sut.CreateAsync(householdId, groupId, description, ana, 150000, 0, 5, firstDate, firstDate,
+            [new AllocationDto(ana, 75000), new AllocationDto(leo, 75000)]);
+        if (cancel) await sut.CancelAsync(householdId, id, voidCreated: false);
+        return id;
     }
 
     [Test]
-    public async Task ListRecurringExpensesAsync_only_returns_expenses_for_requested_household()
+    public async Task Recurring_page_reports_paused_status()
     {
-        var householdA = Guid.NewGuid();
-        var householdB = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
-        var schedule = new RecurrenceSchedule(RecurrenceFrequency.Annually, new DateOnly(2026, 6, 1), new TimeOnly(8, 0));
-        await StartTemplateAsync(householdA, groupId, "A-expense", schedule);
-        await StartTemplateAsync(householdB, groupId, "B-expense", schedule);
+        await SeedGroupAsync(householdId, groupId, "Home");
+        var id = await StartTemplateAsync(householdId, groupId, "Rent", new DateOnly(2026, 11, 15), pause: true);
 
         await using var qs = Store.QuerySession();
-        var results = await BuildSut(qs).ListRecurringExpensesAsync(householdA);
+        var page = await BuildSutAt(qs, Now).GetRecurringExpensePageAsync(householdId, id, Guid.NewGuid());
 
-        await Assert.That(results.Count).IsEqualTo(1);
-        await Assert.That(results[0].Description).IsEqualTo("A-expense");
+        await Assert.That(page!.Status).IsEqualTo(RecurringExpenseStatus.Paused);
+    }
+
+    [Test]
+    public async Task Plans_and_recurring_list_orders_active_by_next_date_then_paused_then_ended()
+    {
+        var householdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        await SeedGroupAsync(householdId, groupId, "Home");
+        var activeRecurring = await StartTemplateAsync(householdId, groupId, "Rent", new DateOnly(2026, 11, 15));
+        var activePlan = await CreatePlanAsync(householdId, groupId, "Sofa", new DateOnly(2026, 11, 12));
+        var paused = await StartTemplateAsync(householdId, groupId, "Gym", new DateOnly(2026, 11, 20), pause: true);
+        var cancelledPlan = await CreatePlanAsync(householdId, groupId, "Laptop", new DateOnly(2026, 12, 1), cancel: true);
+        var endedRecurring = await StartTemplateAsync(
+            householdId, groupId, "Streaming", new DateOnly(2026, 10, 20), createdAt: Now.AddDays(-30), end: true);
+
+        await using var qs = Store.QuerySession();
+        var rows = await BuildSutAt(qs, Now).ListPlansAndRecurringAsync(householdId);
+
+        await Assert.That(rows.Select(r => r.Id).ToList()).IsEquivalentTo(
+            [activePlan, activeRecurring, paused, cancelledPlan, endedRecurring],
+            TUnit.Assertions.Enums.CollectionOrdering.Matching);
+
+        var plan = rows[0];
+        await Assert.That(plan.Kind).IsEqualTo(PlansAndRecurringKind.Plan);
+        await Assert.That(plan.Bucket).IsEqualTo(PlansAndRecurringBucket.Active);
+        await Assert.That(plan.NextDate).IsEqualTo(new DateOnly(2026, 11, 12));
+        await Assert.That(plan.AmountCents).IsEqualTo(150000L);
+        await Assert.That(plan.Count).IsEqualTo(5);
+        await Assert.That(plan.CreatedCount).IsEqualTo(0);
+        await Assert.That(plan.PlanStatus).IsEqualTo(InstallmentPlanStatus.Active);
+        await Assert.That(plan.GroupName).IsEqualTo("Home");
+
+        var recurring = rows[1];
+        await Assert.That(recurring.Kind).IsEqualTo(PlansAndRecurringKind.Recurring);
+        await Assert.That(recurring.NextDate).IsEqualTo(new DateOnly(2026, 11, 15));
+        await Assert.That(recurring.AmountCents).IsEqualTo(100_00L);
+        await Assert.That(recurring.RecurringStatus).IsEqualTo(RecurringExpenseStatus.Active);
+
+        await Assert.That(rows[2].Bucket).IsEqualTo(PlansAndRecurringBucket.Paused);
+        await Assert.That(rows[2].NextDate).IsNull();
+        await Assert.That(rows[3].Bucket).IsEqualTo(PlansAndRecurringBucket.Ended);
+        await Assert.That(rows[3].PlanStatus).IsEqualTo(InstallmentPlanStatus.Cancelled);
+        await Assert.That(rows[3].NextDate).IsNull();
+        await Assert.That(rows[4].Bucket).IsEqualTo(PlansAndRecurringBucket.Ended);
+        await Assert.That(rows[4].RecurringStatus).IsEqualTo(RecurringExpenseStatus.Ended);
+    }
+
+    [Test]
+    public async Task Plans_and_recurring_list_hides_deleted_groups_and_other_households()
+    {
+        var householdId = Guid.NewGuid();
+        var otherHouseholdId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var deletedGroupId = Guid.NewGuid();
+        var otherGroupId = Guid.NewGuid();
+        await SeedGroupAsync(householdId, groupId, "Home");
+        await SeedGroupAsync(householdId, deletedGroupId, "Old");
+        await SeedGroupAsync(otherHouseholdId, otherGroupId, "Theirs");
+        var kept = await StartTemplateAsync(householdId, groupId, "Rent", new DateOnly(2026, 11, 15));
+        await StartTemplateAsync(householdId, deletedGroupId, "Gym", new DateOnly(2026, 11, 15));
+        await CreatePlanAsync(householdId, deletedGroupId, "Sofa", new DateOnly(2026, 11, 12));
+        // The group is deleted once its plan exists, since plans are created only in live groups.
+        await SeedGroupAsync(householdId, deletedGroupId, "Old", deleted: true);
+        await StartTemplateAsync(otherHouseholdId, otherGroupId, "Their rent", new DateOnly(2026, 11, 15));
+        await CreatePlanAsync(otherHouseholdId, otherGroupId, "Their sofa", new DateOnly(2026, 11, 12));
+
+        await using var qs = Store.QuerySession();
+        var rows = await BuildSutAt(qs, Now).ListPlansAndRecurringAsync(householdId);
+
+        await Assert.That(rows.Select(r => r.Id).ToList()).IsEquivalentTo([kept]);
     }
 
     [Test]

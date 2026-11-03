@@ -38,7 +38,7 @@ public sealed record InstallmentPlanPage(
     long DownPaymentCents = 0);
 
 public sealed record RecurringExpensePage(
-    Guid Id, Guid HouseholdId, string Description, RecurrenceSchedule Schedule, bool IsActive,
+    Guid Id, Guid HouseholdId, string Description, RecurrenceSchedule Schedule, RecurringExpenseStatus Status,
     DateTimeOffset NextOccurrenceAt, Guid ExpenseGroupId, string GroupName, string GroupIcon,
     Guid PayerId, string PayerName, long TotalCents,
     IReadOnlyList<ExpenseListParticipantDto> Split, long ViewerShareCents,
@@ -126,8 +126,20 @@ public sealed record MemberBalance(Guid UserId, string DisplayName, long Cents, 
 
 public sealed record ExpenseGroupSummary(Guid Id, string Name, string? Description, string Icon = GroupIcons.Default);
 
-public sealed record RecurringExpenseSummary(
-    Guid Id, string Description, RecurrenceSchedule Schedule, bool IsActive, Guid ExpenseGroupId);
+public enum PlansAndRecurringKind { Recurring, Plan }
+
+/// <summary>Active rows first (soonest next date), then paused templates, then ended templates and finished plans.</summary>
+public enum PlansAndRecurringBucket { Active = 0, Paused = 1, Ended = 2 }
+
+/// <summary>
+/// One row of the "Plans &amp; recurring" list. Recurring rows carry Schedule/RecurringStatus; plan rows carry
+/// PlanStatus/Count/CreatedCount. NextDate is null for paused and ended rows.
+/// </summary>
+public sealed record PlansAndRecurringRow(
+    PlansAndRecurringKind Kind, Guid Id, string Description, Guid GroupId, string GroupName, string GroupIcon,
+    long AmountCents, PlansAndRecurringBucket Bucket, DateOnly? NextDate, DateTimeOffset SortedAt,
+    RecurrenceSchedule? Schedule = null, RecurringExpenseStatus? RecurringStatus = null,
+    InstallmentPlanStatus? PlanStatus = null, int? Count = null, int? CreatedCount = null);
 
 public interface IExpenseQueries
 {
@@ -156,7 +168,8 @@ public interface IExpenseQueries
     Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(
         Guid householdId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<RecurringExpenseSummary>> ListRecurringExpensesAsync(
+    /// <summary>Recurring templates and installment plans of non-deleted groups, in <see cref="PlansAndRecurringBucket"/> order.</summary>
+    Task<IReadOnlyList<PlansAndRecurringRow>> ListPlansAndRecurringAsync(
         Guid householdId, CancellationToken ct = default);
 
     /// <summary>Null when the plan is missing, belongs to another household, or its group is deleted.</summary>

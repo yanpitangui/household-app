@@ -73,6 +73,22 @@ public sealed class RecurringExpenseCommandService(
         await session.SaveChangesAsync(ct);
     }
 
+    public async Task PauseAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default)
+    {
+        var (stream, template) = await LoadAsync(householdId, recurringExpenseId, ct);
+        template.Pause(time.GetUtcNow(), currentUser.Id);
+        stream.AppendMany(template.DomainEvents.ToArray());
+        await session.SaveChangesAsync(ct);
+    }
+
+    public async Task ResumeAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default)
+    {
+        var (stream, template) = await LoadAsync(householdId, recurringExpenseId, ct);
+        template.Resume(time.GetUtcNow(), currentUser.Id);
+        stream.AppendMany(template.DomainEvents.ToArray());
+        await session.SaveChangesAsync(ct);
+    }
+
     public async Task RunSweepAsync(CancellationToken ct = default)
     {
         var now = time.GetUtcNow();

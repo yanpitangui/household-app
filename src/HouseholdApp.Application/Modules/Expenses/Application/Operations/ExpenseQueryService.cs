@@ -486,7 +486,7 @@ public sealed class ExpenseQueryService(
         var total = template.FundingSources.Sum(f => f.Cents);
         return new RecurringExpensePage(
             template.Id, householdId, template.Description, template.Schedule,
-            template.Status == RecurringExpenseStatus.Active, template.NextOccurrenceAt,
+            template.Status, template.NextOccurrenceAt,
             group.Id, group.Name, GroupIcons.Display(group.Icon), payer?.UserId ?? Guid.Empty,
             payer is null ? "?" : profiles.GetValueOrDefault(payer.UserId)?.DisplayName ?? "?",
             total, split, template.Allocations.FirstOrDefault(a => a.UserId == viewerId)?.Cents ?? 0, rows);
@@ -558,14 +558,70 @@ public sealed class ExpenseQueryService(
         return groups.Select(g => new ExpenseGroupSummary(g.Id, g.Name, g.Description, GroupIcons.Display(g.Icon))).ToList();
     }
 
-    public async Task<IReadOnlyList<RecurringExpenseSummary>> ListRecurringExpensesAsync(
+    public async Task<IReadOnlyList<PlansAndRecurringRow>> ListPlansAndRecurringAsync(
         Guid householdId, CancellationToken ct = default)
     {
-        var docs = await querySession.Query<RecurringExpenseDocument>()
-            .Where(t => t.HouseholdId == householdId)
-            .OrderBy(t => t.Description)
-            .ToListAsync(ct);
-        return docs.Select(t => new RecurringExpenseSummary(
-            t.Id, t.Description, t.Schedule, t.Status == RecurringExpenseStatus.Active, t.ExpenseGroupId)).ToList();
+        var groups = (await querySession.QueryAsync(new ExpenseGroupsForHousehold { HouseholdId = householdId }, ct))
+            .ToDictionary(g => g.Id);
+
+        var templates = (await querySession.Query<RecurringExpenseDocument>()
+                .Where(t => t.HouseholdId == householdId)
+                .ToListAsync(ct))
+            .Where(t => groups.ContainsKey(t.ExpenseGroupId));
+        var plans = (await querySession.Query<InstallmentPlanDocument>()
+                .Where(p => p.HouseholdId == householdId)
+                .ToListAsync(ct))
+            .Where(p => groups.ContainsKey(p.ExpenseGroupId)).ToList();
+        var planIds = plans.Select(p => p.Id).ToList();
+        var installments = (planIds.Count == 0
+                ? []
+                : await querySession.Query<ExpenseReadModel>()
+                    .Where(e => e.InstallmentPlanId != null && e.InstallmentPlanId.Value.IsOneOf(planIds))
+                    .ToListAsync(ct))
+            .ToLookup(e => e.InstallmentPlanId);
+
+        var recurringRows = templates.Select(t =>
+        {
+            var g = groups[t.ExpenseGroupId];
+            var active = t.Status == RecurringExpenseStatus.Active;
+            return new PlansAndRecurringRow(
+                PlansAndRecurringKind.Recurring, t.Id, t.Description, g.Id, g.Name, GroupIcons.Display(g.Icon),
+                t.FundingSources.Sum(f => f.Cents),
+                t.Status switch
+                {
+                    RecurringExpenseStatus.Active => PlansAndRecurringBucket.Active,
+                    RecurringExpenseStatus.Paused => PlansAndRecurringBucket.Paused,
+                    _ => PlansAndRecurringBucket.Ended
+                },
+                active ? DateOnly.FromDateTime(t.NextOccurrenceAt.UtcDateTime) : null,
+                active ? t.NextOccurrenceAt : t.CreatedAt,
+                Schedule: t.Schedule, RecurringStatus: t.Status);
+        });
+
+        var planRows = plans.Select(p =>
+        {
+            var g = groups[p.ExpenseGroupId];
+            var summary = InstallmentPlanSummaries.Build(p, installments[p.Id].ToList());
+            var active = p.Status == InstallmentPlanStatus.Active;
+            var next = active
+                ? summary.Slots.FirstOrDefault(s => s.Status == InstallmentSlotStatus.Upcoming)?.DueDate
+                : null;
+            return new PlansAndRecurringRow(
+                PlansAndRecurringKind.Plan, p.Id, p.Description, g.Id, g.Name, GroupIcons.Display(g.Icon),
+                p.TotalCents,
+                active ? PlansAndRecurringBucket.Active : PlansAndRecurringBucket.Ended,
+                next,
+                next is { } due ? new DateTimeOffset(due, TimeOnly.MinValue, TimeSpan.Zero) : p.EndedAt ?? p.CreatedAt,
+                PlanStatus: p.Status, Count: p.Count,
+                CreatedCount: summary.Slots.Count(s => s.Status == InstallmentSlotStatus.Created));
+        });
+
+        // Ended rows read newest first, so their sort key is negated; the rest run soonest first.
+        return recurringRows.Concat(planRows)
+            .OrderBy(r => r.Bucket)
+            .ThenBy(r => r.Bucket == PlansAndRecurringBucket.Ended ? -r.SortedAt.UtcTicks : r.SortedAt.UtcTicks)
+            .ThenBy(r => r.Description, StringComparer.CurrentCulture)
+            .ThenBy(r => r.Id)
+            .ToList();
     }
 }

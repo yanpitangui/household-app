@@ -14,15 +14,7 @@ public class RecurringExpensesModel(
     [BindProperty(SupportsGet = true)]
     public override Guid HouseholdId { get; set; }
 
-    public IReadOnlyList<RecurringExpenseSummary> RecurringExpenses { get; private set; } = [];
-    public Dictionary<Guid, string> GroupNames { get; private set; } = [];
+    public IReadOnlyList<PlansAndRecurringRow> Rows { get; private set; } = [];
 
-    public async Task OnGetAsync()
-    {
-        var recurringTask = expenseQueries.ListRecurringExpensesAsync(HouseholdId);
-        var groupsTask = expenseQueries.ListExpenseGroupsAsync(HouseholdId);
-        await Task.WhenAll(recurringTask, groupsTask);
-        RecurringExpenses = recurringTask.Result;
-        GroupNames = groupsTask.Result.ToDictionary(g => g.Id, g => g.Name);
-    }
+    public async Task OnGetAsync() => Rows = await expenseQueries.ListPlansAndRecurringAsync(HouseholdId);
 }

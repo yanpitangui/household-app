@@ -202,7 +202,6 @@
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Registrar</value></data>
   <data name="Expenses.SettleUp"><value>Acertar contas</value></data>
-  <data name="Expenses.Recurring"><value>Recorrentes</value></data>
   <data name="Expenses.Activity"><value>Atividade</value></data>
   <data name="Expenses.Activity.Title"><value>Atividade recente</value></data>
   <data name="Expenses.Activity.LoadMore"><value>Carregar mais</value></data>
@@ -242,7 +241,6 @@
   <data name="Expenses.NewGroup"><value>Novo grupo</value></data>
   <data name="Expenses.GroupName"><value>Nome</value></data>
   <data name="Expenses.GroupDescription"><value>Descrição (opcional)</value></data>
-  <data name="Expenses.RecurringHeading"><value>Despesas recorrentes</value></data>
   <data name="Expenses.NewRecurring"><value>Nova despesa recorrente</value></data>
   <data name="Expenses.Frequency"><value>Frequência</value></data>
   <data name="Expenses.StartAt"><value>Início</value></data>
@@ -522,6 +520,20 @@
   <data name="Expenses.Recurring.CatchUp"><value>Também criar {0} despesas anteriores</value></data>
   <data name="Expenses.Recurring.Preview"><value>{0} · próxima {1}</value></data>
   <data name="Expenses.Recurring.PreviewShare"><value>Sua parte {0} / ocorrência</value></data>
+  <data name="Expenses.Recurring.Paused"><value>Pausada</value></data>
+  <data name="Expenses.Recurring.Pause"><value>Pausar</value></data>
+  <data name="Expenses.Recurring.Resume"><value>Retomar</value></data>
+  <data name="Expenses.Recurring.PausedFlash"><value>Despesa recorrente pausada.</value></data>
+  <data name="Expenses.Recurring.ResumedFlash"><value>Despesa recorrente retomada. As datas durante a pausa foram puladas.</value></data>
+  <data name="Expenses.Recurring.PausedNote"><value>Pausada — nada é criado até você retomar.</value></data>
+  <data name="Expenses.Recurring.AlreadyPaused"><value>Esta despesa recorrente já está pausada.</value></data>
+  <data name="Expenses.Recurring.AlreadyActive"><value>Esta despesa recorrente já está ativa.</value></data>
+  <data name="Expenses.Activity.RecurringPaused"><value>{0} pausou &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.RecurringResumed"><value>{0} retomou &apos;{1}&apos;.</value></data>
+  <data name="Expenses.PlansAndRecurring"><value>Parcelamentos e recorrentes</value></data>
+  <data name="Expenses.PlansAndRecurringHeading"><value>Parcelamentos e recorrentes</value></data>
+  <data name="Expenses.PlansAndRecurring.Next"><value>próxima {0}</value></data>
+  <data name="Expenses.PlansAndRecurring.Progress"><value>{0} de {1}</value></data>
   <data name="Expenses.Frequency.Daily"><value>Diariamente</value></data>
   <data name="Expenses.Frequency.Biweekly"><value>A cada duas semanas</value></data>
   <data name="Recurrence.Repeats"><value>Repetir</value></data>

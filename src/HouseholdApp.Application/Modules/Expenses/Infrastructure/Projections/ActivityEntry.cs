@@ -9,7 +9,8 @@ namespace HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 
 public enum ActivityKind { Added, Edited, Removed, Settlement, RecurringAdded, HouseholdSettlement, GroupDeleted, GroupRestored, GroupRenamed,
     InstallmentPlanCreated, InstallmentAdded, InstallmentPlanPaidEarly, InstallmentPlanCancelled, InstallmentPlanEdited,
-    RecurringExpenseCreated, RecurringExpenseEdited, RecurringExpenseEnded }
+    RecurringExpenseCreated, RecurringExpenseEdited, RecurringExpenseEnded,
+    RecurringExpensePaused, RecurringExpenseResumed }
 
 public sealed class ActivityEntry
 {
@@ -49,7 +50,7 @@ public sealed class ActivityEntry
 // ExpenseGroupRestored event here produces its own permanent ActivityEntry row (a household settlement
 // produces one, from its lead leg). The InstallmentPlanCreated/Updated/PaidEarly/Cancelled events each produce a
 // plan row too; the Expenses a plan event already describes (CoveredByPlanEvent catch-ups, payoffs and cancel voids)
-// stay out of the feed so the plan row is their single entry. The RecurringExpenseCreated/Updated/Ended events each
+// stay out of the feed so the plan row is their single entry. The RecurringExpenseCreated/Updated/Paused/Resumed/Ended events each
 // produce a template row too (imported ones stay out); RecurringExpenseOccurred stays out, since the Expense it
 // creates is its own row. An ExpenseGroupUpdated that changes the name produces a GroupRenamed
 // row and refreshes the group name on the older rows.
@@ -76,6 +77,8 @@ public sealed partial class ActivityEntryProjection : EventProjection
         IncludeType<RecurringExpenseCreated>();
         IncludeType<RecurringExpenseUpdated>();
         IncludeType<RecurringExpenseEnded>();
+        IncludeType<RecurringExpensePaused>();
+        IncludeType<RecurringExpenseResumed>();
     }
 
     public override async ValueTask ApplyAsync(IDocumentOperations operations, IEvent e, CancellationToken cancellation)
@@ -144,6 +147,14 @@ public sealed partial class ActivityEntryProjection : EventProjection
 
             case RecurringExpenseEnded { Imported: false } recurringEnded:
                 operations.Store(MapRecurringEnded(e.Id, recurringEnded, await GroupNameAsync(operations, recurringEnded.ExpenseGroupId, cancellation)));
+                break;
+
+            case RecurringExpensePaused recurringPaused:
+                operations.Store(MapRecurringPaused(e.Id, recurringPaused, await GroupNameAsync(operations, recurringPaused.ExpenseGroupId, cancellation)));
+                break;
+
+            case RecurringExpenseResumed recurringResumed:
+                operations.Store(MapRecurringResumed(e.Id, recurringResumed, await GroupNameAsync(operations, recurringResumed.ExpenseGroupId, cancellation)));
                 break;
 
             case ExpenseGroupDeleted deleted:
@@ -228,6 +239,14 @@ public sealed partial class ActivityEntryProjection : EventProjection
 
     public static ActivityEntry MapRecurringEnded(Guid eventId, RecurringExpenseEnded e, string? groupName) =>
         RecurringEntry(eventId, ActivityKind.RecurringExpenseEnded, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+            groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, null, null);
+
+    public static ActivityEntry MapRecurringPaused(Guid eventId, RecurringExpensePaused e, string? groupName) =>
+        RecurringEntry(eventId, ActivityKind.RecurringExpensePaused, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
+            groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, null, null);
+
+    public static ActivityEntry MapRecurringResumed(Guid eventId, RecurringExpenseResumed e, string? groupName) =>
+        RecurringEntry(eventId, ActivityKind.RecurringExpenseResumed, e.OccurredAt, e.HouseholdId, e.ExpenseGroupId,
             groupName, e.PerformedByUserId, e.Description, e.RecurringExpenseId, null, null);
 
     private static ActivityEntry RecurringEntry(
