@@ -29,39 +29,51 @@ public sealed class HouseholdCacheInvalidationHandlerTests
     }
 
     [Test]
-    public async Task HouseholdMemberJoined_clears_members_detail_and_the_joining_users_lists()
+    public async Task HouseholdMemberJoined_clears_members_detail_the_joining_users_lists_and_the_others_household_list()
     {
         var householdId = Guid.NewGuid();
         var userId = Guid.NewGuid();
+        var otherId = Guid.NewGuid();
         await _cache.SetAsync(HouseholdCacheKeys.Members(householdId), "stale-members");
         await _cache.SetAsync(HouseholdCacheKeys.Detail(householdId), "stale-detail");
         await _cache.SetAsync(HouseholdCacheKeys.ListForUser(userId), "stale-list");
         await _cache.SetAsync(HouseholdCacheKeys.ListNames(userId), "stale-names");
+        await _cache.SetAsync(HouseholdCacheKeys.ListForUser(otherId), "stale-count");
+        await _cache.SetAsync(HouseholdCacheKeys.ListNames(otherId), "unchanged-names");
 
-        await _sut.HandleAsync(new HouseholdMemberJoined(Guid.NewGuid(), DateTimeOffset.UtcNow, householdId, userId, HouseholdRole.Member));
+        await _sut.HandleAsync(new HouseholdMemberJoined(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, householdId, userId, HouseholdRole.Member, [otherId]));
 
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.Members(householdId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.Detail(householdId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListForUser(userId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListNames(userId))).HasValue).IsFalse();
+        await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListForUser(otherId))).HasValue).IsFalse();
+        await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListNames(otherId))).HasValue).IsTrue();
     }
 
     [Test]
-    public async Task HouseholdMemberRemoved_clears_members_detail_and_the_removed_users_lists()
+    public async Task HouseholdMemberRemoved_clears_members_detail_the_removed_users_lists_and_the_others_household_list()
     {
         var householdId = Guid.NewGuid();
         var userId = Guid.NewGuid();
+        var otherId = Guid.NewGuid();
         await _cache.SetAsync(HouseholdCacheKeys.Members(householdId), "stale-members");
         await _cache.SetAsync(HouseholdCacheKeys.Detail(householdId), "stale-detail");
         await _cache.SetAsync(HouseholdCacheKeys.ListForUser(userId), "stale-list");
         await _cache.SetAsync(HouseholdCacheKeys.ListNames(userId), "stale-names");
+        await _cache.SetAsync(HouseholdCacheKeys.ListForUser(otherId), "stale-count");
+        await _cache.SetAsync(HouseholdCacheKeys.ListNames(otherId), "unchanged-names");
 
-        await _sut.HandleAsync(new HouseholdMemberRemoved(Guid.NewGuid(), DateTimeOffset.UtcNow, householdId, userId));
+        await _sut.HandleAsync(new HouseholdMemberRemoved(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, householdId, userId, [otherId]));
 
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.Members(householdId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.Detail(householdId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListForUser(userId))).HasValue).IsFalse();
         await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListNames(userId))).HasValue).IsFalse();
+        await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListForUser(otherId))).HasValue).IsFalse();
+        await Assert.That((await _cache.TryGetAsync<string>(HouseholdCacheKeys.ListNames(otherId))).HasValue).IsTrue();
     }
 
     [Test]

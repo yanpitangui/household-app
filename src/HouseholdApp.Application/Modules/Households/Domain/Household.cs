@@ -40,7 +40,7 @@ public sealed class Household : AggregateRoot
     {
         EnsureMember(requestedBy, HouseholdRole.Admin);
         Name = RequireName(name);
-        Raise(new HouseholdRenamed(Guid.CreateVersion7(), now, Id, Name, _members.Select(m => m.UserId).ToList()));
+        Raise(new HouseholdRenamed(Guid.CreateVersion7(), now, Id, Name, MemberIds()));
     }
 
     public void ChangeTimeZone(Guid requestedBy, string timeZone, DateTimeOffset now)
@@ -74,11 +74,13 @@ public sealed class Household : AggregateRoot
         if (member.Role == HouseholdRole.Owner)
             throw new InvalidOperationException("Transfer ownership before leaving.");
         _members.Remove(member);
-        Raise(new HouseholdMemberRemoved(Guid.CreateVersion7(), now, Id, userId));
+        Raise(new HouseholdMemberRemoved(Guid.CreateVersion7(), now, Id, userId, MemberIds()));
     }
 
     /// <summary>Whether a member with this role can be removed by someone else; the Owner leaves only after a transfer.</summary>
     public static bool CanBeRemoved(HouseholdRole role) => role != HouseholdRole.Owner;
+
+    private List<Guid> MemberIds() => _members.Select(m => m.UserId).ToList();
 
     private static string RequireName(string name) =>
         string.IsNullOrWhiteSpace(name) ? throw new ArgumentException("A household needs a name.", nameof(name)) : name.Trim();
@@ -95,8 +97,9 @@ public sealed class Household : AggregateRoot
     public void AcceptInvitation(HouseholdInvitation invitation, Guid userId, DateTimeOffset now)
     {
         invitation.Consume(userId, now);
+        var others = MemberIds();
         _members.Add(new HouseholdMember(Id, userId, HouseholdRole.Member));
-        Raise(new HouseholdMemberJoined(Guid.CreateVersion7(), now, Id, userId, HouseholdRole.Member));
+        Raise(new HouseholdMemberJoined(Guid.CreateVersion7(), now, Id, userId, HouseholdRole.Member, others));
     }
 
     public void RemoveMember(Guid requestedBy, Guid targetUserId, DateTimeOffset now)
@@ -109,7 +112,7 @@ public sealed class Household : AggregateRoot
         if (!CanBeRemoved(member.Role))
             throw new InvalidOperationException("Cannot remove the owner.");
         _members.Remove(member);
-        Raise(new HouseholdMemberRemoved(Guid.CreateVersion7(), now, Id, targetUserId));
+        Raise(new HouseholdMemberRemoved(Guid.CreateVersion7(), now, Id, targetUserId, MemberIds()));
     }
 
     public void ChangeRole(Guid requestedBy, Guid targetUserId, HouseholdRole newRole, DateTimeOffset now)
