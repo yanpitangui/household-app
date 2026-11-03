@@ -2,8 +2,12 @@
 @model SettingsModel
 @{
     ViewData["Title"] = L["Settings.Title"];
-    var referer = Request.Headers["Referer"].ToString();
-    var returnUrl = Uri.EscapeDataString(referer.Length > 0 ? referer : "/");
+    // The Referer is absolute; only its path and query are passed on, and only when it points back at this site.
+    var referer = Uri.TryCreate(Request.Headers.Referer.ToString(), UriKind.Absolute, out var refererUri)
+                  && refererUri.Authority == Request.Host.Value
+        ? refererUri.PathAndQuery
+        : "/";
+    var returnUrl = Uri.EscapeDataString(referer);
 }
 
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px">

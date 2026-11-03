@@ -20,6 +20,6 @@ public class SetCultureModel : PageModel
                 new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true });
         }
 
-        return LocalRedirect(returnUrl);
+        return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl : "/");
     }
 }
