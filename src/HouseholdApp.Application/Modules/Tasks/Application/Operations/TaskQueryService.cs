@@ -53,6 +53,14 @@ public sealed class TaskQueryService(NpgsqlDataSource db) : ITaskQueries
             r.IsActive, r.NextRunAt)).ToList();
     }
 
+    public async Task<int> CountOpenAssignedAsync(Guid householdId, Guid userId, CancellationToken ct = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM tasks.tasks WHERE household_id = @householdId AND assigned_to = @userId AND status = 0",
+            new { householdId, userId });
+    }
+
     private sealed record RecurringRow(
         Guid Id, string Title, string? Description, Guid? DefaultAssignedTo,
         string Frequency, DateOnly FirstDate, TimeOnly RunTime, bool IsActive, DateTimeOffset? NextRunAt);

@@ -34,6 +34,9 @@ internal sealed class CachingHouseholdQueryService(IHouseholdQueries inner, IFus
             EntryOptions,
             token: ct);
 
+    public Task<IReadOnlyList<PendingInvitation>> ListPendingInvitationsAsync(Guid householdId, CancellationToken ct = default) =>
+        inner.ListPendingInvitationsAsync(householdId, ct);
+
     private Task<WithLastModified<IReadOnlyList<HouseholdSummary>>> GetOrSetListForUserAsync(Guid userId, CancellationToken ct) =>
         cache.GetOrSetAsync<WithLastModified<IReadOnlyList<HouseholdSummary>>>(
             HouseholdCacheKeys.ListForUser(userId),

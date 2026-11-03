@@ -65,6 +65,8 @@ public class SettleModel(
         if (PayerId == RecipientId)
             ModelState.AddModelError(nameof(RecipientId), Loc["Expenses.Settle.SamePerson"].Value);
         if (!await LoadAsync()) return NotFound();
+        // Both sides come from the form's counterparty list: Members plus Former Members with a balance.
+        if (Members.All(m => m.UserId != PayerId) || Members.All(m => m.UserId != RecipientId)) return NotFound();
         if (!ModelState.IsValid)
         {
             if (GroupId is null) Breakdown = await BuildBreakdownAsync();
@@ -110,11 +112,20 @@ public class SettleModel(
     // False when a requested group is missing or deleted.
     private async Task<bool> LoadAsync()
     {
-        Members = await householdQueries.GetMembersAsync(HouseholdId);
+        Members = await CounterpartiesAsync(await householdQueries.GetMembersAsync(HouseholdId));
         if (GroupId is not { } groupId) return true;
 
         GroupName = (await expenseQueries.ListExpenseGroupsAsync(HouseholdId)).FirstOrDefault(g => g.Id == groupId)?.Name;
         return GroupName is not null;
+    }
+
+    // Former Members stay settleable while a balance with them remains (ADR 0015).
+    private async Task<IReadOnlyList<HouseholdMemberDto>> CounterpartiesAsync(IReadOnlyList<HouseholdMemberDto> members)
+    {
+        var former = (await expenseQueries.GetBalancesAsync(HouseholdId, CurrentUserId, GroupId))
+            .Where(b => b.Cents != 0 && b.IsFormerMember)
+            .Select(b => new HouseholdMemberDto(b.UserId, b.DisplayName, "Former", b.PictureUrl));
+        return [.. members, .. former];
     }
 
     private async Task<SettleBreakdownViewModel> BuildBreakdownAsync()

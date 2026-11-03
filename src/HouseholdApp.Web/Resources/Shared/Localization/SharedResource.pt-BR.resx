@@ -92,7 +92,6 @@
   <data name="Page.Privacy"><value>Política de Privacidade</value></data>
 
   <!-- Confirm dialogs -->
-  <data name="Confirm.RemoveMember"><value>Remover {0}?</value></data>
   <data name="Confirm.DeleteTask"><value>Excluir esta tarefa?</value></data>
   <data name="Confirm.DeleteList"><value>Excluir esta lista?</value></data>
   <data name="Confirm.DeleteRecipe"><value>Excluir esta receita?</value></data>
@@ -285,6 +284,7 @@
   <data name="Expenses.NetOwe"><value>Você deve no total</value></data>
   <data name="Expenses.OwesYouName"><value>{0} te deve</value></data>
   <data name="Expenses.YouOweName"><value>Você deve a {0}</value></data>
+  <data name="Expenses.FormerMember"><value>ex-membro</value></data>
   <data name="Expenses.SettleWith"><value>Acertar</value></data>
   <data name="Expenses.YouPaid"><value>você pagou</value></data>
   <data name="Expenses.Payment.YouPaid"><value>Você pagou {0}</value></data>
@@ -547,4 +547,45 @@
   <data name="Recurrence.Describe.Biweekly"><value>A cada duas semanas, {0}, às {1} UTC</value></data>
   <data name="Recurrence.Describe.Monthly"><value>Todo mês, dia {0}, às {1} UTC</value></data>
   <data name="Recurrence.Describe.Annually"><value>Todo ano, {0}, às {1} UTC</value></data>
+  <data name="Settings.Household.Title"><value>Configurações da casa</value></data>
+  <data name="Settings.Household.Name"><value>Nome</value></data>
+  <data name="Settings.Household.TimeZone"><value>Fuso horário</value></data>
+  <data name="Settings.Household.TimeZoneHint"><value>Define que dia é para todos desta casa.</value></data>
+  <data name="Settings.Household.TimeZoneInvalid"><value>Escolha um fuso horário da lista.</value></data>
+  <data name="Settings.Household.You"><value>(você)</value></data>
+  <data name="Settings.Household.MakeRole.Admin"><value>Tornar admin</value></data>
+  <data name="Settings.Household.MakeRole.Member"><value>Tornar membro</value></data>
+  <data name="Settings.Household.MakeOwner"><value>Tornar dono</value></data>
+  <data name="Settings.Household.InviteExpires"><value>Convite, expira em {0}</value></data>
+  <data name="Settings.Household.Revoke"><value>Revogar</value></data>
+  <data name="Settings.Household.Leave"><value>Sair da casa</value></data>
+  <data name="Settings.Household.TransferBeforeLeaving"><value>Transfira a posse para outra pessoa antes de sair.</value></data>
+  <data name="Role.Owner"><value>Dono</value></data>
+  <data name="Role.Admin"><value>Admin</value></data>
+  <data name="Role.Member"><value>Membro</value></data>
+  <data name="Dashboard.Share"><value>Compartilhar</value></data>
+  <data name="Confirm.TransferOwnership"><value>Tornar {0} dono? Você vira admin.</value></data>
+  <data name="Flash.HouseholdRenamed"><value>Casa renomeada.</value></data>
+  <data name="Flash.TimeZoneChanged"><value>Fuso horário atualizado.</value></data>
+  <data name="Flash.RoleChanged"><value>Papel atualizado.</value></data>
+  <data name="Flash.OwnershipTransferred"><value>Posse transferida.</value></data>
+  <data name="Flash.InvitationRevoked"><value>Convite revogado.</value></data>
+  <data name="Flash.LeftHousehold"><value>Você saiu da casa.</value></data>
+  <data name="Removal.Title"><value>Remover {0}?</value></data>
+  <data name="Removal.Intro"><value>Remover {0} da casa vai:</value></data>
+  <data name="Removal.IntroLeave"><value>Sair da casa vai:</value></data>
+  <data name="Removal.Owes"><value>manter a dívida de {1} de {0} visível para ainda ser acertada</value></data>
+  <data name="Removal.IsOwed"><value>manter os {1} devidos a {0} visíveis para ainda serem acertados</value></data>
+  <data name="Removal.Recurring.Redistributed"><value>dividir a parte de {1} em "{0}" entre os outros</value></data>
+  <data name="Removal.Recurring.Ended"><value>encerrar "{0}", que {1} paga</value></data>
+  <data name="Removal.Plan"><value>manter {1} devendo sua parte de "{0}" conforme as parcelas vencem</value></data>
+  <data name="Removal.Tasks"><value>desatribuir {0} tarefa(s) aberta(s)</value></data>
+  <data name="Removal.Access"><value>remover o acesso de {0} a esta casa</value></data>
+  <data name="Removal.Leave.Owes"><value>você continua devendo {0}; os outros ainda podem acertar</value></data>
+  <data name="Removal.Leave.IsOwed"><value>você continua a receber {0}; os outros ainda podem acertar</value></data>
+  <data name="Removal.Leave.Recurring.Redistributed"><value>sua parte em "{0}" é dividida entre os outros</value></data>
+  <data name="Removal.Leave.Recurring.Ended"><value>encerrar "{0}", que você paga</value></data>
+  <data name="Removal.Leave.Plan"><value>manter você devendo sua parte de "{0}" conforme as parcelas vencem</value></data>
+  <data name="Removal.Leave.Tasks"><value>desatribuir suas {0} tarefa(s) aberta(s)</value></data>
+  <data name="Removal.Leave.Access"><value>você perde o acesso a esta casa</value></data>
 </root>

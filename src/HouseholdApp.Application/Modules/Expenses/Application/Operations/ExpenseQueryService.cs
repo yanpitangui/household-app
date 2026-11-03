@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.CompiledQueries;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
+using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
 using Marten;
 using Marten.Linq.MatchesSql;
@@ -12,6 +13,7 @@ namespace HouseholdApp.Application.Modules.Expenses.Application.Operations;
 public sealed class ExpenseQueryService(
     IQuerySession querySession,
     IUserQuery userQuery,
+    IHouseholdQueries householdQueries,
     TimeProvider timeProvider) : IExpenseQueries
 {
     private const int RecentLimit = 30;
@@ -39,13 +41,14 @@ public sealed class ExpenseQueryService(
             pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 })
                 .Concat(TimelineUserIds(recent.Expenses, recent.Settlements))
                 .Distinct(), ct);
+        var currentMembers = await CurrentMemberIdsAsync(householdId, pairs, ct);
         var cards = new List<GroupCard>();
         foreach (var g in groups)
         {
             var last = await latest[g.Id];
             cards.Add(new GroupCard(
                 g.Id, g.Name,
-                ToViewerBalances(pairs.Where(p => p.GroupId == g.Id), viewerId, profileMap),
+                ToViewerBalances(pairs.Where(p => p.GroupId == g.Id), viewerId, profileMap, currentMembers),
                 last?.Description, last?.Date, GroupIcons.Display(g.Icon)));
         }
 
@@ -53,7 +56,7 @@ public sealed class ExpenseQueryService(
         var (expenses, settlements) = MapTimeline(
             recent.Expenses, recent.Settlements, profileMap, groups.ToDictionary(g => g.Id), plans, isHome: true);
         return new ExpensesHome(
-            ToViewerBalances(pairs, viewerId, profileMap), cards, expenses, settlements,
+            ToViewerBalances(pairs, viewerId, profileMap, currentMembers), cards, expenses, settlements,
             recent.HasOlder, recent.FirstOlderCursor);
     }
 
@@ -79,12 +82,13 @@ public sealed class ExpenseQueryService(
                 .Concat(pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }))
                 .Distinct(), ct);
 
+        var currentMembers = await CurrentMemberIdsAsync(householdId, pairs, ct);
         // GroupName stays null: the page header already names the group.
         var plans = await LoadPlanSummariesAsync(recent.Expenses, ct);
         var (expenses, settlements) = MapTimeline(
             recent.Expenses, recent.Settlements, profileMap, null, plans, isHome: false);
         return new GroupPage(
-            group.Id, group.Name, ToViewerBalances(pairs, viewerId, profileMap), expenses, settlements,
+            group.Id, group.Name, ToViewerBalances(pairs, viewerId, profileMap, currentMembers), expenses, settlements,
             recent.HasOlder, recent.FirstOlderCursor, GroupIcons.Display(group.Icon));
     }
 
@@ -362,7 +366,7 @@ public sealed class ExpenseQueryService(
             .Where(p => active.Contains(p.GroupId) && (groupId is null || p.GroupId == groupId))
             .ToList();
         var profileMap = await LoadProfilesAsync(pairs.SelectMany(p => new[] { p.UserId1, p.UserId2 }).Distinct(), ct);
-        return ToViewerBalances(pairs, viewerId, profileMap);
+        return ToViewerBalances(pairs, viewerId, profileMap, await CurrentMemberIdsAsync(householdId, pairs, ct));
     }
 
     public async Task<SettlementPreview> PreviewHouseholdSettlementAsync(
@@ -391,7 +395,8 @@ public sealed class ExpenseQueryService(
     // Each pair is read from the viewer's side (PairEntry: positive = UserId2 owes UserId1) and summed across
     // groups, so a positive balance means that member owes the viewer.
     private static List<MemberBalance> ToViewerBalances(
-        IEnumerable<PairEntry> pairs, Guid viewerId, Dictionary<Guid, UserProfile> profileMap) =>
+        IEnumerable<PairEntry> pairs, Guid viewerId, Dictionary<Guid, UserProfile> profileMap,
+        IReadOnlySet<Guid> currentMembers) =>
         pairs
             .Where(p => p.UserId1 == viewerId || p.UserId2 == viewerId)
             .Select(p => p.UserId1 == viewerId ? (Other: p.UserId2, Cents: p.Cents) : (Other: p.UserId1, Cents: -p.Cents))
@@ -402,9 +407,16 @@ public sealed class ExpenseQueryService(
                 b.Other,
                 profileMap.TryGetValue(b.Other, out var prof) ? prof.DisplayName : "Unknown",
                 b.Cents,
-                prof?.PictureUrl))
+                prof?.PictureUrl,
+                IsFormerMember: !currentMembers.Contains(b.Other)))
             .OrderByDescending(b => Math.Abs(b.Cents))
             .ToList();
+
+    // Membership is looked up only when there are balances to tag; anyone in the ledger outside it is a Former Member.
+    private async Task<IReadOnlySet<Guid>> CurrentMemberIdsAsync(Guid householdId, IReadOnlyCollection<PairEntry> pairs, CancellationToken ct) =>
+        pairs.Count == 0
+            ? new HashSet<Guid>()
+            : (await householdQueries.GetMembersAsync(householdId, ct)).Select(m => m.UserId).ToHashSet();
 
     private async Task<Dictionary<Guid, UserProfile>> LoadProfilesAsync(IEnumerable<Guid> userIds, CancellationToken ct)
     {

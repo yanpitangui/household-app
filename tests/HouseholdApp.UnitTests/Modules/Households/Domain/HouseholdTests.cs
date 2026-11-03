@@ -8,7 +8,7 @@ public sealed class HouseholdTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     private static Household CreateHousehold() =>
-        Household.Create("Test House", OwnerId, Now);
+        Household.Create("Test House", OwnerId, HouseholdTimeZone.Default, Now);
 
     [Test]
     public async Task Create_sets_name_and_owner_member()
@@ -170,5 +170,84 @@ public sealed class HouseholdTests
 
         await Assert.That(household.DomainEvents.Count).IsEqualTo(1);
         await Assert.That(household.DomainEvents[0] is HouseholdRoleChanged).IsTrue();
+    }
+
+    private static readonly Guid Ana = Guid.NewGuid(), Bia = Guid.NewGuid(), Leo = Guid.NewGuid();
+
+    private static Household WithMembers() =>
+        Household.Reconstitute(Guid.NewGuid(), "Casa", "America/Sao_Paulo", Now,
+            [new(Guid.Empty, Ana, HouseholdRole.Owner), new(Guid.Empty, Bia, HouseholdRole.Admin), new(Guid.Empty, Leo, HouseholdRole.Member)]);
+
+    [Test]
+    public async Task Rename_by_admin_changes_name_and_raises_event()
+    {
+        var h = WithMembers();
+        h.Rename(Bia, "  Casa Nova ", Now);
+        await Assert.That(h.Name).IsEqualTo("Casa Nova");
+        await Assert.That(h.DomainEvents.OfType<HouseholdRenamed>().Single().Name).IsEqualTo("Casa Nova");
+    }
+
+    [Test]
+    public async Task Rename_by_plain_member_is_rejected()
+    {
+        var h = WithMembers();
+        await Assert.That(() => h.Rename(Leo, "X", Now)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Rename_to_blank_is_rejected()
+    {
+        var h = WithMembers();
+        await Assert.That(() => h.Rename(Ana, "   ", Now)).Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task Changing_time_zone_accepts_iana_ids_only()
+    {
+        var h = WithMembers();
+        h.ChangeTimeZone(Bia, "Europe/Lisbon", Now);
+        await Assert.That(h.TimeZone).IsEqualTo("Europe/Lisbon");
+        await Assert.That(() => h.ChangeTimeZone(Bia, "Mars/Olympus", Now)).Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task Transfer_ownership_swaps_owner_and_previous_owner_becomes_admin()
+    {
+        var h = WithMembers();
+        h.TransferOwnership(Ana, Leo, Now);
+        await Assert.That(h.Members.Single(m => m.UserId == Leo).Role).IsEqualTo(HouseholdRole.Owner);
+        await Assert.That(h.Members.Single(m => m.UserId == Ana).Role).IsEqualTo(HouseholdRole.Admin);
+        var changes = h.DomainEvents.OfType<HouseholdRoleChanged>().ToList();
+        await Assert.That(changes.Count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Only_the_owner_transfers_ownership()
+    {
+        var h = WithMembers();
+        await Assert.That(() => h.TransferOwnership(Bia, Leo, Now)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Leave_removes_the_member_and_raises_removed()
+    {
+        var h = WithMembers();
+        h.Leave(Leo, Now);
+        await Assert.That(h.Members.Any(m => m.UserId == Leo)).IsFalse();
+        await Assert.That(h.DomainEvents.OfType<HouseholdMemberRemoved>().Single().UserId).IsEqualTo(Leo);
+    }
+
+    [Test]
+    public async Task Owner_cannot_leave()
+    {
+        var h = WithMembers();
+        await Assert.That(() => h.Leave(Ana, Now)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Members_cannot_remove_themselves_through_remove()
+    {
+        var h = WithMembers();
+        await Assert.That(() => h.RemoveMember(Bia, Bia, Now)).Throws<InvalidOperationException>();
     }
 }

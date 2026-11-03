@@ -5,7 +5,11 @@ entity household {
     relation admin  @user;
     relation member @user;
 
-    permission view         := owner or admin or member;
-    permission manage       := owner or admin;
-    permission manage_roles := owner;
+    permission view               := owner or admin or member;
+    permission manage             := owner or admin;
+    permission manage_roles       := owner;
+    permission edit_settings      := owner or admin;
+    permission invite             := owner or admin;
+    permission leave              := admin or member;
+    permission transfer_ownership := owner;
 }

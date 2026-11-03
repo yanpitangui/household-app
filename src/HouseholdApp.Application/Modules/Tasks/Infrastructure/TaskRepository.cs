@@ -131,4 +131,17 @@ internal sealed class TaskRepository(IUnitOfWork uow) : ITaskRepository
                 Id, HouseholdId, Title, Description, DefaultAssignedTo, schedule, IsActive, NextRunAt ?? schedule.At(0));
         }
     }
+
+    public async Task UnassignMemberAsync(Guid householdId, Guid userId, CancellationToken ct = default)
+    {
+        var conn = await uow.GetConnectionAsync(ct);
+        // Open tasks only: a completed task keeps who it was assigned to.
+        await conn.ExecuteAsync(
+            """
+            UPDATE tasks.tasks SET assigned_to = NULL
+            WHERE household_id = @householdId AND assigned_to = @userId AND status = 0;
+            UPDATE tasks.recurring_tasks SET default_assigned_to = NULL
+            WHERE household_id = @householdId AND default_assigned_to = @userId;
+            """, new { householdId, userId }, uow.CurrentTransaction);
+    }
 }

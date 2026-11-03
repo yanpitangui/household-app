@@ -15,5 +15,7 @@ public interface ITaskRepository
 
     /// <summary>Ids of active RecurringTasks due at <paramref name="now"/>.</summary>
     Task<IReadOnlyList<Guid>> GetDueRecurringTaskIdsAsync(DateTimeOffset now, CancellationToken ct = default);
+    /// <summary>Unassigns the member's open Tasks and clears them as default assignee of RecurringTasks.</summary>
+    Task UnassignMemberAsync(Guid householdId, Guid userId, CancellationToken ct = default);
     Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default);
 }

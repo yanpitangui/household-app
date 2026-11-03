@@ -5,34 +5,46 @@ using HouseholdApp.Application.Shared.Persistence;
 
 namespace HouseholdApp.Application.Modules.Households.Infrastructure;
 
-internal sealed record HouseholdRow(Guid Id, string Name, DateTimeOffset CreatedAt);
+internal sealed record HouseholdRow(Guid Id, string Name, string TimeZone, DateTimeOffset CreatedAt);
 internal sealed record HouseholdMemberRow(Guid HouseholdId, Guid UserId, short Role);
 
 internal sealed class HouseholdRepository(IUnitOfWork uow) : IHouseholdRepository
 {
-    public async Task SaveAsync(Household household, CancellationToken ct = default)
+    public async Task InsertAsync(Household household, CancellationToken ct = default)
     {
         var conn = await uow.GetConnectionAsync(ct);
-        var tx = uow.CurrentTransaction;
-
         await conn.ExecuteAsync(
-            """
-            INSERT INTO households.households (id, name, created_at)
-            VALUES (@Id, @Name, @CreatedAt)
-            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-            """,
-            new { household.Id, household.Name, household.CreatedAt }, tx);
+            "INSERT INTO households.households (id, name, time_zone, created_at) VALUES (@Id, @Name, @TimeZone, @CreatedAt)",
+            new { household.Id, household.Name, household.TimeZone, household.CreatedAt }, uow.CurrentTransaction);
+        foreach (var m in household.Members)
+            await AddMemberAsync(household.Id, m.UserId, m.Role, ct);
+    }
 
-        foreach (var member in household.Members)
-        {
-            await conn.ExecuteAsync(
-                """
-                INSERT INTO households.members (household_id, user_id, role)
-                VALUES (@HouseholdId, @UserId, @Role)
-                ON CONFLICT (household_id, user_id) DO UPDATE SET role = EXCLUDED.role
-                """,
-                new { member.HouseholdId, member.UserId, Role = (int)member.Role }, tx);
-        }
+    public async Task RenameAsync(Guid householdId, string name, CancellationToken ct = default) =>
+        await Execute("UPDATE households.households SET name = @name WHERE id = @householdId", new { householdId, name }, ct);
+
+    public async Task SetTimeZoneAsync(Guid householdId, string timeZone, CancellationToken ct = default) =>
+        await Execute("UPDATE households.households SET time_zone = @timeZone WHERE id = @householdId", new { householdId, timeZone }, ct);
+
+    // A rejoining Former Member gets a fresh row; the upsert keeps a concurrent double-accept harmless.
+    public async Task AddMemberAsync(Guid householdId, Guid userId, HouseholdRole role, CancellationToken ct = default) =>
+        await Execute(
+            """
+            INSERT INTO households.members (household_id, user_id, role) VALUES (@householdId, @userId, @role)
+            ON CONFLICT (household_id, user_id) DO UPDATE SET role = EXCLUDED.role
+            """, new { householdId, userId, role = (int)role }, ct);
+
+    public async Task RemoveMemberAsync(Guid householdId, Guid userId, CancellationToken ct = default) =>
+        await Execute("DELETE FROM households.members WHERE household_id = @householdId AND user_id = @userId", new { householdId, userId }, ct);
+
+    public async Task SetRoleAsync(Guid householdId, Guid userId, HouseholdRole role, CancellationToken ct = default) =>
+        await Execute("UPDATE households.members SET role = @role WHERE household_id = @householdId AND user_id = @userId",
+            new { householdId, userId, role = (int)role }, ct);
+
+    private async Task Execute(string sql, object args, CancellationToken ct)
+    {
+        var conn = await uow.GetConnectionAsync(ct);
+        await conn.ExecuteAsync(sql, args, uow.CurrentTransaction);
     }
 
     public async Task SaveInvitationAsync(HouseholdInvitation invitation, CancellationToken ct = default)
@@ -83,7 +95,7 @@ internal sealed class HouseholdRepository(IUnitOfWork uow) : IHouseholdRepositor
         var tx = uow.CurrentTransaction;
 
         var row = await conn.QuerySingleOrDefaultAsync<HouseholdRow>(
-            "SELECT id, name, created_at AS CreatedAt FROM households.households WHERE id = @householdId",
+            "SELECT id, name, time_zone AS TimeZone, created_at AS CreatedAt FROM households.households WHERE id = @householdId",
             new { householdId },
             tx);
 
@@ -94,7 +106,7 @@ internal sealed class HouseholdRepository(IUnitOfWork uow) : IHouseholdRepositor
             new { householdId },
             tx);
 
-        return Household.Reconstitute(row.Id, row.Name, row.CreatedAt,
+        return Household.Reconstitute(row.Id, row.Name, row.TimeZone, row.CreatedAt,
             members.Select(m => new HouseholdMember(m.HouseholdId, m.UserId, (HouseholdRole)m.Role)).ToList());
     }
 

@@ -57,7 +57,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         Guid householdId;
 
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House", "America/Sao_Paulo");
 
         await using var s2 = Scope(ownerId);
         var guard = s2.ServiceProvider.GetRequiredService<IHouseholdGuard>();
@@ -74,7 +74,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         Guid householdId;
 
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House", "America/Sao_Paulo");
 
         await using var s2 = Scope(strangerId);
         var guard = s2.ServiceProvider.GetRequiredService<IHouseholdGuard>();
@@ -91,7 +91,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         Guid householdId;
 
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House", "America/Sao_Paulo");
 
         string token;
         await using (var s = Scope(ownerId))
@@ -115,7 +115,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         Guid householdId;
 
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Guard Test House", "America/Sao_Paulo");
 
         string token;
         await using (var s = Scope(ownerId))
@@ -130,5 +130,90 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         await using var s5 = Scope(memberId);
         var guard = s5.ServiceProvider.GetRequiredService<IHouseholdGuard>();
         await Assert.That(await guard.IsMemberAsync(householdId, memberId)).IsFalse();
+    }
+
+    [Test]
+    public async Task Admin_can_remove_a_member_but_not_the_owner_or_themselves()
+    {
+        var ana = Guid.NewGuid(); var bia = Guid.NewGuid(); var leo = Guid.NewGuid();
+        var id = await CreateWithMembersAsync(ana, bia, leo);
+        await using (var s = Scope(ana))
+            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().ChangeMemberRoleAsync(id, bia, "Admin");
+
+        await using var s2 = Scope(bia);
+        var guard = s2.ServiceProvider.GetRequiredService<IHouseholdGuard>();
+        await Assert.That(await guard.CanRemoveMemberAsync(id, bia, leo, "Member")).IsTrue();
+        await Assert.That(await guard.CanRemoveMemberAsync(id, bia, ana, "Owner")).IsFalse();
+        await Assert.That(await guard.CanRemoveMemberAsync(id, bia, bia, "Admin")).IsFalse();
+    }
+
+    [Test]
+    public async Task Subject_permissions_list_household_wide_actions()
+    {
+        var ana = Guid.NewGuid(); var leo = Guid.NewGuid();
+        var id = await CreateWithMembersAsync(ana, leo);
+
+        await using var s = Scope(leo);
+        var perms = await s.ServiceProvider.GetRequiredService<IHouseholdGuard>().GetPermissionsAsync(id, leo);
+        await Assert.That(perms.Can(HouseholdPermission.View)).IsTrue();
+        await Assert.That(perms.Can(HouseholdPermission.Leave)).IsTrue();
+        await Assert.That(perms.Can(HouseholdPermission.EditSettings)).IsFalse();
+        await Assert.That(perms.Can(HouseholdPermission.Invite)).IsFalse();
+    }
+
+    [Test]
+    public async Task Owner_cannot_leave_but_can_transfer()
+    {
+        var ana = Guid.NewGuid();
+        var id = await CreateWithMembersAsync(ana);
+        await using var s = Scope(ana);
+        var perms = await s.ServiceProvider.GetRequiredService<IHouseholdGuard>().GetPermissionsAsync(id, ana);
+        await Assert.That(perms.Can(HouseholdPermission.Leave)).IsFalse();
+        await Assert.That(perms.Can(HouseholdPermission.TransferOwnership)).IsTrue();
+    }
+
+    [Test]
+    public async Task Plain_member_cannot_remove_anyone()
+    {
+        var ana = Guid.NewGuid(); var bia = Guid.NewGuid(); var leo = Guid.NewGuid();
+        var id = await CreateWithMembersAsync(ana, bia, leo);
+
+        await using var s = Scope(leo);
+        var guard = s.ServiceProvider.GetRequiredService<IHouseholdGuard>();
+        await Assert.That(await guard.CanRemoveMemberAsync(id, leo, bia, "Member")).IsFalse();
+    }
+
+    [Test]
+    public async Task Only_the_owner_can_change_roles_and_never_the_owners()
+    {
+        var ana = Guid.NewGuid(); var bia = Guid.NewGuid();
+        var id = await CreateWithMembersAsync(ana, bia);
+        await using (var s = Scope(ana))
+            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().ChangeMemberRoleAsync(id, bia, "Admin");
+
+        await using var asOwner = Scope(ana);
+        var ownerGuard = asOwner.ServiceProvider.GetRequiredService<IHouseholdGuard>();
+        await Assert.That(await ownerGuard.CanChangeRoleAsync(id, ana, "Member")).IsTrue();
+        await Assert.That(await ownerGuard.CanChangeRoleAsync(id, ana, "Owner")).IsFalse();
+
+        await using var asAdmin = Scope(bia);
+        var adminGuard = asAdmin.ServiceProvider.GetRequiredService<IHouseholdGuard>();
+        await Assert.That(await adminGuard.CanChangeRoleAsync(id, bia, "Member")).IsFalse();
+    }
+
+    // Guard checks read Valtuutus tuples only, so members need no identity.users rows.
+    private async Task<Guid> CreateWithMembersAsync(Guid owner, params Guid[] members)
+    {
+        Guid id; string token;
+        await using (var s = Scope(owner))
+        {
+            var commands = s.ServiceProvider.GetRequiredService<IHouseholdCommands>();
+            id = await commands.CreateAsync("Casa", "America/Sao_Paulo");
+            token = await commands.InviteAsync(id);
+        }
+        foreach (var member in members)
+            await using (var s = Scope(member))
+                await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().AcceptInvitationAsync(token);
+        return id;
     }
 }

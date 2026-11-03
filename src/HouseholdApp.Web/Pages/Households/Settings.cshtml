@@ -1,0 +1,135 @@
+@page "/h/{id:guid}/settings"
+@model HouseholdApp.Web.Pages.Households.HouseholdSettingsModel
+@using HouseholdApp.Application.Shared.Authorization
+@{
+    ViewData["Title"] = L["Settings.Household.Title"];
+    ViewData["HouseholdName"] = Model.Household.Name;
+    var canEdit = Model.Permissions.Can(HouseholdPermission.EditSettings);
+    var canTransfer = Model.Permissions.Can(HouseholdPermission.TransferOwnership);
+}
+
+<div class="page-heading">
+    <span>@L["Settings.Household.Title"]</span>
+    <a href="/h/@Model.Id" style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">← @Model.Household.Name</a>
+</div>
+
+<p class="section-title">@L["Settings.Household.Name"]</p>
+<div class="app-card">
+    @if (canEdit)
+    {
+        <form method="post" asp-page-handler="Rename" class="d-flex gap-2">
+            <input asp-for="Name" class="form-control" />
+            <button type="submit" class="btn btn-sm btn-primary">@L["Action.Save"]</button>
+        </form>
+        <span asp-validation-for="Name" class="field-error"></span>
+    }
+    else { <div>@Model.Household.Name</div> }
+</div>
+
+<p class="section-title">@L["Settings.Household.TimeZone"]</p>
+<div class="app-card">
+    @if (canEdit)
+    {
+        <form method="post" asp-page-handler="TimeZone" class="d-flex gap-2">
+            <select asp-for="TimeZone" asp-items="@(new SelectList(Model.TimeZones))" class="form-select"></select>
+            <button type="submit" class="btn btn-sm btn-primary">@L["Action.Save"]</button>
+        </form>
+        <span asp-validation-for="TimeZone" class="field-error"></span>
+    }
+    else { <div>@Model.Household.TimeZone</div> }
+    <div style="font-size:12px;color:var(--text-muted);margin-top:6px">@L["Settings.Household.TimeZoneHint"]</div>
+</div>
+
+<p class="section-title">@L["Dashboard.Members"]</p>
+<div class="app-card">
+    @foreach (var row in Model.Members)
+    {
+        var m = row.Member;
+        <div class="member-item" data-member="@m.UserId">
+            <div style="display:flex;align-items:center">
+                <div class="member-avatar">
+                    @if (!string.IsNullOrEmpty(m.PictureUrl)) { <img src="@m.PictureUrl" alt="@m.DisplayName" /> }
+                    else { @(m.DisplayName.Length > 0 ? m.DisplayName[0].ToString().ToUpper() : "?") }
+                </div>
+                <div>
+                    <div style="font-size:14px;font-weight:500;color:var(--text-secondary)">@m.DisplayName @(row.IsMe ? L["Settings.Household.You"].Value : "")</div>
+                    <div style="font-size:11px;color:var(--text-muted)">@L[$"Role.{m.Role}"]</div>
+                </div>
+            </div>
+            <div class="d-flex gap-1">
+                @if (row.CanChangeRole)
+                {
+                    var next = m.Role == "Admin" ? "Member" : "Admin";
+                    <form method="post" asp-page-handler="ChangeRole">
+                        <input type="hidden" name="targetUserId" value="@m.UserId" />
+                        <input type="hidden" name="role" value="@next" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">@L[$"Settings.Household.MakeRole.{next}"]</button>
+                    </form>
+                }
+                @if (canTransfer && !row.IsMe)
+                {
+                    <form method="post" asp-page-handler="Transfer">
+                        <input type="hidden" name="targetUserId" value="@m.UserId" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                data-confirm="@L["Confirm.TransferOwnership", m.DisplayName]">@L["Settings.Household.MakeOwner"]</button>
+                    </form>
+                }
+                @if (row.CanRemove)
+                {
+                    <a class="btn btn-sm btn-outline-danger" href="/h/@Model.Id/settings/remove/@m.UserId">@L["Dashboard.Remove"]</a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (Model.Permissions.Can(HouseholdPermission.Invite))
+{
+    <p class="section-title">@L["Dashboard.Invite"]</p>
+    <form method="post" asp-page-handler="Invite">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">@L["Dashboard.GenerateInvite"]</button>
+    </form>
+
+    @if (Model.InviteToken is not null)
+    {
+        var joinUrl = $"{Request.Scheme}://{Request.Host}/households/join?token={Model.InviteToken}";
+        var displayUrl = joinUrl.Length > 60 ? joinUrl[..60] + "…" : joinUrl;
+        <div class="invite-card">
+            <div class="invite-card-label">@L["Dashboard.InviteSingleUse"]</div>
+            <div class="invite-card-url">@displayUrl</div>
+            <div class="invite-card-actions">
+                <button class="invite-card-btn invite-btn-copy" data-invite-url="@joinUrl" onclick="copyInviteUrl(this)">⧉ @L["Dashboard.Copy"]</button>
+                <button class="invite-card-btn invite-btn-share" data-invite-url="@joinUrl" style="display:none" onclick="shareInviteUrl(this)">↗ @L["Dashboard.Share"]</button>
+            </div>
+            <div class="invite-card-hint">@L["Dashboard.InviteSingleUseHint"]</div>
+        </div>
+    }
+
+    @if (Model.Invitations.Count > 0)
+    {
+        <div class="app-card" style="margin-top:10px">
+            @foreach (var inv in Model.Invitations)
+            {
+                <div class="member-item">
+                    <div style="font-size:13px">@L["Settings.Household.InviteExpires", inv.ExpiresAt.ToString("d", System.Globalization.CultureInfo.CurrentCulture)]</div>
+                    <form method="post" asp-page-handler="Revoke">
+                        <input type="hidden" name="invitationId" value="@inv.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">@L["Settings.Household.Revoke"]</button>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+}
+
+<p class="section-title">@L["Settings.Household.Leave"]</p>
+<div class="app-card">
+    @if (Model.Permissions.Can(HouseholdPermission.Leave))
+    {
+        <a class="btn btn-sm btn-outline-danger" href="/h/@Model.Id/settings/leave">@L["Settings.Household.Leave"]</a>
+    }
+    else
+    {
+        <div style="font-size:13px;color:var(--text-muted)">@L["Settings.Household.TransferBeforeLeaving"]</div>
+    }
+</div>

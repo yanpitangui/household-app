@@ -11,6 +11,7 @@
 
 <div class="app-card">
     <form method="post">
+        <input type="hidden" asp-for="TimeZone" id="tz" />
         <div class="mb-4">
             <label asp-for="Name" class="form-label">@L["Households.NameLabel"]</label>
             <input asp-for="Name" class="form-control" placeholder="@L["Households.NamePlaceholder"]" />
@@ -22,3 +23,5 @@
         </div>
     </form>
 </div>
+
+<script>document.getElementById('tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone;</script>

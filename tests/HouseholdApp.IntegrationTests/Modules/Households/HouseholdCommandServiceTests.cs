@@ -54,7 +54,7 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
 
         Guid householdId;
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Test House");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Test House", "America/Sao_Paulo");
 
         string token;
         await using (var s = Scope(ownerId))
@@ -82,7 +82,7 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
 
         Guid householdId;
         await using (var s = Scope(ownerId))
-            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Test House 2");
+            householdId = await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Test House 2", "America/Sao_Paulo");
 
         string token;
         await using (var s = Scope(ownerId))
@@ -106,7 +106,7 @@ public sealed class HouseholdCommandServiceTests(PostgresFixture db) : IAsyncDis
         var ownerId = Guid.NewGuid();
 
         await using (var s = Scope(ownerId))
-            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Announced House");
+            await s.ServiceProvider.GetRequiredService<IHouseholdCommands>().CreateAsync("Announced House", "America/Sao_Paulo");
 
         SnapToken[] written, announced;
         lock (log) (written, announced) = (log.InTransaction.ToArray(), log.Announced.ToArray());

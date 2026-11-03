@@ -11,6 +11,7 @@ public static class HouseholdsModule
     public static IServiceCollection AddHouseholdsModule(this IServiceCollection services)
     {
         services.AddScoped<IHouseholdRepository, HouseholdRepository>();
+        services.AddScoped<IMemberRemovalPreview, MemberRemovalPreviewService>();
         services.AddScoped<IHouseholdCommands, HouseholdCommandService>();
         services.AddScoped<IHouseholdQueries, HouseholdQueryService>();
         services.Decorate<IHouseholdQueries, CachingHouseholdQueryService>();
@@ -27,6 +28,8 @@ public static class HouseholdsModule
         services.AddTransactionalEventHandler<HouseholdRoleChanged, HouseholdAuthorizationSyncHandler>();
         services.AddEventHandler<HouseholdRoleChanged, HouseholdCacheInvalidationHandler>();
         services.AddEventHandler<HouseholdRoleChanged, HouseholdAuthorizationCommitNotifier>();
+        services.AddEventHandler<HouseholdRenamed, HouseholdCacheInvalidationHandler>();
+        services.AddEventHandler<HouseholdTimeZoneChanged, HouseholdCacheInvalidationHandler>();
         return services;
     }
 }

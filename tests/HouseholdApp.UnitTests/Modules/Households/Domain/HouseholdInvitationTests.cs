@@ -9,7 +9,7 @@ public sealed class HouseholdInvitationTests
 
     private static (Household household, HouseholdInvitation invitation) CreatePendingInvitation()
     {
-        var household = Household.Create("Test House", OwnerId, Now);
+        var household = Household.Create("Test House", OwnerId, HouseholdTimeZone.Default, Now);
         var invitation = household.Invite(OwnerId, Now, TimeSpan.FromDays(1));
         return (household, invitation);
     }
@@ -29,7 +29,7 @@ public sealed class HouseholdInvitationTests
     [Test]
     public async Task Consume_expired_invitation_throws()
     {
-        var household = Household.Create("Test House", OwnerId, Now);
+        var household = Household.Create("Test House", OwnerId, HouseholdTimeZone.Default, Now);
         var invitation = household.Invite(OwnerId, Now, TimeSpan.FromMilliseconds(1));
         var future = Now.AddDays(1);
 

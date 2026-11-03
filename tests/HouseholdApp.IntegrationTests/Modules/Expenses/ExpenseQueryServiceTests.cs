@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Domain;
 using Dapper;
 using TUnit.Core.Interfaces;
@@ -22,7 +23,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private IDocumentStore Store => ExpenseDocumentStore.For(db.ConnectionString);
 
     private ExpenseQueryService BuildSut(IQuerySession querySession) =>
-        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), TimeProvider.System);
+        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(), TimeProvider.System);
 
     private async Task InsertUsersAsync(params Guid[] ids)
     {
@@ -100,7 +101,7 @@ public sealed class ExpenseQueryServiceTests(PostgresFixture db)
     private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
     private ExpenseQueryService BuildSutAt(IQuerySession querySession, DateTimeOffset now) =>
-        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()),
+        new(querySession, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(),
             new FakeTimeProvider(now));
 
     private async Task SeedGroupAsync(Guid householdId, Guid groupId, string name, bool deleted = false)

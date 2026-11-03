@@ -8,7 +8,9 @@ internal sealed class HouseholdCacheInvalidationHandler(IFusionCache cache)
     : IEventHandler<HouseholdCreated>,
       IEventHandler<HouseholdMemberJoined>,
       IEventHandler<HouseholdMemberRemoved>,
-      IEventHandler<HouseholdRoleChanged>
+      IEventHandler<HouseholdRoleChanged>,
+      IEventHandler<HouseholdRenamed>,
+      IEventHandler<HouseholdTimeZoneChanged>
 {
     public async Task HandleAsync(HouseholdCreated evt, CancellationToken ct = default)
     {
@@ -37,4 +39,17 @@ internal sealed class HouseholdCacheInvalidationHandler(IFusionCache cache)
         await cache.RemoveAsync(HouseholdCacheKeys.Members(evt.HouseholdId), token: ct);
         await cache.RemoveAsync(HouseholdCacheKeys.Detail(evt.HouseholdId), token: ct);
     }
+
+    public async Task HandleAsync(HouseholdRenamed evt, CancellationToken ct = default)
+    {
+        await cache.RemoveAsync(HouseholdCacheKeys.Detail(evt.HouseholdId), token: ct);
+        foreach (var userId in evt.MemberIds)
+        {
+            await cache.RemoveAsync(HouseholdCacheKeys.ListForUser(userId), token: ct);
+            await cache.RemoveAsync(HouseholdCacheKeys.ListNames(userId), token: ct);
+        }
+    }
+
+    public async Task HandleAsync(HouseholdTimeZoneChanged evt, CancellationToken ct = default) =>
+        await cache.RemoveAsync(HouseholdCacheKeys.Detail(evt.HouseholdId), token: ct);
 }

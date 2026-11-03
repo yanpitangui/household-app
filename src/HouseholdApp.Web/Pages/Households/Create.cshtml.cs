@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
+using HouseholdApp.Application.Modules.Households.Domain;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Web.Shared.Web;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,13 @@ public class CreateHouseholdModel(ICurrentUser currentUser, IHouseholdCommands h
     [BindProperty, Required, MaxLength(200)]
     public string Name { get; set; } = "";
 
+    [BindProperty]
+    public string? TimeZone { get; set; }
+
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();
-        var id = await householdCommands.CreateAsync(Name);
+        var id = await householdCommands.CreateAsync(Name, TimeZone ?? HouseholdTimeZone.Default);
         return RedirectToPage("Detail", new { id });
     }
 }
