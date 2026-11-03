@@ -126,27 +126,32 @@ public sealed class RecurringExpenseCommandService(
         var template = stream.Aggregate;
         if (template is null) return;
 
-        var group = await templateSession.LoadAsync<ExpenseGroupDocument>(template.ExpenseGroupId, ct);
-        if (group?.DeletedAt is not null)
-        {
-            logger.LogInformation(
-                "Skipping recurring expense {RecurringExpenseId}: group {GroupId} is deleted", id, template.ExpenseGroupId);
-            return;
-        }
-
         var due = template.DueOccurrences(now);
         if (due.Count == 0) return;
 
-        foreach (var date in due)
+        // A deleted group means the group is done: its dates pass without Expenses, so a restore continues from the next
+        // future date instead of creating everything missed.
+        var group = await templateSession.LoadAsync<ExpenseGroupDocument>(template.ExpenseGroupId, ct);
+        if (group?.DeletedAt is not null)
         {
-            // An existing stream is a retry, a voided or edited Expense, or an edit landing on a date already created.
-            var expenseId = RecurrenceSchedule.OccurrenceId(id, date);
-            if (await templateSession.Events.FetchStreamStateAsync(expenseId, ct) is null)
+            foreach (var date in due) template.MarkOccurred(date, now, skipped: true);
+            logger.LogInformation(
+                "Skipped {Count} occurrence(s) of recurring expense {RecurringExpenseId}: group {GroupId} is deleted",
+                due.Count, id, template.ExpenseGroupId);
+        }
+        else
+        {
+            foreach (var date in due)
             {
-                var expense = template.BuildExpense(date, now, coveredByCreatedEvent: false);
-                templateSession.Events.StartStream(expense.Id, expense.DomainEvents.ToArray());
+                // An existing stream is a retry, a voided or edited Expense, or an edit landing on a date already created.
+                var expenseId = RecurrenceSchedule.OccurrenceId(id, date);
+                if (await templateSession.Events.FetchStreamStateAsync(expenseId, ct) is null)
+                {
+                    var expense = template.BuildExpense(date, now, coveredByCreatedEvent: false);
+                    templateSession.Events.StartStream(expense.Id, expense.DomainEvents.ToArray());
+                }
+                template.MarkOccurred(date, now);
             }
-            template.MarkOccurred(date, now);
         }
 
         stream.AppendMany(template.DomainEvents.ToArray());

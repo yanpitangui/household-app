@@ -97,6 +97,8 @@
   <data name="Confirm.DeleteList"><value>Delete this list?</value></data>
   <data name="Confirm.DeleteRecipe"><value>Delete this recipe?</value></data>
   <data name="Confirm.DeleteGroup"><value>Delete group &apos;{0}&apos;? Its expenses and payments leave the balances. You can undo it from Activity.</value></data>
+  <data name="Confirm.DeleteGroup.Recurring"><value>Its recurring expenses ({0}) stop; dates while the group is deleted are skipped.</value></data>
+  <data name="Confirm.DeleteGroup.Plans"><value>Its installment plans ({0}) pause and catch up if you restore the group.</value></data>
   <data name="Confirm.DeactivateExpense"><value>Deactivate this recurring expense?</value></data>
   <data name="Confirm.DeactivateTask"><value>Deactivate this recurring task?</value></data>
   <data name="Confirm.RemoveItem"><value>Remove item?</value></data>

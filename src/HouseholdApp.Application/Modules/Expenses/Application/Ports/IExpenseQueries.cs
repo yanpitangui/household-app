@@ -172,6 +172,9 @@ public interface IExpenseQueries
     Task<IReadOnlyList<PlansAndRecurringRow>> ListPlansAndRecurringAsync(
         Guid householdId, CancellationToken ct = default);
 
+    /// <summary>Active recurring expenses and installment plans of one group, for the delete confirmation.</summary>
+    Task<GroupScheduleCounts> GetGroupScheduleCountsAsync(Guid householdId, Guid groupId, CancellationToken ct = default);
+
     /// <summary>Null when the plan is missing, belongs to another household, or its group is deleted.</summary>
     Task<InstallmentPlanPage?> GetInstallmentPlanPageAsync(
         Guid householdId, Guid planId, Guid viewerId, CancellationToken ct = default);
@@ -184,3 +187,5 @@ public interface IExpenseQueries
     Task<UpcomingSummary> GetUpcomingAsync(
         Guid householdId, Guid? groupId, Guid viewerId, CancellationToken ct = default);
 }
+
+public sealed record GroupScheduleCounts(int ActiveRecurring, int ActivePlans);

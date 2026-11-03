@@ -97,6 +97,8 @@
   <data name="Confirm.DeleteList"><value>Excluir esta lista?</value></data>
   <data name="Confirm.DeleteRecipe"><value>Excluir esta receita?</value></data>
   <data name="Confirm.DeleteGroup"><value>Excluir o grupo &apos;{0}&apos;? As despesas e pagamentos dele saem dos saldos. Dá para desfazer pela Atividade.</value></data>
+  <data name="Confirm.DeleteGroup.Recurring"><value>As despesas recorrentes dele ({0}) param; as datas enquanto o grupo estiver excluído são puladas.</value></data>
+  <data name="Confirm.DeleteGroup.Plans"><value>Os parcelamentos dele ({0}) pausam e criam as parcelas atrasadas se você restaurar o grupo.</value></data>
   <data name="Confirm.DeactivateExpense"><value>Desativar esta despesa recorrente?</value></data>
   <data name="Confirm.DeactivateTask"><value>Desativar esta tarefa recorrente?</value></data>
   <data name="Confirm.RemoveItem"><value>Remover item?</value></data>

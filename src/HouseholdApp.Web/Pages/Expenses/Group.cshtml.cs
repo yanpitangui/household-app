@@ -20,6 +20,7 @@ public class ExpenseGroupModel(
 
     public GroupPage Group { get; private set; } = default!;
     public bool CanManage { get; private set; }
+    public string DeleteConfirm { get; private set; } = "";
     public IReadOnlyList<ExpenseTimelineEntry> Entries { get; private set; } = [];
     public UpcomingSummary Upcoming { get; private set; } = UpcomingSummary.Empty;
 
@@ -30,6 +31,14 @@ public class ExpenseGroupModel(
 
         Group = page;
         CanManage = await Guard.CanManageAsync(HouseholdId, CurrentUserId);
+        if (CanManage)
+        {
+            var counts = await expenseQueries.GetGroupScheduleCountsAsync(HouseholdId, GroupId);
+            var parts = new List<string> { Loc["Confirm.DeleteGroup", page.Name].Value };
+            if (counts.ActiveRecurring > 0) parts.Add(Loc["Confirm.DeleteGroup.Recurring", counts.ActiveRecurring].Value);
+            if (counts.ActivePlans > 0) parts.Add(Loc["Confirm.DeleteGroup.Plans", counts.ActivePlans].Value);
+            DeleteConfirm = string.Join(" ", parts);
+        }
         Entries = ExpenseTimeline.Merge(page.Expenses, page.Settlements);
         Upcoming = await expenseQueries.GetUpcomingAsync(HouseholdId, GroupId, CurrentUserId);
         return Page();

@@ -558,6 +558,16 @@ public sealed class ExpenseQueryService(
         return groups.Select(g => new ExpenseGroupSummary(g.Id, g.Name, g.Description, GroupIcons.Display(g.Icon))).ToList();
     }
 
+    public async Task<GroupScheduleCounts> GetGroupScheduleCountsAsync(
+        Guid householdId, Guid groupId, CancellationToken ct = default)
+    {
+        var recurring = await querySession.Query<RecurringExpenseDocument>().CountAsync(
+            t => t.HouseholdId == householdId && t.ExpenseGroupId == groupId && t.Status == RecurringExpenseStatus.Active, ct);
+        var plans = await querySession.Query<InstallmentPlanDocument>().CountAsync(
+            p => p.HouseholdId == householdId && p.ExpenseGroupId == groupId && p.Status == InstallmentPlanStatus.Active, ct);
+        return new GroupScheduleCounts(recurring, plans);
+    }
+
     public async Task<IReadOnlyList<PlansAndRecurringRow>> ListPlansAndRecurringAsync(
         Guid householdId, CancellationToken ct = default)
     {
