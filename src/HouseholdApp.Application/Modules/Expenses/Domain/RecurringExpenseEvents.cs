@@ -49,3 +49,23 @@ public sealed record RecurringExpenseEnded(
     string Description,
     Guid PerformedByUserId,
     bool Imported = false) : IDomainEvent;
+
+public sealed record RecurringExpensePaused(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid RecurringExpenseId,
+    Guid HouseholdId,
+    Guid ExpenseGroupId,
+    string Description,
+    Guid PerformedByUserId) : IDomainEvent;
+
+// NextOccurrenceAt travels on the event, as on Created/Updated, so that replays reproduce the date chosen at resume time.
+public sealed record RecurringExpenseResumed(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    Guid RecurringExpenseId,
+    Guid HouseholdId,
+    Guid ExpenseGroupId,
+    string Description,
+    DateTimeOffset NextOccurrenceAt,
+    Guid PerformedByUserId) : IDomainEvent;

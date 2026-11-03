@@ -19,7 +19,7 @@ public class InstallmentPlansTests(PlaywrightFixture pw)
     }
 
     // Fills the Record form's inline installment fields for an N-installment plan and returns the new plan's id from the plan page URL.
-    private static async Task<Guid> RecordPlanAsync(
+    internal static async Task<Guid> RecordPlanAsync(
         IPage page, string appUrl, Guid householdId, Guid groupId, string description, string amount, int count, DateOnly firstDate,
         string? downPayment = null)
     {

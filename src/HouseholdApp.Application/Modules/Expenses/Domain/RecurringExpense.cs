@@ -3,7 +3,7 @@ using HouseholdApp.Application.Shared.Domain;
 namespace HouseholdApp.Application.Modules.Expenses.Domain;
 
 // Stored as integers in the projection document, so new members take new numbers.
-public enum RecurringExpenseStatus { Active = 0, Ended = 1 }
+public enum RecurringExpenseStatus { Active = 0, Ended = 1, Paused = 2 }
 
 /// <summary>
 /// A template that creates one Expense per occurrence of its schedule. Event-sourced: each operation builds its event,
@@ -75,7 +75,7 @@ public sealed class RecurringExpense : AggregateRoot
         string description, IReadOnlyList<FundingSource> fundingSources, IReadOnlyList<Allocation> allocations,
         RecurrenceSchedule schedule, DateTimeOffset now, Guid performedByUserId)
     {
-        EnsureActive();
+        EnsureNotEnded();
         Validate(fundingSources, allocations);
         if (schedule.FirstDate != Schedule.FirstDate && schedule.FirstDate < DateOnly.FromDateTime(now.UtcDateTime))
             throw new InvalidOperationException("A changed first date must be today or later.");
@@ -90,11 +90,34 @@ public sealed class RecurringExpense : AggregateRoot
 
     public void End(DateTimeOffset now, Guid performedByUserId)
     {
-        EnsureActive();
+        EnsureNotEnded();
         var ended = new RecurringExpenseEnded(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, performedByUserId);
         Apply(ended);
         Raise(ended);
+    }
+
+    public void Pause(DateTimeOffset now, Guid performedByUserId)
+    {
+        if (Status != RecurringExpenseStatus.Active)
+            throw new InvalidOperationException(Status == RecurringExpenseStatus.Ended
+                ? "This recurring expense has ended." : "This recurring expense is not active.");
+        var paused = new RecurringExpensePaused(
+            Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, performedByUserId);
+        Apply(paused);
+        Raise(paused);
+    }
+
+    public void Resume(DateTimeOffset now, Guid performedByUserId)
+    {
+        if (Status != RecurringExpenseStatus.Paused)
+            throw new InvalidOperationException(Status == RecurringExpenseStatus.Ended
+                ? "This recurring expense has ended." : "This recurring expense is not paused.");
+        var resumed = new RecurringExpenseResumed(
+            Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, Schedule.NextAfter(now),
+            performedByUserId);
+        Apply(resumed);
+        Raise(resumed);
     }
 
     public static RecurringExpense Create(RecurringExpenseCreated e) => new()
@@ -122,9 +145,17 @@ public sealed class RecurringExpense : AggregateRoot
     public void Apply(RecurringExpenseOccurred e) => NextOccurrenceAt = e.NextOccurrenceAt;
     public void Apply(RecurringExpenseEnded e) => Status = RecurringExpenseStatus.Ended;
 
-    private void EnsureActive()
+    public void Apply(RecurringExpensePaused e) => Status = RecurringExpenseStatus.Paused;
+
+    public void Apply(RecurringExpenseResumed e)
     {
-        if (Status != RecurringExpenseStatus.Active)
+        Status = RecurringExpenseStatus.Active;
+        NextOccurrenceAt = e.NextOccurrenceAt;
+    }
+
+    private void EnsureNotEnded()
+    {
+        if (Status == RecurringExpenseStatus.Ended)
             throw new InvalidOperationException("This recurring expense has ended.");
     }
 

@@ -1,12 +1,16 @@
 @page "/h/{householdId:guid}/Expenses/Recurring"
 @model HouseholdApp.Web.Pages.Expenses.RecurringExpensesModel
 @using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
 @{
-    ViewData["Title"] = L["Expenses.RecurringHeading"];
+    ViewData["Title"] = L["Expenses.PlansAndRecurringHeading"];
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2", CultureInfo.CurrentCulture)}";
+    string Next(DateOnly date) => L["Expenses.PlansAndRecurring.Next", date.ToString("d", CultureInfo.CurrentCulture)].Value;
 }
 
 <div class="page-heading">
-    <span>@L["Expenses.RecurringHeading"]</span>
+    <span>@L["Expenses.PlansAndRecurringHeading"]</span>
     <a asp-page="Index" asp-route-householdId="@Model.HouseholdId" style="font-family:var(--font-body); font-size:13px; color:var(--text-muted); text-decoration:none; font-weight:500">← @L["Action.Back"]</a>
 </div>
 
@@ -14,37 +18,62 @@
     <a class="btn btn-primary" asp-page="Record" asp-route-householdId="@Model.HouseholdId" asp-route-repeat="recurring">+ @L["Action.Create"]</a>
 </div>
 
-@if (Model.RecurringExpenses.Count == 0)
+@if (Model.Rows.Count == 0)
 {
     <p class="section-title">@L["Common.NoItemsYet"]</p>
 }
 else
 {
-    @foreach (var recurring in Model.RecurringExpenses)
+    @foreach (var row in Model.Rows)
     {
-        <a asp-page="RecurringDetail" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@recurring.Id"
-           class="list-row" style="align-items:flex-start; color:inherit; text-decoration:none">
-            <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">🔁</div>
-            <div class="list-row-body">
-                <div class="list-row-name">@recurring.Description</div>
-                <div class="list-row-meta">
-                    @GroupName(recurring.ExpenseGroupId)
-                    · @L[$"Expenses.Frequency.{recurring.Schedule.Frequency}"]
-                    · @recurring.Schedule.At(0).ToString("dd MMM yyyy HH:mm", CultureInfo.CurrentCulture) UTC
+        if (row.Kind == PlansAndRecurringKind.Recurring)
+        {
+            <a asp-page="RecurringDetail" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@row.Id"
+               class="list-row" style="align-items:center; color:inherit; text-decoration:none">
+                <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">🔁</div>
+                <div class="list-row-body">
+                    <div class="list-row-name">@row.Description</div>
+                    <div class="list-row-meta">
+                        @row.GroupIcon @row.GroupName
+                        · @L[$"Expenses.Frequency.{row.Schedule!.Frequency}"]
+                        @if (row.NextDate is { } next)
+                        {
+                            <text>· @Next(next)</text>
+                        }
+                        else
+                        {
+                            <partial name="_RecurringStatusPill" model="row.RecurringStatus!.Value" />
+                        }
+                    </div>
                 </div>
-            </div>
-            @if (recurring.IsActive)
-            {
-                <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
-            }
-            else
-            {
-                <span class="list-row-badge" style="background:rgba(74,56,40,0.3); color:var(--text-muted)">@L["Expenses.Recurring.Ended"]</span>
-            }
-        </a>
+                <div class="list-row-amount">@Money(row.AmountCents)</div>
+            </a>
+        }
+        else
+        {
+            <a asp-page="Plan" asp-route-householdId="@Model.HouseholdId" asp-route-planId="@row.Id"
+               class="list-row" style="align-items:center; color:inherit; text-decoration:none">
+                <div class="list-row-icon" style="background:rgba(59,130,246,0.12)">💳</div>
+                <div class="list-row-body">
+                    <div class="list-row-name">@row.Description</div>
+                    <div class="list-row-meta">
+                        @row.GroupIcon @row.GroupName
+                        @if (row.Bucket == PlansAndRecurringBucket.Active)
+                        {
+                            <text>· @L["Expenses.PlansAndRecurring.Progress", row.CreatedCount!, row.Count!]</text>
+                            @if (row.NextDate is { } next)
+                            {
+                                <text>· @Next(next)</text>
+                            }
+                        }
+                        else
+                        {
+                            <span class="plan-status plan-status-@(row.PlanStatus?.ToString().ToLowerInvariant())">@L[$"Expenses.Plan.Status.{row.PlanStatus}"]</span>
+                        }
+                    </div>
+                </div>
+                <div class="list-row-amount">@Money(row.AmountCents)</div>
+            </a>
+        }
     }
-}
-
-@functions {
-    private string GroupName(Guid id) => Model.GroupNames.GetValueOrDefault(id, "?");
 }

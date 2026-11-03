@@ -20,6 +20,11 @@ public interface IRecurringExpenseCommands
 
     Task EndAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default);
 
+    Task PauseAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default);
+
+    /// <summary>Occurrences that fell while paused are skipped; the next one is the first after now.</summary>
+    Task ResumeAsync(Guid householdId, Guid recurringExpenseId, CancellationToken ct = default);
+
     /// <summary>Records every occurrence that is due, for every active template.</summary>
     Task RunSweepAsync(CancellationToken ct = default);
 }

@@ -167,6 +167,97 @@ public sealed class RecurringExpenseTests
     }
 
     [Test]
+    public async Task Pause_stops_due_occurrences()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+
+        template.Pause(Now, Ana);
+
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
+        await Assert.That(template.DueOccurrences(Now.AddYears(1))).IsEmpty();
+        await Assert.That(template.DomainEvents.OfType<RecurringExpensePaused>().Count()).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Resume_skips_paused_dates()
+    {
+        var created = new DateTimeOffset(2026, 1, 10, 12, 0, 0, TimeSpan.Zero);
+        var template = RecurringExpense.Create(
+            Household, Group, "Rent", Funding, Split, Monthly(2026, 1, 10), false, created, Ana);
+        template.Pause(new DateTimeOffset(2026, 1, 11, 12, 0, 0, TimeSpan.Zero), Ana);
+
+        template.Resume(new DateTimeOffset(2026, 3, 15, 12, 0, 0, TimeSpan.Zero), Ana);
+
+        var expected = new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero);
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Active);
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(expected);
+        var resumed = template.DomainEvents.OfType<RecurringExpenseResumed>().Single();
+        await Assert.That(resumed.NextOccurrenceAt).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Resume_before_first_date_keeps_first_date()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        var first = template.NextOccurrenceAt;
+        template.Pause(Now, Ana);
+
+        template.Resume(Now, Ana);
+
+        await Assert.That(template.NextOccurrenceAt).IsEqualTo(first);
+    }
+
+    [Test]
+    public async Task Pause_rejects_paused_and_ended()
+    {
+        var paused = Create(Monthly(2026, 12, 1));
+        paused.Pause(Now, Ana);
+        var ended = Create(Monthly(2026, 12, 1));
+        ended.End(Now, Ana);
+
+        await Assert.That(() => paused.Pause(Now, Ana))
+            .Throws<InvalidOperationException>().WithMessage("This recurring expense is not active.");
+        await Assert.That(() => ended.Pause(Now, Ana))
+            .Throws<InvalidOperationException>().WithMessage("This recurring expense has ended.");
+    }
+
+    [Test]
+    public async Task Resume_rejects_active_and_ended()
+    {
+        var active = Create(Monthly(2026, 12, 1));
+        var ended = Create(Monthly(2026, 12, 1));
+        ended.End(Now, Ana);
+
+        await Assert.That(() => active.Resume(Now, Ana))
+            .Throws<InvalidOperationException>().WithMessage("This recurring expense is not paused.");
+        await Assert.That(() => ended.Resume(Now, Ana))
+            .Throws<InvalidOperationException>().WithMessage("This recurring expense has ended.");
+    }
+
+    [Test]
+    public async Task Update_is_allowed_while_paused()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.Pause(Now, Ana);
+
+        template.Update("Renamed", Funding, Split, Monthly(2026, 12, 5), Now, Ana);
+
+        await Assert.That(template.Description).IsEqualTo("Renamed");
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Paused);
+    }
+
+    [Test]
+    public async Task End_is_allowed_while_paused()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.Pause(Now, Ana);
+
+        template.End(Now, Ana);
+
+        await Assert.That(template.Status).IsEqualTo(RecurringExpenseStatus.Ended);
+    }
+
+    [Test]
     public async Task Replaying_the_events_rebuilds_the_same_state()
     {
         var template = Create(Monthly(2026, 12, 1));
@@ -177,6 +268,22 @@ public sealed class RecurringExpenseTests
         replayed.Apply((RecurringExpenseUpdated)events[1]);
 
         await Assert.That(replayed.Description).IsEqualTo("Renamed");
+        await Assert.That(replayed.NextOccurrenceAt).IsEqualTo(template.NextOccurrenceAt);
+    }
+
+    [Test]
+    public async Task Replaying_pause_and_resume_rebuilds_the_same_state()
+    {
+        var template = Create(Monthly(2026, 12, 1));
+        template.Pause(Now, Ana);
+        template.Resume(Now.AddDays(30), Ana);
+        var events = template.DomainEvents.ToList();
+
+        var replayed = RecurringExpense.Create((RecurringExpenseCreated)events[0]);
+        replayed.Apply((RecurringExpensePaused)events[1]);
+        replayed.Apply((RecurringExpenseResumed)events[2]);
+
+        await Assert.That(replayed.Status).IsEqualTo(template.Status);
         await Assert.That(replayed.NextOccurrenceAt).IsEqualTo(template.NextOccurrenceAt);
     }
 }

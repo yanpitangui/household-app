@@ -351,7 +351,7 @@ public class RecordExpenseModel(
             return RedirectToPage("Recurring", new { householdId = HouseholdId });
         }
 
-        if (!recurring.IsActive)
+        if (recurring.Status == RecurringExpenseStatus.Ended)
         {
             TempData["Error"] = Loc["Expenses.Recurring.AlreadyEnded"].Value;
             return RedirectToPage("RecurringDetail", new { householdId = HouseholdId, recurringId });

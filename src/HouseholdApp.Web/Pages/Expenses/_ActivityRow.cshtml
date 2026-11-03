@@ -46,6 +46,10 @@
             Model.ActorDisplayName, Model.Description),
         ActivityKind.RecurringExpenseEnded => string.Format(L["Expenses.Activity.RecurringEnded"].Value,
             Model.ActorDisplayName, Model.Description),
+        ActivityKind.RecurringExpensePaused => string.Format(L["Expenses.Activity.RecurringPaused"].Value,
+            Model.ActorDisplayName, Model.Description),
+        ActivityKind.RecurringExpenseResumed => string.Format(L["Expenses.Activity.RecurringResumed"].Value,
+            Model.ActorDisplayName, Model.Description),
         _ => Model.Description
     };
 }

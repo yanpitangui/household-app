@@ -240,6 +240,73 @@ public sealed class RecurringExpenseCommandServiceTests(PostgresFixture db)
             .Throws<InvalidOperationException>();
     }
 
+    [Test]
+    public async Task Sweep_skips_a_paused_template()
+    {
+        var id = await CreateAsync(Monthly(2026, 11, 20));
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session).PauseAsync(_householdId, id);
+
+        await SweepAsync(new DateTimeOffset(2026, 11, 21, 0, 0, 0, TimeSpan.Zero));
+
+        await Assert.That(await ExpensesAsync(id)).IsEmpty();
+    }
+
+    [Test]
+    public async Task Resume_skips_dates_missed_while_paused()
+    {
+        var id = await CreateAsync(new RecurrenceSchedule(RecurrenceFrequency.Daily, new DateOnly(2026, 11, 11), new TimeOnly(9, 0)));
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session).PauseAsync(_householdId, id);
+        var resumeAt = Now.AddDays(3);
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session, resumeAt).ResumeAsync(_householdId, id);
+
+        await SweepAsync(resumeAt);
+
+        await Assert.That(await ExpensesAsync(id)).IsEmpty();
+        var doc = await DocumentAsync(id);
+        await Assert.That(doc.Status).IsEqualTo(RecurringExpenseStatus.Active);
+        await Assert.That(doc.NextOccurrenceAt).IsEqualTo(new DateTimeOffset(2026, 11, 14, 9, 0, 0, TimeSpan.Zero));
+    }
+
+    [Test]
+    public async Task Pause_and_resume_write_history_rows()
+    {
+        var id = await CreateAsync(Monthly(2026, 12, 1));
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session).PauseAsync(_householdId, id);
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session).ResumeAsync(_householdId, id);
+
+        await using var qs = Store.QuerySession();
+        var rows = await qs.Query<ActivityEntry>().Where(a => a.RecurringExpenseId == id).ToListAsync();
+        await Assert.That(rows.Select(r => r.Kind)).Contains(ActivityKind.RecurringExpensePaused);
+        await Assert.That(rows.Select(r => r.Kind)).Contains(ActivityKind.RecurringExpenseResumed);
+    }
+
+    [Test]
+    public async Task Pause_rejects_another_households_template()
+    {
+        var id = await CreateAsync(Monthly(2026, 12, 1));
+        await using var session = Store.LightweightSession();
+
+        await Assert.That(async () => await BuildSut(session).PauseAsync(Guid.NewGuid(), id))
+            .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Resume_rejects_another_households_template()
+    {
+        var id = await CreateAsync(Monthly(2026, 12, 1));
+        await using (var session = Store.LightweightSession())
+            await BuildSut(session).PauseAsync(_householdId, id);
+        await using var other = Store.LightweightSession();
+
+        await Assert.That(async () => await BuildSut(other).ResumeAsync(Guid.NewGuid(), id))
+            .Throws<InvalidOperationException>();
+    }
+
     private async Task SetGroupDeletedAsync(DateTimeOffset? deletedAt)
     {
         await using var s = Store.LightweightSession();

@@ -38,6 +38,8 @@ public static class ExpensesModule
             opts.Events.AddEventType<RecurringExpenseUpdated>();
             opts.Events.AddEventType<RecurringExpenseOccurred>();
             opts.Events.AddEventType<RecurringExpenseEnded>();
+            opts.Events.AddEventType<RecurringExpensePaused>();
+            opts.Events.AddEventType<RecurringExpenseResumed>();
 
             opts.Projections.Add<ExpenseReadModelProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<HouseholdLedgerProjection>(ProjectionLifecycle.Inline);

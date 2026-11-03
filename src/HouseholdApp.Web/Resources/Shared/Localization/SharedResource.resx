@@ -202,7 +202,6 @@
   <!-- Expenses -->
   <data name="Expenses.RecordExpense"><value>+ Record</value></data>
   <data name="Expenses.SettleUp"><value>Settle Up</value></data>
-  <data name="Expenses.Recurring"><value>Recurring</value></data>
   <data name="Expenses.Activity"><value>Activity</value></data>
   <data name="Expenses.Activity.Title"><value>Recent activity</value></data>
   <data name="Expenses.Activity.LoadMore"><value>Load more</value></data>
@@ -242,7 +241,6 @@
   <data name="Expenses.NewGroup"><value>New Group</value></data>
   <data name="Expenses.GroupName"><value>Name</value></data>
   <data name="Expenses.GroupDescription"><value>Description (optional)</value></data>
-  <data name="Expenses.RecurringHeading"><value>Recurring Expenses</value></data>
   <data name="Expenses.NewRecurring"><value>New Recurring Expense</value></data>
   <data name="Expenses.Frequency"><value>Frequency</value></data>
   <data name="Expenses.StartAt"><value>Starts at</value></data>
@@ -522,6 +520,20 @@
   <data name="Expenses.Recurring.CatchUp"><value>Also create {0} past expenses</value></data>
   <data name="Expenses.Recurring.Preview"><value>{0} · next {1}</value></data>
   <data name="Expenses.Recurring.PreviewShare"><value>Your share {0} / occurrence</value></data>
+  <data name="Expenses.Recurring.Paused"><value>Paused</value></data>
+  <data name="Expenses.Recurring.Pause"><value>Pause</value></data>
+  <data name="Expenses.Recurring.Resume"><value>Resume</value></data>
+  <data name="Expenses.Recurring.PausedFlash"><value>Recurring expense paused.</value></data>
+  <data name="Expenses.Recurring.ResumedFlash"><value>Recurring expense resumed. Dates missed while paused are skipped.</value></data>
+  <data name="Expenses.Recurring.PausedNote"><value>Paused — nothing is created until you resume.</value></data>
+  <data name="Expenses.Recurring.AlreadyPaused"><value>This recurring expense is already paused.</value></data>
+  <data name="Expenses.Recurring.AlreadyActive"><value>This recurring expense is already active.</value></data>
+  <data name="Expenses.Activity.RecurringPaused"><value>{0} paused &apos;{1}&apos;.</value></data>
+  <data name="Expenses.Activity.RecurringResumed"><value>{0} resumed &apos;{1}&apos;.</value></data>
+  <data name="Expenses.PlansAndRecurring"><value>Plans &amp; recurring</value></data>
+  <data name="Expenses.PlansAndRecurringHeading"><value>Plans &amp; recurring</value></data>
+  <data name="Expenses.PlansAndRecurring.Next"><value>next {0}</value></data>
+  <data name="Expenses.PlansAndRecurring.Progress"><value>{0} of {1}</value></data>
   <data name="Expenses.Frequency.Daily"><value>Daily</value></data>
   <data name="Expenses.Frequency.Biweekly"><value>Every two weeks</value></data>
   <data name="Recurrence.Repeats"><value>Repeats</value></data>

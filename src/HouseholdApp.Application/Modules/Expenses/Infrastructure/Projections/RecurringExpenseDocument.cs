@@ -47,6 +47,15 @@ public partial class RecurringExpenseProjection : SingleStreamProjection<Recurri
     public void Apply(RecurringExpenseOccurred e, RecurringExpenseDocument doc) =>
         doc.NextOccurrenceAt = e.NextOccurrenceAt;
 
+    public void Apply(RecurringExpensePaused e, RecurringExpenseDocument doc) =>
+        doc.Status = RecurringExpenseStatus.Paused;
+
+    public void Apply(RecurringExpenseResumed e, RecurringExpenseDocument doc)
+    {
+        doc.Status = RecurringExpenseStatus.Active;
+        doc.NextOccurrenceAt = e.NextOccurrenceAt;
+    }
+
     public void Apply(RecurringExpenseEnded e, RecurringExpenseDocument doc) =>
         doc.Status = RecurringExpenseStatus.Ended;
 }

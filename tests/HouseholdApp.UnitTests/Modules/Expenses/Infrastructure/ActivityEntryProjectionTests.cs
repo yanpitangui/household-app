@@ -330,6 +330,32 @@ public sealed class ActivityEntryProjectionTests
     }
 
     [Test]
+    public async Task Map_RecurringExpensePaused_and_Resumed_are_template_rows_without_amounts()
+    {
+        var c = Created();
+        var paused = new RecurringExpensePaused(
+            Guid.NewGuid(), DateTimeOffset.UnixEpoch, c.RecurringExpenseId, c.HouseholdId, c.ExpenseGroupId, "Rent", ActorId);
+        var resumed = new RecurringExpenseResumed(
+            Guid.NewGuid(), DateTimeOffset.UnixEpoch, c.RecurringExpenseId, c.HouseholdId, c.ExpenseGroupId, "Rent",
+            DateTimeOffset.UnixEpoch, ActorId);
+
+        var pausedEntry = ActivityEntryProjection.MapRecurringPaused(Guid.NewGuid(), paused, "Home");
+        var resumedEntry = ActivityEntryProjection.MapRecurringResumed(Guid.NewGuid(), resumed, "Home");
+
+        await Assert.That(pausedEntry.Kind).IsEqualTo(ActivityKind.RecurringExpensePaused);
+        await Assert.That(resumedEntry.Kind).IsEqualTo(ActivityKind.RecurringExpenseResumed);
+        foreach (var entry in new[] { pausedEntry, resumedEntry })
+        {
+            await Assert.That(entry.RecurringExpenseId).IsEqualTo(c.RecurringExpenseId);
+            await Assert.That(entry.GroupId).IsEqualTo(c.ExpenseGroupId);
+            await Assert.That(entry.GroupName).IsEqualTo("Home");
+            await Assert.That(entry.ActorUserId).IsEqualTo(ActorId);
+            await Assert.That(entry.Description).IsEqualTo("Rent");
+            await Assert.That(entry.ViewerDeltaCents).IsEmpty();
+        }
+    }
+
+    [Test]
     public async Task Map_ExpenseRecorded_tags_the_row_with_its_template()
     {
         var templateId = Guid.NewGuid();

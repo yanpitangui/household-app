@@ -1,0 +1,14 @@
+@model HouseholdApp.Application.Modules.Expenses.Domain.RecurringExpenseStatus
+@using HouseholdApp.Application.Modules.Expenses.Domain
+@switch (Model)
+{
+    case RecurringExpenseStatus.Active:
+        <span class="list-row-badge" style="background:rgba(59,130,246,0.12); color:var(--accent-expenses)">@L["Expenses.Active"]</span>
+        break;
+    case RecurringExpenseStatus.Paused:
+        <span class="list-row-badge recurring-status-paused">@L["Expenses.Recurring.Paused"]</span>
+        break;
+    default:
+        <span class="list-row-badge" style="background:rgba(74,56,40,0.3); color:var(--text-muted)">@L["Expenses.Recurring.Ended"]</span>
+        break;
+}
