@@ -59,7 +59,7 @@ public class ExpenseGroupModel(
         return RedirectToPage(new { householdId = HouseholdId, groupId = GroupId });
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostDeleteAsync()
     {
         // Active groups only: one that is already deleted (or never existed) has nothing left to delete.

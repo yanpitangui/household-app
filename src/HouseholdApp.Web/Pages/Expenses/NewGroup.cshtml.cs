@@ -18,10 +18,10 @@ public class NewExpenseGroupModel(
     [BindProperty]
     public GroupFormInput Form { get; set; } = new();
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public void OnGet() { }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostAsync()
     {
         if (!GroupIcons.IsValid(Form.ResolvedIcon))

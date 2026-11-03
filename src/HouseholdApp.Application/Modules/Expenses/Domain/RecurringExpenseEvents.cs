@@ -35,7 +35,7 @@ public sealed record RecurringExpenseUpdated(
     Guid PerformedByUserId,
     bool LocalTime = false) : IDomainEvent;
 
-// Moves a template entered in UTC to the household's wall clock, keeping its instants.
+// Moved each template entered in UTC to the household's wall clock, keeping its instants; streams replay it.
 public sealed record RecurringExpenseScheduleLocalized(
     Guid EventId,
     DateTimeOffset OccurredAt,

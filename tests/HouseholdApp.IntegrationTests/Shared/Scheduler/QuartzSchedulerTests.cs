@@ -17,12 +17,12 @@ public sealed class QuartzSchedulerTests(PostgresFixture db)
     private const string JobName = "Chores";
 
     [Test]
-    public async Task Startup_removes_the_jobs_of_retired_per_template_schedules()
+    public async Task Startup_removes_jobs_stored_outside_the_scheduled_group()
     {
         var connectionString = await NewDatabaseAsync();
         await using (var first = await StartNodeAsync(connectionString))
         {
-            await QuartzJobs.UpsertCronAsync<RecurringJobRunner>(
+            await QuartzJobs.UpsertCronAsync<ScheduledJobRunner>(
                 first.Scheduler, new JobKey(Guid.NewGuid().ToString(), "RecurringExpense"), "0 9 1 * *", CancellationToken.None);
         }
 

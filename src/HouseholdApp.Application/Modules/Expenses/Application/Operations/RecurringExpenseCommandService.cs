@@ -99,7 +99,7 @@ public sealed class RecurringExpenseCommandService(
     {
         var now = time.GetUtcNow();
         var ids = await session.Query<RecurringExpenseDocument>()
-            .Where(t => t.Status == RecurringExpenseStatus.Active && t.ScheduleIsLocal && t.NextOccurrenceAt <= now)
+            .Where(t => t.Status == RecurringExpenseStatus.Active && t.NextOccurrenceAt <= now)
             .OrderBy(t => t.NextOccurrenceAt).ThenBy(t => t.Id)
             .Select(t => t.Id)
             .ToListAsync(ct);

@@ -33,7 +33,7 @@ public class ActivityModel(
         return Partial("_ActivityRows", page with { Items = await ForViewerAsync(page.Items) });
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostRestoreAsync(Guid groupId)
     {
         try

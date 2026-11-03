@@ -62,9 +62,6 @@ public static class ExpensesModule
         // Schema objects are created at startup so concurrent first requests never race on lazy DDL.
         .ApplyAllDatabaseChangesOnStartup();
 
-        services.AddHostedService<RecurringExpenseStreamMigration>();
-        services.AddHostedService<RecurringExpenseLocalTimeMigration>();
-
         services.AddScoped<IExpenseCommands, ExpenseCommandService>();
         services.AddScoped<IInstallmentPlanCommands, InstallmentPlanCommandService>();
         services.AddScoped<IRecurringExpenseCommands, RecurringExpenseCommandService>();

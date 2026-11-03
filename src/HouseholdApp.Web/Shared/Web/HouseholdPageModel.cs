@@ -26,8 +26,6 @@ public abstract class HouseholdPageModel(ICurrentUser currentUser, IHouseholdGua
         bool allowed;
         if (method.GetCustomAttribute<RequirePermissionAttribute>() is { } required)
             allowed = await guard.HasAsync(HouseholdId, CurrentUserId, required.Permission);
-        else if (method.GetCustomAttribute<RequireManageAttribute>() != null)
-            allowed = await guard.CanManageAsync(HouseholdId, CurrentUserId);
         else
             allowed = await guard.IsMemberAsync(HouseholdId, CurrentUserId);
 

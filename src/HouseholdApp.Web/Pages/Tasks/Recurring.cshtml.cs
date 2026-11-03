@@ -48,7 +48,7 @@ public class RecurringTasksModel(
         await Load();
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostCreateAsync()
     {
         var today = await TodayAsync();
@@ -70,7 +70,7 @@ public class RecurringTasksModel(
         return RedirectToPage(new { householdId = HouseholdId });
     }
 
-    [RequireManage]
+    [RequirePermission(HouseholdPermission.Manage)]
     public async Task<IActionResult> OnPostDeactivateAsync(Guid recurringTaskId)
     {
         try
