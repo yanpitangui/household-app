@@ -145,4 +145,36 @@ public sealed class ActivityFeedQueryServiceTests(PostgresFixture db)
         await Assert.That(page.Items[0].CanRestore).IsTrue();
         await Assert.That(page.Items[1].GroupNames).IsEquivalentTo(new[] { "Trip", "Home" });
     }
+
+    [Test]
+    public async Task Rows_show_the_groups_current_name_and_icon_and_unlink_deleted_settled_groups()
+    {
+        var householdId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        Guid liveGroup = Guid.NewGuid(), deletedGroup = Guid.NewGuid();
+        await InsertUserAsync(actorId, "Alice");
+        var t = DateTimeOffset.UtcNow;
+
+        await using (var s = Store.LightweightSession())
+        {
+            s.Store(new ExpenseGroupDocument { Id = liveGroup, HouseholdId = householdId, Name = "Japan", Icon = "🗾" });
+            s.Store(new ExpenseGroupDocument { Id = deletedGroup, HouseholdId = householdId, Name = "Old", DeletedAt = t });
+            s.Store(new ActivityEntry { Id = Guid.NewGuid(), HouseholdId = householdId, OccurredAt = t.AddMinutes(-1),
+                ActorUserId = actorId, Kind = ActivityKind.Removed, Description = "Hotel", GroupId = liveGroup });
+            s.Store(new ActivityEntry { Id = Guid.NewGuid(), HouseholdId = householdId, OccurredAt = t,
+                ActorUserId = actorId, Kind = ActivityKind.HouseholdSettlement, Description = "", SettlementCents = 70,
+                GroupIds = [liveGroup, deletedGroup], GroupNames = ["Trip", "Old"] });
+            await s.SaveChangesAsync();
+        }
+
+        await using var qs = Store.QuerySession();
+        var page = await BuildSut(qs).GetActivityFeedAsync(householdId, actorId, null, 20);
+
+        var settlement = page.Items[0];
+        await Assert.That(settlement.SettledGroups!.Select(g => (g.Id, g.Name, g.Icon)))
+            .IsEquivalentTo(new (Guid?, string, string)[] { (liveGroup, "Japan", "🗾"), (null, "Old", "💳") });
+        var removed = page.Items[1];
+        await Assert.That(removed.GroupName).IsEqualTo("Japan");
+        await Assert.That(removed.GroupIcon).IsEqualTo("🗾");
+    }
 }

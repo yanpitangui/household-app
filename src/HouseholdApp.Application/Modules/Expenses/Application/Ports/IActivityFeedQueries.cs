@@ -27,7 +27,13 @@ public sealed record ActivityFeedItem(
     int? VoidedCount = null,
     long? DownPaymentCents = null,
     Guid? RecurringExpenseId = null,
-    RecurrenceFrequency? Frequency = null);
+    RecurrenceFrequency? Frequency = null,
+    Guid? ExpenseId = null,
+    string? GroupIcon = null,
+    IReadOnlyList<ActivityGroupRef>? SettledGroups = null);
+
+/// <summary>A group named on a household settlement row; Id is null when the group is deleted, so it renders unlinked.</summary>
+public sealed record ActivityGroupRef(Guid? Id, string Name, string Icon);
 
 public sealed record ActivityFeedPage(
     IReadOnlyList<ActivityFeedItem> Items,

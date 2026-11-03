@@ -85,6 +85,7 @@
         @await Html.PartialAsync("~/Pages/Expenses/_ActivityRow.cshtml", item)
     }
 </div>
+<partial name="_ExpenseSheetHost" />
 
 @if (r.Status != RecurringExpenseStatus.Ended)
 {

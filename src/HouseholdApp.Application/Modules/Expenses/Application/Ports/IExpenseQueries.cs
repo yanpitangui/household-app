@@ -118,6 +118,8 @@ public sealed record ExpenseDetail(
     InstallmentLink? Installment = null,
     Guid? RecurringExpenseId = null);
 
+public sealed record ExpenseSheet(ExpenseListItem Expense, Guid GroupId, Guid? RecurringExpenseId);
+
 /// <summary>
 /// Balance between the viewer and one other member. Positive Cents: the member owes the viewer;
 /// negative: the viewer owes the member. IsFormerMember marks someone who left or was removed but still
@@ -165,6 +167,9 @@ public interface IExpenseQueries
         Guid householdId, Guid payerId, Guid recipientId, long cents, CancellationToken ct = default);
 
     Task<ExpenseDetail?> GetExpenseAsync(Guid expenseId, CancellationToken ct = default);
+
+    /// <summary>One expense with names for the activity sheet; null when missing, in another household, or in a deleted group.</summary>
+    Task<ExpenseSheet?> GetExpenseSheetAsync(Guid householdId, Guid expenseId, CancellationToken ct = default);
 
     Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(
         Guid householdId, CancellationToken ct = default);

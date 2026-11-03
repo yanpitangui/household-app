@@ -1,0 +1,25 @@
+@model HouseholdApp.Web.Pages.Expenses.ActivityListViewModel
+@using System.Globalization
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
+@{
+    var month = Model.PreviousMonth;
+}
+@foreach (var item in Model.Items)
+{
+    var local = Tz.ToLocal(item.OccurredAt);
+    var itemMonth = local.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+    if (itemMonth != month)
+    {
+        month = itemMonth;
+        <div class="expenses-month-header">@local.ToString("MMMM yyyy", CultureInfo.CurrentCulture)</div>
+    }
+    <partial name="_ActivityRow" model="item" />
+}
+@if (Model.NextCursor is not null)
+{
+    <button type="button" class="activity-load-more"
+            hx-get="?handler=LoadMore&cursor=@Uri.EscapeDataString(Model.NextCursor)&month=@month"
+            hx-target="this" hx-swap="outerHTML">
+        @L["Expenses.Activity.LoadMore"]
+    </button>
+}

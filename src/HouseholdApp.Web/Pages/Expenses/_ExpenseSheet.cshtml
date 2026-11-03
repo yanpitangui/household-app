@@ -1,0 +1,98 @@
+@model HouseholdApp.Web.Pages.Expenses.ExpenseSheetViewModel
+@using System.Globalization
+@using HouseholdApp.Application.Modules.Expenses.Application.Ports
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
+@{
+    var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
+}
+@if (Model.Sheet is not { Expense: var e } sheet)
+{
+    <p class="app-sheet-sub expense-sheet-gone">@L["Expenses.Activity.Sheet.NotFound"]</p>
+    <button type="button" class="app-sheet-close" onclick="this.closest('dialog').close()">@L["Expenses.Activity.Sheet.Close"]</button>
+    return;
+}
+<h5>
+    @e.Description
+    @if (e.Installment is { } link)
+    {
+        <span class="installment-pill">@(link.IsPayoff ? $"{link.Number}–{link.ThroughNumber}/{link.Count}" : link.Number == 0 ? L["Expenses.Plan.DownTag"].Value : $"{link.Number}/{link.Count}")</span>
+    }
+</h5>
+<div class="app-sheet-sub expense-sheet-sub">
+    <a class="expense-group-chip activity-chip" asp-page="/Expenses/Group" asp-route-householdId="@Model.HouseholdId" asp-route-groupId="@sheet.GroupId">@e.GroupIcon @e.GroupName</a>
+    <span>@e.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture)</span>
+</div>
+<div class="expense-sheet-total @(e.IsVoided ? "voided" : "")">@Money(e.TotalCents)</div>
+@if (e.IsVoided)
+{
+    <div class="expense-sheet-voided">@L["Expenses.Activity.Sheet.Voided"]</div>
+}
+
+<div class="expense-breakdown-cols">
+    @foreach (var (label, people, cls) in new[]
+    {
+        (L["Expenses.Breakdown.WhoPaid"].Value, e.FundingSources, "expense-breakdown-paid"),
+        (L["Expenses.Breakdown.HowSplit"].Value, e.Allocations, "expense-breakdown-owe")
+    })
+    {
+        <div>
+            <div class="expense-breakdown-label">@label</div>
+            @foreach (var p in people)
+            {
+                <div class="expense-breakdown-entry">
+                    <span class="expense-breakdown-person">
+                        <span class="expense-breakdown-avatar">
+                            @if (!string.IsNullOrEmpty(p.PictureUrl))
+                            {
+                                <img src="@p.PictureUrl" alt="@p.DisplayName" />
+                            }
+                            else
+                            {
+                                @(p.DisplayName.Length > 0 ? p.DisplayName[0] : '?')
+                            }
+                        </span>
+                        @p.DisplayName
+                    </span>
+                    <span class="@cls">@Money(p.Cents)</span>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (e.RecordedAt is { } recordedAt)
+{
+    <div class="expense-breakdown-recorded">@L["Expenses.Breakdown.RecordedAt", Tz.ToLocal(recordedAt).ToString("g", CultureInfo.CurrentCulture)]</div>
+}
+
+<div class="expense-sheet-links">
+    @if (e.Installment is { } planLink)
+    {
+        <a class="plan-view-link" asp-page="/Expenses/Plan" asp-route-householdId="@Model.HouseholdId" asp-route-planId="@planLink.PlanId">@L["Expenses.Plan.View"]</a>
+    }
+    @if (sheet.RecurringExpenseId is { } recurringId)
+    {
+        <a class="plan-view-link" asp-page="/Expenses/RecurringDetail" asp-route-householdId="@Model.HouseholdId" asp-route-recurringId="@recurringId">@L["Expenses.Activity.Sheet.ViewRecurring"]</a>
+    }
+</div>
+
+@if (!e.IsVoided)
+{
+    <div class="expense-breakdown-footer expense-sheet-actions">
+        <a href="/h/@Model.HouseholdId/expenses/record?expenseId=@e.Id" class="btn btn-sm btn-outline-secondary">@L["Expenses.EditEntry"]</a>
+        <form method="post" asp-page="/Expenses/Activity" asp-page-handler="Void" asp-route-householdId="@Model.HouseholdId" style="display:inline">
+            <input type="hidden" name="expenseId" value="@e.Id" />
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <button type="submit" class="btn btn-sm btn-outline-danger"
+                    data-confirm="@(e.Installment is { IsPayoff: false } vl
+                        ? L["Expenses.Installment.VoidConfirm", vl.Number, vl.Count]
+                        : e.Installment is { IsPayoff: true }
+                            ? L["Expenses.Installment.PayoffVoidConfirm"]
+                            : L["Expenses.Breakdown.VoidConfirm"])">
+                @L["Expenses.VoidEntry"]
+            </button>
+        </form>
+    </div>
+}
+<button type="button" class="app-sheet-close" onclick="this.closest('dialog').close()">@L["Expenses.Activity.Sheet.Close"]</button>

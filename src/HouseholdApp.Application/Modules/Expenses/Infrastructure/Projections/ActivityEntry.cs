@@ -30,6 +30,8 @@ public sealed class ActivityEntry
     public Guid? SettlementPayerId { get; set; }
     public Guid? SettlementRecipientId { get; set; }
     public Dictionary<Guid, long> ViewerDeltaCents { get; set; } = [];
+    // Expense rows; the activity page opens the expense's sheet by ExpenseId.
+    public Guid? ExpenseId { get; set; }
     // Installment plan rows; the plan page lists a plan's history by InstallmentPlanId.
     public Guid? InstallmentPlanId { get; set; }
     public int? InstallmentNumber { get; set; }
@@ -213,10 +215,11 @@ public sealed partial class ActivityEntryProjection : EventProjection
             GroupName = groupName,
             GroupId = e.ExpenseGroupId,
             ViewerDeltaCents = LedgerMath.NetPerUser(e.FundingSources, e.Allocations),
+            ExpenseId = e.ExpenseId,
             InstallmentPlanId = e.Installment?.PlanId,
             InstallmentNumber = e.Installment?.Number,
             InstallmentCount = e.Installment?.Count,
-            AmountCents = e.Installment is null ? null : e.FundingSources.Sum(f => f.Cents),
+            AmountCents = e.FundingSources.Sum(f => f.Cents),
             RecurringExpenseId = e.RecurringExpenseId
         };
     }
@@ -284,6 +287,8 @@ public sealed partial class ActivityEntryProjection : EventProjection
             GroupName = null,
             GroupId = groupId,
             ViewerDeltaCents = reversed,
+            ExpenseId = e.ExpenseId,
+            AmountCents = e.FundingSources.Sum(f => f.Cents),
             InstallmentPlanId = e.Installment?.PlanId,
             InstallmentNumber = e.Installment?.Number,
             InstallmentCount = e.Installment?.Count

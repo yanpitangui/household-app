@@ -567,6 +567,28 @@ public sealed class ExpenseQueryService(
             e.RecordedAt, e.Installment, e.RecurringExpenseId);
     }
 
+    public async Task<ExpenseSheet?> GetExpenseSheetAsync(Guid householdId, Guid expenseId, CancellationToken ct = default)
+    {
+        var e = await querySession.LoadAsync<ExpenseReadModel>(expenseId, ct);
+        if (e is null || e.HouseholdId != householdId) return null;
+        var group = await querySession.LoadAsync<ExpenseGroupDocument>(e.ExpenseGroupId, ct);
+        if (group is null || group.HouseholdId != householdId || group.DeletedAt is not null) return null;
+
+        var profiles = await LoadProfilesAsync(
+            e.FundingSources.Select(f => f.UserId).Concat(e.Allocations.Select(a => a.UserId)).Distinct(), ct);
+        ExpenseListParticipantDto Participant(Guid id, long cents) => new(
+            id, profiles.GetValueOrDefault(id)?.DisplayName ?? "?", cents,
+            profiles.GetValueOrDefault(id)?.PictureUrl);
+
+        var item = new ExpenseListItem(
+            e.Id, e.Description, e.Date, e.TotalCents,
+            e.FundingSources.Select(f => Participant(f.UserId, f.Cents)).ToList(),
+            e.Allocations.Select(a => Participant(a.UserId, a.Cents)).ToList(),
+            group.Name, e.RecordedAt, GroupIcons.Display(group.Icon), e.Installment,
+            IsVoided: e.IsVoided, IsCorrection: e.CorrectedFromExpenseId is not null);
+        return new ExpenseSheet(item, group.Id, e.RecurringExpenseId);
+    }
+
     public async Task<IReadOnlyList<ExpenseGroupSummary>> ListExpenseGroupsAsync(
         Guid householdId, CancellationToken ct = default)
     {
