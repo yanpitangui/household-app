@@ -5,10 +5,10 @@
   <ItemGroup>
     <!-- Aspire -->
     <PackageVersion Include="AngleSharp" Version="1.8.5" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Npgsql" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Npgsql" Version="13.6.4" />
     <!-- Database -->
     <PackageVersion Include="Dapper" Version="2.1.89" />
     <PackageVersion Include="dbup-postgresql" Version="7.0.1" />
@@ -20,10 +20,10 @@
     <!-- Auth & Identity -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.13" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
-    <PackageVersion Include="Valtuutus.Data.Caching" Version="2.3.1" />
-    <PackageVersion Include="Valtuutus.Data.InMemory" Version="2.3.1" />
-    <PackageVersion Include="Valtuutus.Data.Postgres" Version="2.3.1" />
-    <PackageVersion Include="Valtuutus.Lang.SourceGen" Version="2.3.1" />
+    <PackageVersion Include="Valtuutus.Data.Caching" Version="2.3.2" />
+    <PackageVersion Include="Valtuutus.Data.InMemory" Version="2.3.2" />
+    <PackageVersion Include="Valtuutus.Data.Postgres" Version="2.3.2" />
+    <PackageVersion Include="Valtuutus.Lang.SourceGen" Version="2.3.2" />
     <!-- Caching & Messaging -->
     <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.13" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.5" />
