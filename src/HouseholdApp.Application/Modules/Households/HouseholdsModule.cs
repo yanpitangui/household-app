@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Modules.Households.Domain;
 using HouseholdApp.Application.Modules.Households.Infrastructure;
 using HouseholdApp.Application.Shared.Events;
+using HouseholdApp.Application.Shared.Time;
 
 namespace HouseholdApp.Application.Modules.Households;
 
@@ -30,6 +31,8 @@ public static class HouseholdsModule
         services.AddEventHandler<HouseholdRoleChanged, HouseholdAuthorizationCommitNotifier>();
         services.AddEventHandler<HouseholdRenamed, HouseholdCacheInvalidationHandler>();
         services.AddEventHandler<HouseholdTimeZoneChanged, HouseholdCacheInvalidationHandler>();
+        services.AddScoped<IHouseholdClock, HouseholdClock>();
+        services.AddScoped<RequestTimeZone>();
         return services;
     }
 }

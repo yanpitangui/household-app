@@ -1,5 +1,6 @@
 @model HouseholdApp.Web.Pages.Expenses.ExpensesListViewModel
 @using System.Globalization
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
 @using HouseholdApp.Application.Modules.Expenses.Application.Ports
 @using HouseholdApp.Web.Pages.Expenses
 @{
@@ -202,7 +203,7 @@
                 }
                 @if (e.RecordedAt is { } recordedAt)
                 {
-                    <div class="expense-breakdown-recorded">@L["Expenses.Breakdown.RecordedAt", recordedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)]</div>
+                    <div class="expense-breakdown-recorded">@L["Expenses.Breakdown.RecordedAt", Tz.ToLocal(recordedAt).ToString("g", CultureInfo.CurrentCulture)]</div>
                 }
                 <div class="expense-breakdown-footer">
                     <a href="/h/@Model.HouseholdId/expenses/record?expenseId=@e.Id"

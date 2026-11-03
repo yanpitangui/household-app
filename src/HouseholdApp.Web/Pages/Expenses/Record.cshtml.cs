@@ -5,6 +5,7 @@ using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Households.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.Web.Shared.Web;
 using Marten.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,7 @@ public class RecordExpenseModel(
     IInstallmentPlanCommands planCommands,
     IRecurringExpenseCommands recurringCommands,
     IHouseholdQueries householdQueries,
+    IHouseholdClock householdClock,
     TimeProvider timeProvider) : HouseholdPageModel(currentUser, guard)
 {
     [BindProperty(SupportsGet = true)]
@@ -31,7 +33,7 @@ public class RecordExpenseModel(
     public string Description { get; set; } = "";
 
     [BindProperty]
-    public DateOnly Date { get; set; } = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
+    public DateOnly Date { get; set; }
 
     [BindProperty, Range(0.01, double.MaxValue)]
     public decimal Amount { get; set; }
@@ -100,6 +102,7 @@ public class RecordExpenseModel(
 
     public async Task<IActionResult> OnGetAsync(Guid? group)
     {
+        Date = await householdClock.TodayAsync(HouseholdId);
         PayerId = CurrentUserId;
         if (group is { } presetGroupId) GroupId = presetGroupId;
 
@@ -153,6 +156,8 @@ public class RecordExpenseModel(
 
     public async Task<IActionResult> OnPostAsync()
     {
+        // A cleared or absent date falls back to household today, so a re-render shows a real date.
+        if (Date == default) Date = await householdClock.TodayAsync(HouseholdId);
         if (RecurringId.HasValue && await LoadEditableRecurringExpenseAsync() is { } ended) return ended;
         if (PlanId.HasValue && await LoadEditablePlanAsync() is { } endedPlan) return endedPlan;
         UpdateRecurringCatchUpCount();

@@ -1,5 +1,6 @@
 @model HouseholdApp.Application.Modules.Expenses.Application.Ports.ActivityFeedItem
 @using System.Globalization
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
 @using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections
 @{
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
@@ -83,5 +84,5 @@
             : string.Format(L["Expenses.Activity.YouOwe"].Value, amount);
         <div class="activity-delta" style="color:@color">@label</div>
     }
-    <div class="activity-date">@Model.OccurredAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</div>
+    <div class="activity-date">@Tz.ToLocal(Model.OccurredAt).ToString("d", CultureInfo.CurrentCulture)</div>
 </div>

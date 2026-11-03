@@ -4,12 +4,13 @@
 @using HouseholdApp.Application.Modules.Expenses.Application.Ports
 @using HouseholdApp.Application.Modules.Expenses.Domain
 @inject TimeProvider Time
+@inject HouseholdApp.Application.Shared.Time.RequestTimeZone Tz
 @{
     var u = Model.Upcoming;
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
     string Money(long cents) => $"{currencySymbol} {(cents / 100m).ToString("F2")}";
-    // Display only; matches the query's UTC day.
-    var today = DateOnly.FromDateTime(Time.GetUtcNow().UtcDateTime);
+    // Household today, matching the query.
+    var today = HouseholdApp.Application.Shared.Time.HouseholdTime.Today(Tz.Zone, Time.GetUtcNow());
     string When(UpcomingItem i)
     {
         if (i.Frequency == RecurrenceFrequency.Weekly && i.Occurrences > 1)

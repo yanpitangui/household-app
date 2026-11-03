@@ -1,6 +1,7 @@
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.Web.Pages.Expenses;
 using HouseholdApp.Web.Services;
 using R3;
@@ -21,6 +22,8 @@ public static class ExpenseStreamEndpoints
                    IViewRenderService viewRender,
                    IConnectionMultiplexer redis,
                    TimeProvider timeProvider,
+                   IHouseholdClock householdClock,
+                   RequestTimeZone requestTimeZone,
                    HttpContext ctx,
                    CancellationToken ct) =>
             {
@@ -29,6 +32,8 @@ public static class ExpenseStreamEndpoints
                     ctx.Response.StatusCode = 403;
                     return;
                 }
+
+                requestTimeZone.Zone = await householdClock.ZoneAsync(householdId, ct);
 
                 var sub = redis.GetSubscriber();
                 var redisChannel = RedisChannel.Literal($"expense:{householdId}");

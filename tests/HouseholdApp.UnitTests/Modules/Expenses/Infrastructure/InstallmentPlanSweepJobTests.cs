@@ -10,14 +10,13 @@ namespace HouseholdApp.UnitTests.Modules.Expenses.Infrastructure;
 public sealed class InstallmentPlanSweepJobTests
 {
     [Test]
-    public async Task Run_sweeps_for_the_utc_date_of_the_clock()
+    public async Task Run_sweeps_all_plans()
     {
         var commands = Substitute.For<IInstallmentPlanCommands>();
-        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 10, 3, 0, 0, TimeSpan.Zero));
 
-        await new InstallmentPlanSweepJob(commands, clock).RunAsync(CancellationToken.None);
+        await new InstallmentPlanSweepJob(commands).RunAsync(CancellationToken.None);
 
-        await commands.Received(1).RunSweepAsync(new DateOnly(2026, 11, 10), Arg.Any<CancellationToken>());
+        await commands.Received(1).RunSweepAsync(Arg.Any<CancellationToken>());
     }
 
     [Test]

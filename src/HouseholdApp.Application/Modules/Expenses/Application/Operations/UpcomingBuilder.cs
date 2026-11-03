@@ -16,9 +16,8 @@ public static class UpcomingBuilder
     public static UpcomingSummary Build(
         IReadOnlyList<(InstallmentPlanDocument Plan, HashSet<int> CreatedNumbers)> plans,
         IReadOnlyList<RecurringTemplate> templates,
-        DateTimeOffset now, Guid viewerId)
+        DateTimeOffset now, DateOnly today, Guid viewerId)
     {
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
         var end = today.AddDays(WindowDays);
         var items = new List<UpcomingItem>();
 

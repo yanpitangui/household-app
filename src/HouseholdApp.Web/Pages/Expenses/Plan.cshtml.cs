@@ -2,6 +2,7 @@ using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using HouseholdApp.Web.Shared.Web;
 using Marten.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace HouseholdApp.Web.Pages.Expenses;
 
 public class InstallmentPlanModel(
-    TimeProvider timeProvider,
+    IHouseholdClock householdClock,
     ICurrentUser currentUser,
     IHouseholdGuard guard,
     IExpenseQueries expenseQueries,
@@ -24,13 +25,14 @@ public class InstallmentPlanModel(
 
     public InstallmentPlanPage Plan { get; private set; } = default!;
     public IReadOnlyList<ActivityFeedItem> History { get; private set; } = [];
-    public DateOnly Today => DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+    public DateOnly Today { get; private set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
         var plan = await expenseQueries.GetInstallmentPlanPageAsync(HouseholdId, PlanId, CurrentUserId);
         if (plan is null) return NotFound();
         Plan = plan;
+        Today = await householdClock.TodayAsync(HouseholdId);
         History = await activityQueries.GetPlanHistoryAsync(HouseholdId, PlanId, CurrentUserId);
         return Page();
     }

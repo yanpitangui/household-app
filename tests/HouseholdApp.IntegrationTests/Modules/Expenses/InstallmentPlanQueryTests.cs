@@ -29,7 +29,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
 
     private ExpenseQueryService Queries(IQuerySession qs) =>
         new(qs, new UserRepository(db.DataSource, TimeProvider.System, Substitute.For<IEventBus>()), Substitute.For<IHouseholdQueries>(),
-            new FakeTimeProvider(Now));
+            new FakeTimeProvider(Now), new FakeHouseholdClock(new FakeTimeProvider(Now)));
 
     private async Task InsertUsersAsync(params Guid[] ids)
     {
@@ -49,7 +49,7 @@ public sealed class InstallmentPlanQueryTests(PostgresFixture db)
         if (seedGroup) await ExpenseTestData.SeedGroupAsync(Store, _householdId, group, "Car");
         await using var session = Store.LightweightSession();
         var sut = new InstallmentPlanCommandService(
-            session, new FakeCurrentUser(_ana), new FakeTimeProvider(Now), Substitute.For<IEventBus>(),
+            session, new FakeCurrentUser(_ana), new FakeTimeProvider(Now), new FakeHouseholdClock(new FakeTimeProvider(Now)), Substitute.For<IEventBus>(),
             Substitute.For<ISessionFactory>(), NullLogger<InstallmentPlanCommandService>.Instance);
         return await sut.CreateAsync(_householdId, group, description, _ana, 150000, downPaymentCents, 5, purchaseDate ?? firstDate, firstDate,
             [new AllocationDto(_ana, 75000), new AllocationDto(_leo, 75000)]);

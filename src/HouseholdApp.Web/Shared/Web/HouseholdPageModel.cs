@@ -1,6 +1,7 @@
 using System.Reflection;
 using HouseholdApp.Application.Shared.Authorization;
 using HouseholdApp.Application.Shared.Identity;
+using HouseholdApp.Application.Shared.Time;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -35,6 +36,9 @@ public abstract class HouseholdPageModel(ICurrentUser currentUser, IHouseholdGua
             ctx.Result = new NotFoundResult();
             return;
         }
+        var services = ctx.HttpContext.RequestServices;
+        services.GetRequiredService<RequestTimeZone>().Zone =
+            await services.GetRequiredService<IHouseholdClock>().ZoneAsync(HouseholdId);
         await next();
     }
 

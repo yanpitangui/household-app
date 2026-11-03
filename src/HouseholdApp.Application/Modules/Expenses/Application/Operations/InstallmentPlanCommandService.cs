@@ -3,6 +3,7 @@ using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
 using HouseholdApp.Application.Shared.Identity;
 using HouseholdApp.Application.Shared.Events;
+using HouseholdApp.Application.Shared.Time;
 using Marten;
 using Marten.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public sealed class InstallmentPlanCommandService(
     IDocumentSession session,
     ICurrentUser currentUser,
     TimeProvider time,
+    IHouseholdClock householdClock,
     IEventBus eventBus,
     ISessionFactory sessionFactory,
     ILogger<InstallmentPlanCommandService> logger) : IInstallmentPlanCommands
@@ -28,7 +30,7 @@ public sealed class InstallmentPlanCommandService(
     {
         await EnsureActiveOwnedGroupAsync(householdId, groupId, ct);
         var now = time.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = await householdClock.TodayAsync(householdId, ct);
         var plan = InstallmentPlan.Create(
             householdId, groupId, description, payerId, totalCents, downPaymentCents, count, purchaseDate, firstDate,
             ToDomain(allocations), today, now, currentUser.Id);
@@ -62,7 +64,7 @@ public sealed class InstallmentPlanCommandService(
         Guid householdId, Guid planId, long payoffCents, string payoffDescription, CancellationToken ct = default)
     {
         var now = time.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = await householdClock.TodayAsync(householdId, ct);
         var (stream, plan) = await LoadPlanAsync(householdId, planId, ct);
         var fromNumber = await NextNumberAsync(plan, ct);
         var payoff = plan.PayEarly(fromNumber, payoffCents, payoffDescription, today, now, currentUser.Id);
@@ -100,7 +102,7 @@ public sealed class InstallmentPlanCommandService(
         await session.SaveChangesAsync(ct);
     }
 
-    public async Task RunSweepAsync(DateOnly today, CancellationToken ct = default)
+    public async Task RunSweepAsync(CancellationToken ct = default)
     {
         var planIds = await session.Query<InstallmentPlanDocument>()
             .Where(p => p.Status == InstallmentPlanStatus.Active)
@@ -115,7 +117,7 @@ public sealed class InstallmentPlanCommandService(
             try
             {
                 await using var planSession = sessionFactory.OpenSession();
-                await SweepPlanAsync(planSession, planId, today, ct);
+                await SweepPlanAsync(planSession, planId, ct);
             }
             catch (ExistingStreamIdCollisionException)
             {
@@ -130,7 +132,7 @@ public sealed class InstallmentPlanCommandService(
         }
     }
 
-    private async Task SweepPlanAsync(IDocumentSession planSession, Guid planId, DateOnly today, CancellationToken ct)
+    private async Task SweepPlanAsync(IDocumentSession planSession, Guid planId, CancellationToken ct)
     {
         var stream = await planSession.Events.FetchForExclusiveWriting<InstallmentPlan>(planId, ct);
         var plan = stream.Aggregate;
@@ -146,6 +148,7 @@ public sealed class InstallmentPlanCommandService(
 
         var existing = await CreatedNumbersAsync(planSession, planId, ct);
         var now = time.GetUtcNow();
+        var today = await householdClock.TodayAsync(plan.HouseholdId, ct);
         var due = plan.DueNumbers(today).Where(n => !existing.Contains(n)).ToList();
         foreach (var number in due)
         {
