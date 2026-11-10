@@ -45,6 +45,7 @@ using Valtuutus.Core.Configuration;
 using Valtuutus.Data;
 using Valtuutus.Data.Caching;
 using Valtuutus.Data.Postgres;
+using Valtuutus.Data.Postgres.Weasel;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Backplane.StackExchangeRedis;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
@@ -272,7 +273,9 @@ var authzConnStr = new NpgsqlConnectionStringBuilder(connStr)
 }.ConnectionString;
 builder.Services.AddPostgres(
     _ => () => new NpgsqlConnection(authzConnStr),
-    new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"))
+    new ValtuutusPostgresOptions { Schema = "authz" })
+    // Creates and migrates the authz tables while the host starts, after DbUp, so requests only arrive once they are current.
+    .AddPostgresWeasel()
     .AddCaching()
     // Removed memberships and role changes leave tombstoned tuples; TombstoneReapJob clears them on one node per run.
     .AddTombstoneReaper();

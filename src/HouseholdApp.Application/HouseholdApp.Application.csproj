@@ -16,6 +16,7 @@
     <PackageReference Include="Quartz.Weasel.PostgreSQL" />
     <PackageReference Include="Valtuutus.Data.Caching" />
     <PackageReference Include="Valtuutus.Data.Postgres" />
+    <PackageReference Include="Valtuutus.Data.Postgres.Weasel" />
     <PackageReference Include="Valtuutus.Lang.SourceGen" />
     <PackageReference Include="WebPush" />
     <PackageReference Include="ZiggyCreatures.FusionCache" />
