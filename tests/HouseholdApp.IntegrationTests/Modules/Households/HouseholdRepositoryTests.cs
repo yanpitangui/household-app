@@ -35,7 +35,7 @@ public sealed class HouseholdRepositoryTests(PostgresFixture db) : IAsyncDisposa
         services.AddValtuutusCore(schemaStream);
         services.AddPostgres(
             _ => () => new NpgsqlConnection(db.ConnectionString),
-            new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"));
+            new ValtuutusPostgresOptions { Schema = "authz" });
         services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
         return services.BuildServiceProvider();
     }

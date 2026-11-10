@@ -1,8 +1,14 @@
+using HouseholdApp.Application.Modules.Households;
 using HouseholdApp.Application.Shared.Persistence;
 using HouseholdApp.Migrations;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Testcontainers.PostgreSql;
 using TUnit.Core.Interfaces;
+using Valtuutus.Core.Configuration;
+using Valtuutus.Data;
+using Valtuutus.Data.Postgres;
+using Valtuutus.Data.Postgres.Weasel;
 
 namespace HouseholdApp.IntegrationTests.Infrastructure;
 
@@ -31,6 +37,16 @@ public sealed class PostgresFixture : IAsyncInitializer, IAsyncDisposable
         PersistenceExtensions.RegisterTypeHandlers();
         if (!DatabaseMigrator.Migrate(ConnectionString))
             throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
+
+        // Valtuutus's Weasel package owns the authz tables, applied after DbUp as the web host does.
+        var schemaStream = typeof(HouseholdsModule).Assembly
+            .GetManifestResourceStream("HouseholdApp.Application.Shared.Authorization.schema.vtt")!;
+        var services = new ServiceCollection();
+        services.AddValtuutusCore(schemaStream);
+        services.AddPostgres(_ => () => new NpgsqlConnection(ConnectionString), new ValtuutusPostgresOptions { Schema = "authz" })
+            .AddPostgresWeasel();
+        await using var provider = services.BuildServiceProvider();
+        await provider.ApplyValtuutusSchemaAsync();
     }
 
     public async ValueTask DisposeAsync()

@@ -37,7 +37,7 @@ public sealed class HouseholdGuardTests(PostgresFixture db) : IAsyncDisposable
         services.AddValtuutusCore(schemaStream);
         var valtuutus = services.AddPostgres(
             _ => () => new NpgsqlConnection(db.ConnectionString),
-            new ValtuutusPostgresOptions("authz", "transactions", "relation_tuples", "attributes"));
+            new ValtuutusPostgresOptions { Schema = "authz" });
         if (caching) valtuutus.AddCaching();
         services.AddScoped<IHouseholdGuard, ValtuutusHouseholdGuard>();
         return services.BuildServiceProvider();
