@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire -->
-    <PackageVersion Include="AngleSharp" Version="1.8.5" />
+    <PackageVersion Include="AngleSharp" Version="1.10.1" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.4" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.6.4" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.4" />
@@ -12,13 +12,13 @@
     <!-- Database -->
     <PackageVersion Include="Dapper" Version="2.1.89" />
     <PackageVersion Include="dbup-postgresql" Version="7.0.1" />
-    <PackageVersion Include="Marten" Version="9.50.3" />
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.13" />
+    <PackageVersion Include="Marten" Version="9.59.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.14" />
     <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
     <PackageVersion Include="R3" Version="1.3.1" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <!-- Auth & Identity -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.14" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageVersion Include="Valtuutus.Data.Caching" Version="3.0.2" />
     <PackageVersion Include="Valtuutus.Data.InMemory" Version="3.0.2" />
@@ -26,10 +26,10 @@
     <PackageVersion Include="Valtuutus.Data.Postgres.Weasel" Version="3.0.2" />
     <PackageVersion Include="Valtuutus.Lang.SourceGen" Version="3.0.2" />
     <!-- Caching & Messaging -->
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.13" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.4.5" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.14" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.31" />
     <PackageVersion Include="WebPush" Version="1.0.13" />
-    <PackageVersion Include="WireMock.Net" Version="2.19.0" />
+    <PackageVersion Include="WireMock.Net" Version="2.30.0" />
     <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.9.0" />
     <PackageVersion Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" Version="2.9.0" />
     <PackageVersion Include="ZiggyCreatures.FusionCache.OpenTelemetry" Version="2.9.0" />
@@ -38,27 +38,27 @@
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
     <!-- Observability -->
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.20.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.20.1-beta.1" />
     <!-- Scheduling -->
-    <PackageVersion Include="Quartz" Version="4.6.2" />
-    <PackageVersion Include="Quartz.Dashboard" Version="4.6.2" />
-    <PackageVersion Include="Quartz.Weasel.PostgreSQL" Version="4.6.2" />
+    <PackageVersion Include="Quartz" Version="4.7.3" />
+    <PackageVersion Include="Quartz.Dashboard" Version="4.7.3" />
+    <PackageVersion Include="Quartz.Weasel.PostgreSQL" Version="4.7.3" />
     <!-- DI & Utilities -->
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
     <!-- Testing -->
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
-    <PackageVersion Include="TUnit" Version="1.75.0" />
-    <PackageVersion Include="TUnit.Aspire" Version="1.75.0" />
+    <PackageVersion Include="TUnit" Version="1.81.16" />
+    <PackageVersion Include="TUnit.Aspire" Version="1.81.16" />
   </ItemGroup>
 </Project>
