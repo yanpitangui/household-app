@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Someone" xml:space="preserve">
+    <value>Alguém</value>
+  </data>
+  <data name="Money" xml:space="preserve">
+    <value>R$ {0}</value>
+  </data>
+  <data name="AmountBody" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="ExpenseAdded" xml:space="preserve">
+    <value>{0} adicionou uma despesa</value>
+  </data>
+  <data name="ExpenseEdited" xml:space="preserve">
+    <value>{0} editou uma despesa</value>
+  </data>
+  <data name="ExpenseDeleted" xml:space="preserve">
+    <value>{0} excluiu uma despesa</value>
+  </data>
+  <data name="DownPaymentAdded" xml:space="preserve">
+    <value>{0} lançou a entrada</value>
+  </data>
+  <data name="DownPaymentBody" xml:space="preserve">
+    <value>{0} — entrada de {1}</value>
+  </data>
+  <data name="InstallmentAdded" xml:space="preserve">
+    <value>{0} lançou a parcela {1}/{2}</value>
+  </data>
+  <data name="InstallmentBody" xml:space="preserve">
+    <value>{0} {1}/{2} — {3}</value>
+  </data>
+  <data name="SettlementRecorded" xml:space="preserve">
+    <value>{0} registrou um acerto</value>
+  </data>
+  <data name="SettlementBody" xml:space="preserve">
+    <value>{0} pagou {2} para {1}</value>
+  </data>
+  <data name="PlanCreated" xml:space="preserve">
+    <value>{0} criou um parcelamento</value>
+  </data>
+  <data name="PlanInstallments" xml:space="preserve">
+    <value>{0}× de {1}</value>
+  </data>
+  <data name="PlanBodyWithDown" xml:space="preserve">
+    <value>{0} — entrada de {1} + {2}</value>
+  </data>
+  <data name="PlanPaidEarly" xml:space="preserve">
+    <value>{0} antecipou um parcelamento</value>
+  </data>
+  <data name="PlanPaidEarlyBody" xml:space="preserve">
+    <value>{0} {1}–{2}/{2} — {3} (de {4})</value>
+  </data>
+  <data name="PlanCancelled" xml:space="preserve">
+    <value>{0} cancelou um parcelamento</value>
+  </data>
+  <data name="PlanCancelledVoided" xml:space="preserve">
+    <value>{0} · {1} parcelas anuladas</value>
+  </data>
+  <data name="RecurringCreated" xml:space="preserve">
+    <value>{0} criou uma despesa recorrente</value>
+  </data>
+  <data name="RecurringEnded" xml:space="preserve">
+    <value>{0} encerrou uma despesa recorrente</value>
+  </data>
+  <data name="YourShare" xml:space="preserve">
+    <value>{0} · sua parte {1}</value>
+  </data>
+  <data name="YourSharePerMonth" xml:space="preserve">
+    <value>{0} · sua parte {1}/mês</value>
+  </data>
+</root>

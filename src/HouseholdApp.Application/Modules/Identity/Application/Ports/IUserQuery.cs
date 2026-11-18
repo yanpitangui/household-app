@@ -1,6 +1,6 @@
 namespace HouseholdApp.Application.Modules.Identity.Application.Ports;
 
-public sealed record UserProfile(Guid Id, string Subject, string Email, string DisplayName, string? PictureUrl);
+public sealed record UserProfile(Guid Id, string Subject, string Email, string DisplayName, string? PictureUrl, string? Locale = null);
 
 public interface IUserQuery
 {

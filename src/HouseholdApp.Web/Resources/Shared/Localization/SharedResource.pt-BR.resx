@@ -590,4 +590,157 @@
   <data name="Removal.Leave.Plan"><value>manter você devendo sua parte de "{0}" conforme as parcelas vencem</value></data>
   <data name="Removal.Leave.Tasks"><value>desatribuir suas {0} tarefa(s) aberta(s)</value></data>
   <data name="Removal.Leave.Access"><value>você perde o acesso a esta casa</value></data>
+  <data name="Errors.Group.AllocationRules" xml:space="preserve">
+    <value>As regras de divisão padrão devem somar 100% (agora {0}%).</value>
+  </data>
+  <data name="Errors.Group.NotFound" xml:space="preserve">
+    <value>Grupo não encontrado.</value>
+  </data>
+  <data name="Errors.Plan.Count" xml:space="preserve">
+    <value>O número de parcelas deve ficar entre {0} e {1}.</value>
+  </data>
+  <data name="Errors.Plan.DownNegative" xml:space="preserve">
+    <value>A entrada não pode ser negativa.</value>
+  </data>
+  <data name="Errors.Plan.DownTooLarge" xml:space="preserve">
+    <value>A entrada deve ser menor que o total.</value>
+  </data>
+  <data name="Errors.Plan.FirstBeforePurchase" xml:space="preserve">
+    <value>Com entrada, a primeira parcela não pode vir antes da data da compra.</value>
+  </data>
+  <data name="Errors.Plan.InstallmentMinCent" xml:space="preserve">
+    <value>Cada parcela deve ter pelo menos um centavo.</value>
+  </data>
+  <data name="Errors.Plan.NumbersStart" xml:space="preserve">
+    <value>As parcelas começam em {0}.</value>
+  </data>
+  <data name="Errors.Plan.NothingToChange" xml:space="preserve">
+    <value>O parcelamento não tem mais parcelas para alterar.</value>
+  </data>
+  <data name="Errors.Plan.NothingToPay" xml:space="preserve">
+    <value>O parcelamento não tem mais parcelas para pagar.</value>
+  </data>
+  <data name="Errors.Plan.PayoffRange" xml:space="preserve">
+    <value>A antecipação deve ser maior que zero e no máximo o valor restante.</value>
+  </data>
+  <data name="Errors.Plan.SplitEmpty" xml:space="preserve">
+    <value>Divida as parcelas entre pelo menos um membro.</value>
+  </data>
+  <data name="Errors.Plan.SplitDuplicate" xml:space="preserve">
+    <value>Cada membro só pode aparecer uma vez na divisão.</value>
+  </data>
+  <data name="Errors.Plan.SplitSum" xml:space="preserve">
+    <value>A divisão deve somar o valor das parcelas.</value>
+  </data>
+  <data name="Errors.Plan.ShareMinCent" xml:space="preserve">
+    <value>A parte de cada membro deve ter pelo menos um centavo por parcela.</value>
+  </data>
+  <data name="Errors.Expense.AlreadyVoided" xml:space="preserve">
+    <value>Esta despesa já foi anulada.</value>
+  </data>
+  <data name="Errors.Expense.AmountPositive" xml:space="preserve">
+    <value>O valor deve ser maior que zero.</value>
+  </data>
+  <data name="Errors.Expense.NotFound" xml:space="preserve">
+    <value>Despesa não encontrada.</value>
+  </data>
+  <data name="Errors.SumMismatch" xml:space="preserve">
+    <value>Os valores pagos devem somar o mesmo que a divisão.</value>
+  </data>
+  <data name="Errors.Recurring.CatchUpLimit" xml:space="preserve">
+    <value>Lançar datas passadas pode criar no máximo {0} despesas.</value>
+  </data>
+  <data name="Errors.Recurring.FirstDatePast" xml:space="preserve">
+    <value>A nova primeira data deve ser hoje ou depois.</value>
+  </data>
+  <data name="Errors.Recurring.NeedsMembers" xml:space="preserve">
+    <value>Uma despesa recorrente precisa de um pagador e de pelo menos um membro.</value>
+  </data>
+  <data name="Errors.Recurring.AmountPositive" xml:space="preserve">
+    <value>Uma despesa recorrente precisa de um valor maior que zero.</value>
+  </data>
+  <data name="Expenses.Split.PerPerson" xml:space="preserve">
+    <value>{0} / pessoa</value>
+  </data>
+  <data name="Expenses.Split.Person" xml:space="preserve">
+    <value>1 pessoa</value>
+  </data>
+  <data name="Expenses.Split.People" xml:space="preserve">
+    <value>{0} pessoas</value>
+  </data>
+  <data name="Expenses.Split.OfTotal" xml:space="preserve">
+    <value>{0} de {1}</value>
+  </data>
+  <data name="Expenses.Split.Left" xml:space="preserve">
+    <value>{0} restantes</value>
+  </data>
+  <data name="Expenses.Split.Over" xml:space="preserve">
+    <value>{0} a mais</value>
+  </data>
+  <data name="Expenses.Split.PctOf" xml:space="preserve">
+    <value>{0}% de 100%</value>
+  </data>
+  <data name="Expenses.Split.Share" xml:space="preserve">
+    <value>1 parte do total</value>
+  </data>
+  <data name="Expenses.Split.Shares" xml:space="preserve">
+    <value>{0} partes do total</value>
+  </data>
+  <data name="Expenses.Split.PerShare" xml:space="preserve">
+    <value>{0} / parte</value>
+  </data>
+  <data name="Expenses.Split.Base" xml:space="preserve">
+    <value>Base: {0}/pessoa</value>
+  </data>
+  <data name="Expenses.Split.Adjustments" xml:space="preserve">
+    <value>Total ajustes: {0}</value>
+  </data>
+  <data name="Expenses.Split.MemberBase" xml:space="preserve">
+    <value>base {0}</value>
+  </data>
+  <data name="Expenses.Split.PaidBy" xml:space="preserve">
+    <value>{0} pagou, {1}</value>
+  </data>
+  <data name="Expenses.Error.AllocationSum" xml:space="preserve">
+    <value>A divisão não soma o total.</value>
+  </data>
+  <data name="Expenses.Error.SelectMember" xml:space="preserve">
+    <value>Selecione pelo menos um membro.</value>
+  </data>
+  <data name="Recipes.Import.UrlRequired" xml:space="preserve">
+    <value>Informe uma URL.</value>
+  </data>
+  <data name="Recipes.Import.FetchFailed" xml:space="preserve">
+    <value>Não foi possível abrir a página. Confira a URL e tente de novo.</value>
+  </data>
+  <data name="Recipes.Import.NoRecipeData" xml:space="preserve">
+    <value>Nenhuma receita encontrada nesta página.</value>
+  </data>
+  <data name="Recipes.Import.Reading" xml:space="preserve">
+    <value>Lendo receita…</value>
+  </data>
+  <data name="Recipes.Import.Imported" xml:space="preserve">
+    <value>Receita importada — revise e salve</value>
+  </data>
+  <data name="Recipes.Import.Failed" xml:space="preserve">
+    <value>Falha ao importar. Confira a URL e tente de novo.</value>
+  </data>
+  <data name="Recipes.Error.SelectList" xml:space="preserve">
+    <value>Escolha uma lista ou informe o nome de uma nova.</value>
+  </data>
+  <data name="Recipes.NotFound" xml:space="preserve">
+    <value>Receita não encontrada.</value>
+  </data>
+  <data name="Dashboard.Copied" xml:space="preserve">
+    <value>Copiado!</value>
+  </data>
+  <data name="Dashboard.ShareTitle" xml:space="preserve">
+    <value>Entre na nossa casa</value>
+  </data>
+  <data name="Nav.Main" xml:space="preserve">
+    <value>Navegação principal</value>
+  </data>
+  <data name="Landing.TaglineHighlight" xml:space="preserve">
+    <value>casa</value>
+  </data>
 </root>

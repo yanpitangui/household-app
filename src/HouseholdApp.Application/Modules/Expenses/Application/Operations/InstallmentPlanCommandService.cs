@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure.Projections;
@@ -170,7 +171,7 @@ public sealed class InstallmentPlanCommandService(
     {
         var stream = await session.Events.FetchForExclusiveWriting<InstallmentPlan>(planId, ct);
         if (stream.Aggregate is null || stream.Aggregate.HouseholdId != householdId)
-            throw new InvalidOperationException("Installment plan not found.");
+            throw new DomainRuleException("Expenses.Plan.NotFound", "Installment plan not found.");
         await EnsureActiveOwnedGroupAsync(householdId, stream.Aggregate.ExpenseGroupId, ct);
         return (stream, stream.Aggregate);
     }
@@ -199,7 +200,7 @@ public sealed class InstallmentPlanCommandService(
     {
         var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
         if (group is null || group.HouseholdId != householdId || group.DeletedAt is not null)
-            throw new InvalidOperationException("Expense group not found.");
+            throw new DomainRuleException("Errors.Group.NotFound", "Expense group not found.");
     }
 
     private static List<Allocation> ToDomain(IReadOnlyList<AllocationDto> allocations) =>

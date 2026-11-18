@@ -6,7 +6,7 @@
 
 @if (Model.Recipe is null)
 {
-    <p style="color:var(--text-secondary)">Recipe not found.</p>
+    <p style="color:var(--text-secondary)">@L["Recipes.NotFound"]</p>
     return;
 }
 

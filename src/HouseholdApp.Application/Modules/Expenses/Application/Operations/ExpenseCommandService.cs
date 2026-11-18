@@ -34,7 +34,7 @@ public sealed class ExpenseCommandService(
     {
         var expense = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct);
         if (expense is null || expense.HouseholdId != householdId)
-            throw new InvalidOperationException("Expense not found.");
+            throw new DomainRuleException("Errors.Expense.NotFound", "Expense not found.");
         await EnsureGroupNotDeletedAsync(expense.ExpenseGroupId, ct);
         expense.Void(reason, time.GetUtcNow(), currentUser.Id);
         session.Events.Append(expenseId, expense.DomainEvents.ToArray());
@@ -48,7 +48,7 @@ public sealed class ExpenseCommandService(
     {
         var old = await session.Events.AggregateStreamAsync<Expense>(expenseId, token: ct);
         if (old is null || old.HouseholdId != householdId)
-            throw new InvalidOperationException("Expense not found.");
+            throw new DomainRuleException("Errors.Expense.NotFound", "Expense not found.");
         await EnsureGroupNotDeletedAsync(old.ExpenseGroupId, ct);
 
         var replacementId = Guid.CreateVersion7();
@@ -71,7 +71,7 @@ public sealed class ExpenseCommandService(
         CancellationToken ct = default)
     {
         var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
-        if (group.DeletedAt is not null) throw new InvalidOperationException("Expense group is deleted.");
+        if (group.DeletedAt is not null) throw new DomainRuleException("Expenses.Group.Gone", "Expense group is deleted.");
 
         var settlementId = Guid.CreateVersion7();
         session.Events.Append(settlementId, new SettlementRecorded(
@@ -137,7 +137,7 @@ public sealed class ExpenseCommandService(
 
         var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
         if (group.DeletedAt is not null)
-            throw new InvalidOperationException("Expense group is deleted.");
+            throw new DomainRuleException("Expenses.Group.Gone", "Expense group is deleted.");
 
         var oldName = group.Name.Trim();
         var oldDescription = ExpenseGroup.NormalizeDescription(group.Description);
@@ -186,14 +186,14 @@ public sealed class ExpenseCommandService(
         var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
         return group is not null && group.HouseholdId == householdId
             ? group
-            : throw new InvalidOperationException("Expense group not found.");
+            : throw new DomainRuleException("Errors.Group.NotFound", "Expense group not found.");
     }
 
     private async Task EnsureActiveOwnedGroupAsync(Guid householdId, Guid groupId, CancellationToken ct)
     {
         var group = await LoadOwnedGroupAsync(householdId, groupId, ct);
         if (group.DeletedAt is not null)
-            throw new InvalidOperationException("Expense group is deleted.");
+            throw new DomainRuleException("Expenses.Group.Gone", "Expense group is deleted.");
     }
 
     // A deleted group is read-only; a missing document passes because the expense's group was validated when it was recorded.
@@ -201,7 +201,7 @@ public sealed class ExpenseCommandService(
     {
         var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
         if (group?.DeletedAt is not null)
-            throw new InvalidOperationException("Expense group is deleted.");
+            throw new DomainRuleException("Expenses.Group.Gone", "Expense group is deleted.");
     }
 
     private static List<FundingSource> ToDomain(IReadOnlyList<FundingSourceDto> dtos) =>

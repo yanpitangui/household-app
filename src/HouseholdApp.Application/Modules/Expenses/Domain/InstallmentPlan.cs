@@ -34,17 +34,18 @@ public sealed class InstallmentPlan : AggregateRoot
         Guid? id = null)
     {
         if (count is < InstallmentSchedule.MinCount or > InstallmentSchedule.MaxCount)
-            throw new InvalidOperationException(
-                $"Installment count must be between {InstallmentSchedule.MinCount} and {InstallmentSchedule.MaxCount}.");
+            throw new DomainRuleException("Errors.Plan.Count",
+                $"Installment count must be between {InstallmentSchedule.MinCount} and {InstallmentSchedule.MaxCount}.",
+                InstallmentSchedule.MinCount, InstallmentSchedule.MaxCount);
         if (downPaymentCents < 0)
-            throw new InvalidOperationException("The down payment can't be negative.");
+            throw new DomainRuleException("Errors.Plan.DownNegative", "The down payment can't be negative.");
         if (downPaymentCents >= totalCents)
-            throw new InvalidOperationException("The down payment must be less than the total.");
+            throw new DomainRuleException("Errors.Plan.DownTooLarge", "The down payment must be less than the total.");
         if (downPaymentCents > 0 && firstDate < purchaseDate)
-            throw new InvalidOperationException(
+            throw new DomainRuleException("Errors.Plan.FirstBeforePurchase",
                 "The first installment can't come before the purchase date when there is a down payment.");
         if (totalCents - downPaymentCents < count)
-            throw new InvalidOperationException("Each installment must be at least one cent.");
+            throw new DomainRuleException("Errors.Plan.InstallmentMinCent", "Each installment must be at least one cent.");
         var terms = new InstallmentTerms(totalCents, count, downPaymentCents, purchaseDate, firstDate);
         ValidateSegment(terms, new SplitSegment(terms.FirstNumber, allocations));
 
@@ -84,8 +85,8 @@ public sealed class InstallmentPlan : AggregateRoot
     {
         EnsureActive();
         if (fromNumber < Terms.FirstNumber)
-            throw new InvalidOperationException($"Installment numbers start at {Terms.FirstNumber}.");
-        if (fromNumber > Count) throw new InvalidOperationException("The plan has no installments left to change.");
+            throw new DomainRuleException("Errors.Plan.NumbersStart", $"Installment numbers start at {Terms.FirstNumber}.", Terms.FirstNumber);
+        if (fromNumber > Count) throw new DomainRuleException("Errors.Plan.NothingToChange", "The plan has no installments left to change.");
         var segment = new SplitSegment(fromNumber, allocations);
         ValidateSegment(Terms, segment);
 
@@ -103,11 +104,11 @@ public sealed class InstallmentPlan : AggregateRoot
     {
         EnsureActive();
         if (fromNumber < Terms.FirstNumber)
-            throw new InvalidOperationException($"Installment numbers start at {Terms.FirstNumber}.");
-        if (fromNumber > Count) throw new InvalidOperationException("The plan has no installments left to pay.");
+            throw new DomainRuleException("Errors.Plan.NumbersStart", $"Installment numbers start at {Terms.FirstNumber}.", Terms.FirstNumber);
+        if (fromNumber > Count) throw new DomainRuleException("Errors.Plan.NothingToPay", "The plan has no installments left to pay.");
         var remaining = Terms.AmountRange(fromNumber, Count);
         if (payoffCents <= 0 || payoffCents > remaining)
-            throw new InvalidOperationException("The payoff must be more than zero and at most the remaining amount.");
+            throw new DomainRuleException("Errors.Plan.PayoffRange", "The payoff must be more than zero and at most the remaining amount.");
 
         var allocations = InstallmentSchedule.Distribute(payoffCents, RemainingShares(fromNumber))
             .Where(a => a.Cents > 0).ToList();
@@ -176,21 +177,21 @@ public sealed class InstallmentPlan : AggregateRoot
     private void EnsureActive()
     {
         if (Status != InstallmentPlanStatus.Active)
-            throw new InvalidOperationException("This installment plan has ended.");
+            throw new DomainRuleException("Expenses.Plan.Ended", "This installment plan has ended.");
     }
 
     private static void ValidateSegment(InstallmentTerms terms, SplitSegment segment)
     {
         var allocations = segment.Allocations;
         if (allocations.Count == 0 || allocations.Any(a => a.Cents < 0))
-            throw new InvalidOperationException("Split the installments between at least one member.");
+            throw new DomainRuleException("Errors.Plan.SplitEmpty", "Split the installments between at least one member.");
         if (allocations.Select(a => a.UserId).Distinct().Count() != allocations.Count)
-            throw new InvalidOperationException("Each member can appear only once in the split.");
+            throw new DomainRuleException("Errors.Plan.SplitDuplicate", "Each member can appear only once in the split.");
         var expected = terms.AmountRange(segment.FromNumber, terms.Count);
         if (allocations.Sum(a => a.Cents) != expected)
-            throw new InvalidOperationException(
+            throw new DomainRuleException("Errors.Plan.SplitSum",
                 $"Sum of allocations ({allocations.Sum(a => a.Cents)}) must equal the installments it covers ({expected}).");
         if (!terms.EveryShareCoversACent(segment))
-            throw new InvalidOperationException("Each member's share must be at least one cent per installment.");
+            throw new DomainRuleException("Errors.Plan.ShareMinCent", "Each member's share must be at least one cent per installment.");
     }
 }

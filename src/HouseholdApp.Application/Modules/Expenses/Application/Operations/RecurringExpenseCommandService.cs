@@ -171,7 +171,7 @@ public sealed class RecurringExpenseCommandService(
     {
         var stream = await session.Events.FetchForExclusiveWriting<RecurringExpense>(id, ct);
         if (stream.Aggregate is null || stream.Aggregate.HouseholdId != householdId)
-            throw new InvalidOperationException("Recurring expense not found.");
+            throw new DomainRuleException("Expenses.Recurring.NotFound", "Recurring expense not found.");
         await EnsureActiveOwnedGroupAsync(householdId, stream.Aggregate.ExpenseGroupId, ct);
         return (stream, stream.Aggregate);
     }
@@ -180,7 +180,7 @@ public sealed class RecurringExpenseCommandService(
     {
         var group = await session.LoadAsync<ExpenseGroupDocument>(groupId, ct);
         if (group is null || group.HouseholdId != householdId || group.DeletedAt is not null)
-            throw new InvalidOperationException("Expense group not found.");
+            throw new DomainRuleException("Errors.Group.NotFound", "Expense group not found.");
     }
 
     private static List<FundingSource> ToDomain(IReadOnlyList<FundingSourceDto> dtos) =>

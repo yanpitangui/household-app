@@ -86,7 +86,7 @@ public class AddToListModel(
         }
         else
         {
-            ModelState.AddModelError(string.Empty, "Select a list or enter a new list name.");
+            ModelState.AddModelError(string.Empty, Loc["Recipes.Error.SelectList"].Value);
             await ReloadPageDataAsync();
             return Page();
         }

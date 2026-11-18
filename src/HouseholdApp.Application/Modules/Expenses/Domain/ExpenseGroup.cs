@@ -1,3 +1,4 @@
+using HouseholdApp.Application.Shared.Domain;
 namespace HouseholdApp.Application.Modules.Expenses.Domain;
 
 public sealed record DefaultAllocationRule(Guid UserId, decimal Percentage);
@@ -21,7 +22,7 @@ public sealed class ExpenseGroup
         {
             var total = defaultRules.Sum(r => r.Percentage);
             if (Math.Abs(total - 100m) > 0.01m)
-                throw new InvalidOperationException($"Default allocation rules must sum to 100%. Got {total}%.");
+                throw new DomainRuleException("Errors.Group.AllocationRules", $"Default allocation rules must sum to 100%. Got {total}%.", total);
         }
 
         var group = new ExpenseGroup

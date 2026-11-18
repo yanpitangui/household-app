@@ -33,13 +33,13 @@ window.copyInviteUrl = function (btn) {
     var url = btn.dataset.inviteUrl;
     navigator.clipboard.writeText(url).then(function () {
         var orig = btn.innerHTML;
-        btn.innerHTML = '✓ Copied!';
+        btn.textContent = '✓ ' + btn.dataset.copied;
         setTimeout(function () { btn.innerHTML = orig; }, 1800);
     });
 };
 
 window.shareInviteUrl = function (btn) {
-    navigator.share({ title: 'Join my household', url: btn.dataset.inviteUrl });
+    navigator.share({ title: btn.dataset.shareTitle, url: btn.dataset.inviteUrl });
 };
 
 document.addEventListener('DOMContentLoaded', function () {

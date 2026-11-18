@@ -590,4 +590,157 @@
   <data name="Removal.Leave.Plan"><value>keep you owing your share of "{0}" as installments fall due</value></data>
   <data name="Removal.Leave.Tasks"><value>unassign your {0} open task(s)</value></data>
   <data name="Removal.Leave.Access"><value>you lose access to this household</value></data>
+  <data name="Errors.Group.AllocationRules" xml:space="preserve">
+    <value>Default split rules must add up to 100% (now {0}%).</value>
+  </data>
+  <data name="Errors.Group.NotFound" xml:space="preserve">
+    <value>Expense group not found.</value>
+  </data>
+  <data name="Errors.Plan.Count" xml:space="preserve">
+    <value>Installments must be between {0} and {1}.</value>
+  </data>
+  <data name="Errors.Plan.DownNegative" xml:space="preserve">
+    <value>The down payment can't be negative.</value>
+  </data>
+  <data name="Errors.Plan.DownTooLarge" xml:space="preserve">
+    <value>The down payment must be less than the total.</value>
+  </data>
+  <data name="Errors.Plan.FirstBeforePurchase" xml:space="preserve">
+    <value>With a down payment, the first installment can't come before the purchase date.</value>
+  </data>
+  <data name="Errors.Plan.InstallmentMinCent" xml:space="preserve">
+    <value>Each installment must be at least one cent.</value>
+  </data>
+  <data name="Errors.Plan.NumbersStart" xml:space="preserve">
+    <value>Installment numbers start at {0}.</value>
+  </data>
+  <data name="Errors.Plan.NothingToChange" xml:space="preserve">
+    <value>The plan has no installments left to change.</value>
+  </data>
+  <data name="Errors.Plan.NothingToPay" xml:space="preserve">
+    <value>The plan has no installments left to pay.</value>
+  </data>
+  <data name="Errors.Plan.PayoffRange" xml:space="preserve">
+    <value>The payoff must be more than zero and at most the remaining amount.</value>
+  </data>
+  <data name="Errors.Plan.SplitEmpty" xml:space="preserve">
+    <value>Split the installments between at least one member.</value>
+  </data>
+  <data name="Errors.Plan.SplitDuplicate" xml:space="preserve">
+    <value>Each member can appear only once in the split.</value>
+  </data>
+  <data name="Errors.Plan.SplitSum" xml:space="preserve">
+    <value>The split must add up to the installments it covers.</value>
+  </data>
+  <data name="Errors.Plan.ShareMinCent" xml:space="preserve">
+    <value>Each member's share must be at least one cent per installment.</value>
+  </data>
+  <data name="Errors.Expense.AlreadyVoided" xml:space="preserve">
+    <value>This expense was already voided.</value>
+  </data>
+  <data name="Errors.Expense.AmountPositive" xml:space="preserve">
+    <value>The amount must be more than zero.</value>
+  </data>
+  <data name="Errors.Expense.NotFound" xml:space="preserve">
+    <value>Expense not found.</value>
+  </data>
+  <data name="Errors.SumMismatch" xml:space="preserve">
+    <value>The amounts paid must add up to the split.</value>
+  </data>
+  <data name="Errors.Recurring.CatchUpLimit" xml:space="preserve">
+    <value>Catching up can create at most {0} expenses.</value>
+  </data>
+  <data name="Errors.Recurring.FirstDatePast" xml:space="preserve">
+    <value>A new first date must be today or later.</value>
+  </data>
+  <data name="Errors.Recurring.NeedsMembers" xml:space="preserve">
+    <value>A recurring expense needs a payer and at least one member.</value>
+  </data>
+  <data name="Errors.Recurring.AmountPositive" xml:space="preserve">
+    <value>A recurring expense needs an amount above zero.</value>
+  </data>
+  <data name="Expenses.Split.PerPerson" xml:space="preserve">
+    <value>{0} / person</value>
+  </data>
+  <data name="Expenses.Split.Person" xml:space="preserve">
+    <value>1 person</value>
+  </data>
+  <data name="Expenses.Split.People" xml:space="preserve">
+    <value>{0} people</value>
+  </data>
+  <data name="Expenses.Split.OfTotal" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="Expenses.Split.Left" xml:space="preserve">
+    <value>{0} left</value>
+  </data>
+  <data name="Expenses.Split.Over" xml:space="preserve">
+    <value>{0} over</value>
+  </data>
+  <data name="Expenses.Split.PctOf" xml:space="preserve">
+    <value>{0}% of 100%</value>
+  </data>
+  <data name="Expenses.Split.Share" xml:space="preserve">
+    <value>1 share of the total</value>
+  </data>
+  <data name="Expenses.Split.Shares" xml:space="preserve">
+    <value>{0} shares of the total</value>
+  </data>
+  <data name="Expenses.Split.PerShare" xml:space="preserve">
+    <value>{0} / share</value>
+  </data>
+  <data name="Expenses.Split.Base" xml:space="preserve">
+    <value>Base: {0}/person</value>
+  </data>
+  <data name="Expenses.Split.Adjustments" xml:space="preserve">
+    <value>Adjustments: {0}</value>
+  </data>
+  <data name="Expenses.Split.MemberBase" xml:space="preserve">
+    <value>base {0}</value>
+  </data>
+  <data name="Expenses.Split.PaidBy" xml:space="preserve">
+    <value>{0} paid, {1}</value>
+  </data>
+  <data name="Expenses.Error.AllocationSum" xml:space="preserve">
+    <value>The split doesn't add up to the total.</value>
+  </data>
+  <data name="Expenses.Error.SelectMember" xml:space="preserve">
+    <value>Select at least one member.</value>
+  </data>
+  <data name="Recipes.Import.UrlRequired" xml:space="preserve">
+    <value>Enter a URL.</value>
+  </data>
+  <data name="Recipes.Import.FetchFailed" xml:space="preserve">
+    <value>Couldn't open that page. Check the URL and try again.</value>
+  </data>
+  <data name="Recipes.Import.NoRecipeData" xml:space="preserve">
+    <value>No recipe data found on this page.</value>
+  </data>
+  <data name="Recipes.Import.Reading" xml:space="preserve">
+    <value>Reading recipe…</value>
+  </data>
+  <data name="Recipes.Import.Imported" xml:space="preserve">
+    <value>Recipe imported — review and save</value>
+  </data>
+  <data name="Recipes.Import.Failed" xml:space="preserve">
+    <value>Failed to import. Check the URL and try again.</value>
+  </data>
+  <data name="Recipes.Error.SelectList" xml:space="preserve">
+    <value>Select a list or enter a new list name.</value>
+  </data>
+  <data name="Recipes.NotFound" xml:space="preserve">
+    <value>Recipe not found.</value>
+  </data>
+  <data name="Dashboard.Copied" xml:space="preserve">
+    <value>Copied!</value>
+  </data>
+  <data name="Dashboard.ShareTitle" xml:space="preserve">
+    <value>Join my household</value>
+  </data>
+  <data name="Nav.Main" xml:space="preserve">
+    <value>Main navigation</value>
+  </data>
+  <data name="Landing.TaglineHighlight" xml:space="preserve">
+    <value>household</value>
+  </data>
 </root>

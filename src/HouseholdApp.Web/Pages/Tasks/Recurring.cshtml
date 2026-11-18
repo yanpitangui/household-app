@@ -33,7 +33,7 @@
             </div>
             <div class="col-12">
                 <label class="form-label">@L["Tasks.DescriptionOptional"]</label>
-                <input asp-for="NewDescription" class="form-control" placeholder="Details..." />
+                <input asp-for="NewDescription" class="form-control" placeholder="@L["Recipes.DetailsPlaceholder"]" />
             </div>
             <div class="col-12">
                 @await Html.PartialAsync("_RecurrencePicker", new RecurrencePickerViewModel("New", Model.NewFrequency, Model.NewFirstDate, Model.NewTime))

@@ -67,10 +67,15 @@ public class CreateRecipeModel(
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request?.Url))
-            return new JsonResult(new { success = false, errorMessage = "URL is required" });
+            return new JsonResult(new { success = false, errorMessage = Loc["Recipes.Import.UrlRequired"].Value });
 
         var result = await recipeImporter.ImportAsync(request.Url, ct);
-        return new JsonResult(result);
+        return new JsonResult(result.Failure switch
+        {
+            RecipeImportFailure.FetchFailed => result with { ErrorMessage = Loc["Recipes.Import.FetchFailed"].Value },
+            RecipeImportFailure.NoRecipeData => result with { ErrorMessage = Loc["Recipes.Import.NoRecipeData"].Value },
+            _ => result,
+        });
     }
 
     private static List<InstructionStepDto> ParseInstructions(string text)

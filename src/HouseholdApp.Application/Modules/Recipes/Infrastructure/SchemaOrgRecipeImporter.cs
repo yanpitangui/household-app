@@ -16,7 +16,7 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
         }
         catch (Exception ex)
         {
-            return new RecipeImportResult(false, $"Could not fetch URL: {ex.Message}");
+            return new RecipeImportResult(false, $"Could not fetch URL: {ex.Message}", Failure: RecipeImportFailure.FetchFailed);
         }
 
         var parser = new HtmlParser();
@@ -40,7 +40,7 @@ public sealed class SchemaOrgRecipeImporter(HttpClient httpClient) : IRecipeImpo
             }
         }
 
-        return new RecipeImportResult(false, "No recipe data found on this page.");
+        return new RecipeImportResult(false, "No recipe data found on this page.", Failure: RecipeImportFailure.NoRecipeData);
     }
 
     private static JsonElement? FindRecipeNode(JsonElement root)

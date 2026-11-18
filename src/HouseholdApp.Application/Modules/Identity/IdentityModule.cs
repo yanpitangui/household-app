@@ -14,7 +14,9 @@ public static class IdentityModule
         services.AddScoped<IUserQuery, UserRepository>();
         services.Decorate<IUserQuery, CachingUserQueryService>();
         services.AddScoped<IUserProvisioning, UserRepository>();
+        services.AddScoped<IUserLocales, UserRepository>();
         services.AddEventHandler<UserProvisioned, UserCacheInvalidationHandler>();
+        services.AddEventHandler<UserLocaleChanged, UserCacheInvalidationHandler>();
         return services;
     }
 }

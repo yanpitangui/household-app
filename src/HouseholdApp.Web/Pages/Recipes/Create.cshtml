@@ -21,7 +21,9 @@
         </button>
     </div>
 
-    <div id="recipe-import-status" class="recipe-import-status" style="display:none"></div>
+    <div id="recipe-import-status" class="recipe-import-status" style="display:none"
+         data-reading="@L["Recipes.Import.Reading"]" data-imported="@L["Recipes.Import.Imported"]"
+         data-no-recipe="@L["Recipes.Import.NoRecipeData"]" data-failed="@L["Recipes.Import.Failed"]"></div>
 
     <div class="recipe-import-divider"><span>@L["Recipes.OrFillManually"]</span></div>
 
@@ -177,7 +179,7 @@
             if (!url) return;
 
             importBtn.disabled = true;
-            setStatus('loading', 'Reading recipe…');
+            setStatus('loading', statusEl.dataset.reading);
 
             try {
                 var res = await fetch('?handler=Import', {
@@ -192,7 +194,7 @@
                 var data = await res.json();
 
                 if (!data.success) {
-                    setStatus('error', '⚠ ' + (data.errorMessage ?? 'No recipe data found on this page.'));
+                    setStatus('error', '⚠ ' + (data.errorMessage ?? statusEl.dataset.noRecipe));
                     importBtn.disabled = false;
                     return;
                 }
@@ -208,11 +210,11 @@
                     data.ingredients.forEach(function (ing) { addIngredientRow(ing, true); });
                 }
 
-                setStatus('success', '✓ Recipe imported — review and save');
+                setStatus('success', '✓ ' + statusEl.dataset.imported);
                 importBtn.disabled = false;
 
             } catch (err) {
-                setStatus('error', '⚠ Failed to import. Check the URL and try again.');
+                setStatus('error', '⚠ ' + statusEl.dataset.failed);
                 importBtn.disabled = false;
             }
         });

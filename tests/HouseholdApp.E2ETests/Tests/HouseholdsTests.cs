@@ -70,6 +70,10 @@ public class HouseholdsTests(PlaywrightFixture pw)
 
         await page.GotoAsync($"{pw.AppUrl}/h/{id}");
         await Assert.That(await page.Locator(".household-hero-label:has-text('Sua Casa')").IsVisibleAsync()).IsTrue();
+
+        // The language was stored for the user, so their push notifications use it too.
+        var synced = (await ctx.CookiesAsync()).Single(c => c.Name == "locale_synced");
+        await Assert.That(synced.Value).EndsWith(".pt-BR");
     }
 
     [Test]

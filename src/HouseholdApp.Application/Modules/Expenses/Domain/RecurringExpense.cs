@@ -38,7 +38,7 @@ public sealed class RecurringExpense : AggregateRoot
         var zoned = schedule.In(zone);
         var startsInThePast = schedule.FirstDate < HouseholdTime.Today(zone, now);
         if (startsInThePast && catchUp && zoned.CountThrough(now) > MaxCatchUp)
-            throw new InvalidOperationException($"A catch-up can create at most {MaxCatchUp} expenses.");
+            throw new DomainRuleException("Errors.Recurring.CatchUpLimit", $"A catch-up can create at most {MaxCatchUp} expenses.", MaxCatchUp);
 
         var next = startsInThePast && !catchUp ? zoned.NextAfter(now) : zoned.At(0);
         var created = new RecurringExpenseCreated(
@@ -84,7 +84,7 @@ public sealed class RecurringExpense : AggregateRoot
         EnsureNotEnded();
         Validate(fundingSources, allocations);
         if (schedule.FirstDate != Schedule.FirstDate && schedule.FirstDate < HouseholdTime.Today(zone, now))
-            throw new InvalidOperationException("A changed first date must be today or later.");
+            throw new DomainRuleException("Errors.Recurring.FirstDatePast", "A changed first date must be today or later.");
 
         var unchanged = schedule == Schedule;
         var next = unchanged ? NextOccurrenceAt : schedule.In(zone).NextAfter(now);
@@ -124,8 +124,9 @@ public sealed class RecurringExpense : AggregateRoot
     public void Pause(DateTimeOffset now, Guid performedByUserId)
     {
         if (Status != RecurringExpenseStatus.Active)
-            throw new InvalidOperationException(Status == RecurringExpenseStatus.Ended
-                ? "This recurring expense has ended." : "This recurring expense is not active.");
+            throw Status == RecurringExpenseStatus.Ended
+                ? new DomainRuleException("Expenses.Recurring.AlreadyEnded", "This recurring expense has ended.")
+                : new DomainRuleException("Expenses.Recurring.AlreadyPaused", "This recurring expense is not active.");
         var paused = new RecurringExpensePaused(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, performedByUserId);
         Apply(paused);
@@ -135,8 +136,9 @@ public sealed class RecurringExpense : AggregateRoot
     public void Resume(DateTimeOffset now, TimeZoneInfo zone, Guid performedByUserId)
     {
         if (Status != RecurringExpenseStatus.Paused)
-            throw new InvalidOperationException(Status == RecurringExpenseStatus.Ended
-                ? "This recurring expense has ended." : "This recurring expense is not paused.");
+            throw Status == RecurringExpenseStatus.Ended
+                ? new DomainRuleException("Expenses.Recurring.AlreadyEnded", "This recurring expense has ended.")
+                : new DomainRuleException("Expenses.Recurring.AlreadyActive", "This recurring expense is not paused.");
         var resumed = new RecurringExpenseResumed(
             Guid.CreateVersion7(), now, Id, HouseholdId, ExpenseGroupId, Description, Schedule.In(zone).NextAfter(now),
             performedByUserId);
@@ -182,16 +184,16 @@ public sealed class RecurringExpense : AggregateRoot
     private void EnsureNotEnded()
     {
         if (Status == RecurringExpenseStatus.Ended)
-            throw new InvalidOperationException("This recurring expense has ended.");
+            throw new DomainRuleException("Expenses.Recurring.AlreadyEnded", "This recurring expense has ended.");
     }
 
     private static void Validate(IReadOnlyList<FundingSource> fundingSources, IReadOnlyList<Allocation> allocations)
     {
         if (fundingSources.Count == 0 || allocations.Count == 0)
-            throw new InvalidOperationException("A recurring expense needs a payer and at least one member.");
+            throw new DomainRuleException("Errors.Recurring.NeedsMembers", "A recurring expense needs a payer and at least one member.");
         if (fundingSources.Sum(f => f.Cents) <= 0)
-            throw new InvalidOperationException("A recurring expense needs an amount above zero.");
+            throw new DomainRuleException("Errors.Recurring.AmountPositive", "A recurring expense needs an amount above zero.");
         if (fundingSources.Sum(f => f.Cents) != allocations.Sum(a => a.Cents))
-            throw new InvalidOperationException("Funding sources must equal allocations.");
+            throw new DomainRuleException("Errors.SumMismatch", "Funding sources must equal allocations.");
     }
 }

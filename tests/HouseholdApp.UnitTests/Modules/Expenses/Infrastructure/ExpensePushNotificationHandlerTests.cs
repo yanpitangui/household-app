@@ -354,4 +354,84 @@ public sealed class ExpensePushNotificationHandlerTests
 
         await _pushSender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default!, default);
     }
+
+    private void OtherReadsPortuguese(params UserProfile[] extra) =>
+        _userQuery.GetByIdsAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns((IReadOnlyList<UserProfile>)
+            [
+                new UserProfile(_actorId, "sub-a", "a@x.com", "Alice", null, "en"),
+                new UserProfile(_otherId, "sub-b", "b@x.com", "Bob", null, "pt-BR"),
+                .. extra
+            ]);
+
+    [Test]
+    public async Task ExpenseRecorded_is_written_in_the_recipients_language()
+    {
+        OtherReadsPortuguese();
+        var evt = new ExpenseRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId, Guid.NewGuid(),
+            "Mercado", DateTimeOffset.UtcNow,
+            [new FundingSource(_actorId, 123456)], [new Allocation(_actorId, 123456)], _actorId);
+
+        await _sut.HandleAsync(evt);
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice adicionou uma despesa", "Mercado — R$ 1.234,56",
+            $"/h/{_householdId}/Expenses/Activity", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Plan_created_push_in_portuguese_keeps_the_monthly_share()
+    {
+        OtherReadsPortuguese();
+
+        await _sut.HandleAsync(new InstallmentPlanCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, PlanId, _householdId,
+            Guid.NewGuid(), "Conserto do carro", _actorId, 150000, 50000, 5, new DateOnly(2026, 10, 10), new DateOnly(2026, 11, 10),
+            [new Allocation(_actorId, 75000), new Allocation(_otherId, 75000)], 1, _actorId));
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice criou um parcelamento",
+            "Conserto do carro — entrada de R$ 500,00 + 5× de R$ 200,00 · sua parte R$ 100,00/mês",
+            $"/h/{_householdId}/Expenses/Plans/{PlanId}", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Unknown_people_are_named_in_the_recipients_language()
+    {
+        OtherReadsPortuguese();
+        var evt = new SettlementRecorded(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId,
+            PayerId: Guid.NewGuid(), RecipientId: _otherId, Cents: 2000, Date: DateTimeOffset.UtcNow,
+            PerformedByUserId: _actorId);
+
+        await _sut.HandleAsync(evt);
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice registrou um acerto", "Alguém pagou R$ 20,00 para Bob",
+            $"/h/{_householdId}/Expenses/Activity", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Each_member_gets_their_own_language()
+    {
+        var thirdId = Guid.NewGuid();
+        _householdQueries.GetMembersAsync(_householdId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new HouseholdMemberDto(_actorId, "Alice", "Member", null),
+            new HouseholdMemberDto(_otherId, "Bob", "Member", null),
+            new HouseholdMemberDto(thirdId, "Carol", "Member", null)
+        ]);
+        OtherReadsPortuguese(new UserProfile(thirdId, "sub-c", "c@x.com", "Carol", null, "en"));
+        var evt = new ExpenseVoided(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), _householdId, "no longer needed",
+            [new FundingSource(_actorId, 5000)], [new Allocation(_actorId, 5000)], _actorId,
+            Description: "Groceries");
+
+        await _sut.HandleAsync(evt);
+
+        await _pushSender.Received(1).SendAsync(
+            _otherId, "Alice excluiu uma despesa", "Groceries", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _pushSender.Received(1).SendAsync(
+            thirdId, "Alice deleted an expense", "Groceries", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 }

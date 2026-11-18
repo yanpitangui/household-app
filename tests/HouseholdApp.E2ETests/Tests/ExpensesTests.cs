@@ -180,6 +180,21 @@ public class ExpensesTests(PlaywrightFixture pw)
     }
 
     [Test]
+    public async Task Amounts_show_reais_in_English()
+    {
+        await using var ctx = await pw.NewAuthenticatedContextAsync();
+        var householdId = await pw.CreateHouseholdAsync(ctx, $"Exp HH {Guid.NewGuid().ToString("N")[..8]}");
+        var page = await ctx.NewTrackedPageAsync();
+        var groupId = await page.CreateGroupAsync(pw.AppUrl, householdId, "Home");
+
+        await page.RecordEqualSplitAsync(pw.AppUrl, householdId, groupId, "Currency check", "12.34");
+
+        var content = await page.Locator("main").InnerTextAsync();
+        await Assert.That(content).Contains("R$ 12.34");
+        await Assert.That(content).DoesNotContain("¤");
+    }
+
+    [Test]
     public async Task Decimal_amount_round_trips_under_pt_BR()
     {
         await using var ctx = await pw.NewAuthenticatedContextAsync();

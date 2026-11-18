@@ -4,11 +4,15 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace HouseholdApp.Application.Modules.Identity.Infrastructure;
 
-internal sealed class UserCacheInvalidationHandler(IFusionCache cache) : IEventHandler<UserProvisioned>
+internal sealed class UserCacheInvalidationHandler(IFusionCache cache) : IEventHandler<UserProvisioned>, IEventHandler<UserLocaleChanged>
 {
-    public async Task HandleAsync(UserProvisioned evt, CancellationToken ct = default)
+    public Task HandleAsync(UserProvisioned evt, CancellationToken ct = default) => RemoveAsync(evt.UserId, evt.Subject, ct);
+
+    public Task HandleAsync(UserLocaleChanged evt, CancellationToken ct = default) => RemoveAsync(evt.UserId, evt.Subject, ct);
+
+    private async Task RemoveAsync(Guid userId, string subject, CancellationToken ct)
     {
-        await cache.RemoveAsync(UserCacheKeys.ById(evt.UserId), token: ct);
-        await cache.RemoveAsync(UserCacheKeys.BySubject(evt.Subject), token: ct);
+        await cache.RemoveAsync(UserCacheKeys.ById(userId), token: ct);
+        await cache.RemoveAsync(UserCacheKeys.BySubject(subject), token: ct);
     }
 }

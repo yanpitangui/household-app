@@ -8,7 +8,10 @@ public sealed record RecipeImportResult(
     string? Servings = null,
     string? SourceUrl = null,
     IReadOnlyList<string>? Ingredients = null,
-    string? Instructions = null);
+    string? Instructions = null,
+    RecipeImportFailure? Failure = null);
+
+public enum RecipeImportFailure { FetchFailed, NoRecipeData }
 
 public interface IRecipeImporter
 {

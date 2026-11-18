@@ -59,7 +59,7 @@ public sealed class Expense : AggregateRoot
         string? reason, DateTimeOffset now, Guid performedByUserId, Guid? correctedByExpenseId = null,
         bool coveredByPlanEvent = false)
     {
-        if (IsVoided) throw new InvalidOperationException("Expense is already voided.");
+        if (IsVoided) throw new DomainRuleException("Errors.Expense.AlreadyVoided", "Expense is already voided.");
         IsVoided = true;
         Raise(new ExpenseVoided(
             Guid.CreateVersion7(), now, Id, HouseholdId, reason, FundingSources, Allocations,
@@ -86,9 +86,9 @@ public sealed class Expense : AggregateRoot
         var totalFunded = funding.Sum(f => f.Cents);
         var totalAllocated = allocations.Sum(a => a.Cents);
         if (totalFunded != totalAllocated)
-            throw new InvalidOperationException(
+            throw new DomainRuleException("Errors.SumMismatch",
                 $"Sum of funding sources ({totalFunded}) must equal sum of allocations ({totalAllocated}).");
         if (totalFunded <= 0)
-            throw new InvalidOperationException("Expense amount must be positive.");
+            throw new DomainRuleException("Errors.Expense.AmountPositive", "Expense amount must be positive.");
     }
 }

@@ -6,13 +6,13 @@ using Npgsql;
 
 namespace HouseholdApp.Application.Modules.Identity.Infrastructure;
 
-public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEventBus eventBus) : IUserQuery, IUserProvisioning
+public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEventBus eventBus) : IUserQuery, IUserProvisioning, IUserLocales
 {
     public async Task<UserProfile?> GetBySubjectAsync(string subject, CancellationToken ct = default)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<UserProfile>(
-            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl FROM identity.users WHERE subject = @subject",
+            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl, locale AS Locale FROM identity.users WHERE subject = @subject",
             new { subject });
     }
 
@@ -20,7 +20,7 @@ public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEven
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<UserProfile>(
-            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl FROM identity.users WHERE id = @id",
+            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl, locale AS Locale FROM identity.users WHERE id = @id",
             new { id });
     }
 
@@ -28,7 +28,7 @@ public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEven
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         var result = await conn.QueryAsync<UserProfile>(
-            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl FROM identity.users WHERE id = ANY(@ids)",
+            "SELECT id, subject, email, display_name AS DisplayName, picture_url AS PictureUrl, locale AS Locale FROM identity.users WHERE id = ANY(@ids)",
             new { ids = ids.ToArray() });
         return result.ToList();
     }
@@ -72,5 +72,20 @@ public sealed class UserRepository(NpgsqlDataSource db, TimeProvider time, IEven
             });
 
         await eventBus.PublishAsync(new UserProvisioned(Guid.CreateVersion7(), time.GetUtcNow(), userId, subject), ct);
+    }
+
+    public async Task SetLocaleAsync(Guid userId, string locale, CancellationToken ct = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var subject = await conn.ExecuteScalarAsync<string?>(
+            """
+            UPDATE identity.users SET locale = @locale
+            WHERE id = @userId AND locale IS DISTINCT FROM @locale
+            RETURNING subject
+            """,
+            new { userId, locale });
+
+        if (subject is not null)
+            await eventBus.PublishAsync(new UserLocaleChanged(Guid.CreateVersion7(), time.GetUtcNow(), userId, subject, locale), ct);
     }
 }

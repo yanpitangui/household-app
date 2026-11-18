@@ -9,6 +9,7 @@
     var recurrenceFirstDate = Model.RecurringFirstDate ?? Model.Date;
     ViewData["Title"] = showEditLabels ? L["Expenses.EditExpenseHeading"] : L["Expenses.RecordExpenseHeading"];
     var currencySymbol = CultureInfo.CurrentCulture.NumberFormat.CurrencySymbol;
+    var moneyPlaceholder = 0m.ToString("F2", CultureInfo.CurrentCulture);
     var currentUserName = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.DisplayName ?? "";
     var currentUserPic = Model.Members.FirstOrDefault(m => m.UserId == Model.CurrentUserId)?.PictureUrl;
     var currentUserInitial = currentUserName.Length > 0 ? currentUserName[0].ToString() : "?";
@@ -64,7 +65,7 @@
         <div class="record-amount-row">
             <span class="record-amount-currency">@currencySymbol</span>
             <input id="amount-input" name="Amount" type="number" step="0.01" min="0.01"
-                   class="record-amount-input" placeholder="0,00"
+                   class="record-amount-input" placeholder="@moneyPlaceholder"
                    value="@NumberInput.Value(Model.Amount)" readonly="@(Model.EditingPlan is not null)" />
         </div>
         <span asp-validation-for="Amount" class="field-error"></span>
@@ -73,7 +74,7 @@
             <div class="record-split-icon">👥</div>
             <div style="flex:1;min-width:0">
                 <div class="record-split-label">@L["Expenses.Participants"]</div>
-                <div class="record-split-value" id="split-summary-text">@currentUserName pagou, dividido igualmente</div>
+                <div class="record-split-value" id="split-summary-text">@L["Expenses.Split.PaidBy", currentUserName, L["Expenses.SplitSummary.Equal"]]</div>
             </div>
             <span class="record-split-chevron">›</span>
         </button>
@@ -104,7 +105,7 @@
                 <div class="repeat-row">
                     <span>@L["Expenses.Repeat.DownPayment"]</span>
                     <input type="number" id="down-field" class="form-control repeat-money" step="0.01" min="0"
-                           placeholder="0,00" value="@NumberInput.Value(Model.DownPayment)" oninput="onDownInput()" />
+                           placeholder="@moneyPlaceholder" value="@NumberInput.Value(Model.DownPayment)" oninput="onDownInput()" />
                 </div>
                 <div class="repeat-hint">@L["Expenses.Repeat.DownPaymentHint"]</div>
                 <div class="repeat-row">
@@ -255,7 +256,7 @@
                 <div class="split-input" data-for="exact" style="display:none;align-items:center">
                     <span class="split-input-prefix">@currencySymbol</span>
                     <input type="text" inputmode="decimal" class="split-money-inp exact-inp"
-                           placeholder="0,00" oninput="updateSummaryBar()">
+                           placeholder="@moneyPlaceholder" oninput="updateSummaryBar()">
                 </div>
 
                 <div class="split-input" data-for="pct" style="display:none;align-items:center">
@@ -273,7 +274,7 @@
                 <div class="split-input" data-for="adjust" style="display:none;align-items:center">
                     <span class="split-input-prefix">+</span>
                     <input type="text" inputmode="decimal" class="split-money-inp adjust-inp"
-                           placeholder="0,00" oninput="updateSummaryBar()">
+                           placeholder="@moneyPlaceholder" oninput="updateSummaryBar()">
                 </div>
             </div>
         }
@@ -295,6 +296,7 @@
 (function () {
     const meta = JSON.parse(document.getElementById('mode-meta').textContent);
     const currencySymbol = @Json.Serialize(currencySymbol);
+    const decimalSeparator = @Json.Serialize(CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator);
     let currentMode = 'equal';
     let payerName = document.getElementById('payer-name-el')?.textContent ?? '';
 
@@ -364,7 +366,15 @@
     }
 
     function centsToDisplay(c) {
-        return (c / 100).toFixed(2).replace('.', ',');
+        return (c / 100).toFixed(2).replace('.', decimalSeparator);
+    }
+
+    function moneyText(c) {
+        return `${currencySymbol} ${centsToDisplay(c)}`;
+    }
+
+    function splitText(key, ...args) {
+        return args.reduce((s, a, i) => s.replace(`{${i}}`, a), meta.split[key]);
     }
 
     window.updateSummaryBar = function () {
@@ -376,8 +386,8 @@
         if (currentMode === 'equal') {
             const n = document.querySelectorAll('.split-check-btn.active').length;
             if (n > 0 && tc > 0) {
-                mainEl.textContent = `${currencySymbol} ${centsToDisplay(Math.round(tc / n))} / pessoa`;
-                subEl.textContent = `${n} pessoa${n > 1 ? 's' : ''}`;
+                mainEl.textContent = splitText('perPerson', moneyText(Math.round(tc / n)));
+                subEl.textContent = n > 1 ? splitText('people', n) : splitText('person');
             } else {
                 mainEl.textContent = '—';
                 subEl.textContent = '';
@@ -387,21 +397,21 @@
             let sum = 0;
             document.querySelectorAll('.exact-inp').forEach(i => { sum += parseMoneyCents(i.value); });
             const rem = tc - sum;
-            mainEl.textContent = `${currencySymbol} ${centsToDisplay(sum)} de R$ ${centsToDisplay(tc)}`;
-            subEl.textContent = rem === 0 ? '✓ OK' : `${currencySymbol} ${centsToDisplay(Math.abs(rem))} ${rem > 0 ? 'restantes' : 'a mais'}`;
+            mainEl.textContent = splitText('ofTotal', moneyText(sum), moneyText(tc));
+            subEl.textContent = rem === 0 ? '✓ OK' : splitText(rem > 0 ? 'left' : 'over', moneyText(Math.abs(rem)));
             mainEl.style.color = rem === 0 ? 'var(--accent-tasks)' : 'var(--text-primary)';
         } else if (currentMode === 'pct') {
             let sum = 0;
             document.querySelectorAll('.split-pct-inp').forEach(i => { sum += parseInt(i.value || '0', 10); });
             const rem = 100 - sum;
-            mainEl.textContent = `${sum}% de 100%`;
-            subEl.textContent = rem === 0 ? '✓ OK' : `${Math.abs(rem)}% ${rem > 0 ? 'restantes' : 'a mais'}`;
+            mainEl.textContent = splitText('pctOf', sum);
+            subEl.textContent = rem === 0 ? '✓ OK' : splitText(rem > 0 ? 'left' : 'over', `${Math.abs(rem)}%`);
             mainEl.style.color = rem === 0 ? 'var(--accent-tasks)' : 'var(--text-primary)';
         } else if (currentMode === 'shares') {
             let total = 0;
             document.querySelectorAll('.split-shares-inp').forEach(i => { total += parseInt(i.value || '0', 10); });
-            mainEl.textContent = `${total} parte${total !== 1 ? 's' : ''} do total`;
-            subEl.textContent = total > 0 && tc > 0 ? `${currencySymbol} ${centsToDisplay(Math.round(tc / total))} / parte` : '';
+            mainEl.textContent = total === 1 ? splitText('share') : splitText('shares', total);
+            subEl.textContent = total > 0 && tc > 0 ? splitText('perShare', moneyText(Math.round(tc / total))) : '';
             mainEl.style.color = 'var(--text-primary)';
             updateMemberSubs();
         } else if (currentMode === 'adjust') {
@@ -410,8 +420,8 @@
             let adjSum = 0;
             document.querySelectorAll('.adjust-inp').forEach(i => { adjSum += parseMoneyCents(i.value); });
             const finalAmt = tc - adjSum;
-            mainEl.textContent = `Base: R$ ${centsToDisplay(base)}/pessoa`;
-            subEl.textContent = adjSum !== 0 ? `Total ajustes: R$ ${centsToDisplay(adjSum)}` : '';
+            mainEl.textContent = splitText('base', moneyText(base));
+            subEl.textContent = adjSum !== 0 ? splitText('adjustments', moneyText(adjSum)) : '';
             mainEl.style.color = finalAmt >= 0 ? 'var(--text-primary)' : '#f87171';
             updateMemberSubs();
         }
@@ -437,7 +447,7 @@
             const rem = tc % n;
             document.querySelectorAll('.split-member-row').forEach((row, i) => {
                 const sub = row.querySelector('.split-member-sub');
-                if (sub) sub.textContent = `base R$ ${centsToDisplay(base + (i === 0 ? rem : 0))}`;
+                if (sub) sub.textContent = splitText('memberBase', moneyText(base + (i === 0 ? rem : 0)));
             });
         }
     }
@@ -445,7 +455,7 @@
     function updateSplitSummaryButton() {
         const el = document.getElementById('split-summary-text');
         if (!el) return;
-        el.textContent = `${payerName} pagou, ${meta.modes[currentMode].summary}`;
+        el.textContent = splitText('paidBy', payerName, meta.modes[currentMode].summary);
     }
 
     function computeAllocations() {
@@ -764,6 +774,23 @@
     "shares": { "title": "@L["Expenses.SplitMode.SharesTitle"]", "desc": "@L["Expenses.SplitMode.SharesDesc"]", "summary": "@L["Expenses.SplitSummary.Shares"]"  },
     "adjust": { "title": "@L["Expenses.SplitMode.AdjustTitle"]", "desc": "@L["Expenses.SplitMode.AdjustDesc"]", "summary": "@L["Expenses.SplitSummary.Adjust"]"  }
   },
+  "split": @Json.Serialize(new
+  {
+      perPerson = L["Expenses.Split.PerPerson"].Value,
+      person = L["Expenses.Split.Person"].Value,
+      people = L["Expenses.Split.People"].Value,
+      ofTotal = L["Expenses.Split.OfTotal"].Value,
+      left = L["Expenses.Split.Left"].Value,
+      over = L["Expenses.Split.Over"].Value,
+      pctOf = L["Expenses.Split.PctOf"].Value,
+      share = L["Expenses.Split.Share"].Value,
+      shares = L["Expenses.Split.Shares"].Value,
+      perShare = L["Expenses.Split.PerShare"].Value,
+      @base = L["Expenses.Split.Base"].Value,
+      adjustments = L["Expenses.Split.Adjustments"].Value,
+      memberBase = L["Expenses.Split.MemberBase"].Value,
+      paidBy = L["Expenses.Split.PaidBy"].Value,
+  }),
   "repeat": @Json.Serialize(new
   {
       preview = L["Expenses.Repeat.Preview"].Value,

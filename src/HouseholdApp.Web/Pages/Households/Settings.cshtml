@@ -98,8 +98,8 @@
             <div class="invite-card-label">@L["Dashboard.InviteSingleUse"]</div>
             <div class="invite-card-url">@displayUrl</div>
             <div class="invite-card-actions">
-                <button class="invite-card-btn invite-btn-copy" data-invite-url="@joinUrl" onclick="copyInviteUrl(this)">⧉ @L["Dashboard.Copy"]</button>
-                <button class="invite-card-btn invite-btn-share" data-invite-url="@joinUrl" style="display:none" onclick="shareInviteUrl(this)">↗ @L["Dashboard.Share"]</button>
+                <button class="invite-card-btn invite-btn-copy" data-invite-url="@joinUrl" data-copied="@L["Dashboard.Copied"]" onclick="copyInviteUrl(this)">⧉ @L["Dashboard.Copy"]</button>
+                <button class="invite-card-btn invite-btn-share" data-invite-url="@joinUrl" data-share-title="@L["Dashboard.ShareTitle"]" style="display:none" onclick="shareInviteUrl(this)">↗ @L["Dashboard.Share"]</button>
             </div>
             <div class="invite-card-hint">@L["Dashboard.InviteSingleUseHint"]</div>
         </div>

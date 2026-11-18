@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Someone" xml:space="preserve">
+    <value>Someone</value>
+  </data>
+  <data name="Money" xml:space="preserve">
+    <value>R$ {0}</value>
+  </data>
+  <data name="AmountBody" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="ExpenseAdded" xml:space="preserve">
+    <value>{0} added an expense</value>
+  </data>
+  <data name="ExpenseEdited" xml:space="preserve">
+    <value>{0} edited an expense</value>
+  </data>
+  <data name="ExpenseDeleted" xml:space="preserve">
+    <value>{0} deleted an expense</value>
+  </data>
+  <data name="DownPaymentAdded" xml:space="preserve">
+    <value>{0} added a down payment</value>
+  </data>
+  <data name="DownPaymentBody" xml:space="preserve">
+    <value>{0} — down payment {1}</value>
+  </data>
+  <data name="InstallmentAdded" xml:space="preserve">
+    <value>{0} added installment {1}/{2}</value>
+  </data>
+  <data name="InstallmentBody" xml:space="preserve">
+    <value>{0} {1}/{2} — {3}</value>
+  </data>
+  <data name="SettlementRecorded" xml:space="preserve">
+    <value>{0} recorded a settlement</value>
+  </data>
+  <data name="SettlementBody" xml:space="preserve">
+    <value>{0} paid {1} {2}</value>
+  </data>
+  <data name="PlanCreated" xml:space="preserve">
+    <value>{0} created an installment plan</value>
+  </data>
+  <data name="PlanInstallments" xml:space="preserve">
+    <value>{0}× {1}</value>
+  </data>
+  <data name="PlanBodyWithDown" xml:space="preserve">
+    <value>{0} — {1} down + {2}</value>
+  </data>
+  <data name="PlanPaidEarly" xml:space="preserve">
+    <value>{0} paid an installment plan early</value>
+  </data>
+  <data name="PlanPaidEarlyBody" xml:space="preserve">
+    <value>{0} {1}–{2}/{2} — {3} (of {4})</value>
+  </data>
+  <data name="PlanCancelled" xml:space="preserve">
+    <value>{0} cancelled an installment plan</value>
+  </data>
+  <data name="PlanCancelledVoided" xml:space="preserve">
+    <value>{0} · voided {1} installments</value>
+  </data>
+  <data name="RecurringCreated" xml:space="preserve">
+    <value>{0} created a recurring expense</value>
+  </data>
+  <data name="RecurringEnded" xml:space="preserve">
+    <value>{0} ended a recurring expense</value>
+  </data>
+  <data name="YourShare" xml:space="preserve">
+    <value>{0} · your share {1}</value>
+  </data>
+  <data name="YourSharePerMonth" xml:space="preserve">
+    <value>{0} · your share {1}/month</value>
+  </data>
+</root>

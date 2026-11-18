@@ -1,3 +1,4 @@
+using HouseholdApp.Web.Shared.Localization;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
 using HouseholdApp.Application.Shared.Authorization;
@@ -80,7 +81,7 @@ public class InstallmentPlanModel(
             var current = await expenseQueries.GetInstallmentPlanPageAsync(HouseholdId, PlanId, CurrentUserId);
             TempData["Error"] = current is { Summary.Status: not InstallmentPlanStatus.Active }
                 ? Loc["Expenses.Plan.Ended"].Value
-                : ex.Message;
+                : Loc.Explain(ex);
         }
         catch (Exception ex) when (ex is StreamLockedException or JasperFx.ConcurrencyException)
         {

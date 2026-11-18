@@ -1,3 +1,4 @@
+using HouseholdApp.Web.Shared.Localization;
 using System.ComponentModel.DataAnnotations;
 using HouseholdApp.Application.Modules.Expenses.Application.Ports;
 using HouseholdApp.Application.Modules.Expenses.Domain;
@@ -178,7 +179,7 @@ public class RecordExpenseModel(
             var sum = AllocationCents.Sum();
             if (sum != cents)
             {
-                ModelState.AddModelError("", "Allocation amounts do not sum to the total.");
+                ModelState.AddModelError("", Loc["Expenses.Error.AllocationSum"].Value);
                 await LoadLookups();
                 return Page();
             }
@@ -190,7 +191,7 @@ public class RecordExpenseModel(
         {
             if (SplitMemberIds.Count == 0)
             {
-                ModelState.AddModelError("SplitMemberIds", "Select at least one member.");
+                ModelState.AddModelError("SplitMemberIds", Loc["Expenses.Error.SelectMember"].Value);
                 await LoadLookups();
                 return Page();
             }
@@ -214,7 +215,7 @@ public class RecordExpenseModel(
             catch (InvalidOperationException ex)
             {
                 await LoadLookups();
-                ModelState.AddModelError("", ex.Message);
+                ModelState.AddModelError("", Loc.Explain(ex));
                 return Page();
             }
             catch (StreamLockedException)
@@ -246,7 +247,7 @@ public class RecordExpenseModel(
             }
             catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError("", ex.Message);
+                ModelState.AddModelError("", Loc.Explain(ex));
                 return Page();
             }
             catch (StreamLockedException)
@@ -265,7 +266,7 @@ public class RecordExpenseModel(
             catch (InvalidOperationException ex)
             {
                 await LoadLookups();
-                ModelState.AddModelError("", ex.Message);
+                ModelState.AddModelError("", Loc.Explain(ex));
                 return Page();
             }
             catch (StreamLockedException)
@@ -307,7 +308,7 @@ public class RecordExpenseModel(
             }
             catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError("", ex.Message);
+                ModelState.AddModelError("", Loc.Explain(ex));
                 return Page();
             }
         }
@@ -321,7 +322,16 @@ public class RecordExpenseModel(
                 return RedirectToPage("Index", new { householdId = HouseholdId });
             }
 
-            await expenseCommands.EditExpenseAsync(HouseholdId, ExpenseId.Value, Description, date, funding, allocations);
+            try
+            {
+                await expenseCommands.EditExpenseAsync(HouseholdId, ExpenseId.Value, Description, date, funding, allocations);
+            }
+            catch (DomainRuleException ex)
+            {
+                await LoadLookups();
+                ModelState.AddModelError("", Loc.Explain(ex));
+                return Page();
+            }
             TempData["Success"] = Loc["Flash.ExpenseUpdated"].Value;
             return RedirectToPage("Group", new { householdId = HouseholdId, groupId = existing.ExpenseGroupId });
         }
@@ -333,7 +343,15 @@ public class RecordExpenseModel(
             return Page();
         }
 
-        await expenseCommands.RecordExpenseAsync(HouseholdId, GroupId, Description, date, funding, allocations);
+        try
+        {
+            await expenseCommands.RecordExpenseAsync(HouseholdId, GroupId, Description, date, funding, allocations);
+        }
+        catch (DomainRuleException ex)
+        {
+            ModelState.AddModelError("", Loc.Explain(ex));
+            return Page();
+        }
         TempData["Success"] = Loc["Flash.ExpenseRecorded"].Value;
         return RedirectToPage("Group", new { householdId = HouseholdId, groupId = GroupId });
     }

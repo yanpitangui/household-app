@@ -1,3 +1,4 @@
+using System.Globalization;
 using HouseholdApp.Application.Modules.Expenses;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Households;
@@ -307,12 +308,18 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
 app.MapDefaultEndpoints();
 
-var supportedCultures = new[] { "en", "pt-BR" };
+// Every household keeps its books in reais, so each language formats money with R$.
+var supportedCultures = new[] { "en", "pt-BR" }.Select(name =>
+{
+    var culture = (CultureInfo)CultureInfo.GetCultureInfo(name).Clone();
+    culture.NumberFormat.CurrencySymbol = "R$";
+    return CultureInfo.ReadOnly(culture);
+}).ToList();
 app.UseRequestLocalization(options =>
 {
-    options.SetDefaultCulture("en")
-           .AddSupportedCultures(supportedCultures)
-           .AddSupportedUICultures(supportedCultures);
+    options.DefaultRequestCulture = new RequestCulture(supportedCultures[0]);
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
     options.RequestCultureProviders =
     [
         new CookieRequestCultureProvider(),
@@ -323,6 +330,7 @@ app.UseRequestLocalization(options =>
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<UserLocaleSyncMiddleware>();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
