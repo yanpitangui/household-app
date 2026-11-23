@@ -108,7 +108,7 @@ Send a sentence and let the server read it, or send fields directly (fields win 
 { "text": "pizza", "amount": "50", "group": "Trip" }
 ```
 
-Call the API over `https://` — outside development, plain `http://` requests get a `400`.
+Call the API over `https://` (served by the TLS edge in front of the app).
 
 Every response is JSON with a `message` ready to show or speak:
 

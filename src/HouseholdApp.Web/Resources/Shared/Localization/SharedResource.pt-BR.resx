@@ -749,7 +749,6 @@
   <data name="Integrations.Error.Scope" xml:space="preserve"><value>Este token de acesso não permite isso.</value></data>
   <data name="Integrations.Error.NotFound" xml:space="preserve"><value>Casa não encontrada.</value></data>
   <data name="Integrations.Error.RateLimited" xml:space="preserve"><value>Muitas solicitações. Tente de novo em um minuto.</value></data>
-  <data name="Integrations.Error.HttpsRequired" xml:space="preserve"><value>Use https:// neste endereço.</value></data>
   <data name="Integrations.Error.BadBody" xml:space="preserve"><value>O corpo da requisição deve ser JSON.</value></data>
   <data name="Integrations.Error.TextOrItems" xml:space="preserve"><value>Envie text ou items.</value></data>
   <data name="Integrations.Error.Unexpected" xml:space="preserve"><value>Algo deu errado. Tente de novo mais tarde.</value></data>

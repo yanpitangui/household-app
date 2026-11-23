@@ -749,7 +749,6 @@
   <data name="Integrations.Error.Scope" xml:space="preserve"><value>This access token doesn't allow that.</value></data>
   <data name="Integrations.Error.NotFound" xml:space="preserve"><value>Household not found.</value></data>
   <data name="Integrations.Error.RateLimited" xml:space="preserve"><value>Too many requests. Try again in a minute.</value></data>
-  <data name="Integrations.Error.HttpsRequired" xml:space="preserve"><value>Use https:// for this address.</value></data>
   <data name="Integrations.Error.BadBody" xml:space="preserve"><value>The request body must be JSON.</value></data>
   <data name="Integrations.Error.TextOrItems" xml:space="preserve"><value>Send either text or items.</value></data>
   <data name="Integrations.Error.Unexpected" xml:space="preserve"><value>Something went wrong. Try again later.</value></data>

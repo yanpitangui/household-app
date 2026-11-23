@@ -361,7 +361,6 @@ if (!DatabaseMigrator.Migrate(connStr))
     throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
 
 app.UseForwardedHeaders();
-app.UseIntegrationsHttpsOnly(app.Environment);
 
 if (!app.Environment.IsDevelopment())
 {

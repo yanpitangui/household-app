@@ -24,20 +24,6 @@ public static class IntegrationEndpoints
 
     public static bool IsIntegrationRequest(HttpContext http) => http.Request.Path.StartsWithSegments(Prefix);
 
-    // Runs right after UseForwardedHeaders: a token sent over plain HTTP is refused before anything reads it.
-    public static IApplicationBuilder UseIntegrationsHttpsOnly(this IApplicationBuilder app, IWebHostEnvironment env) =>
-        app.Use(async (http, next) =>
-        {
-            if (!env.IsDevelopment() && !http.Request.IsHttps && IsIntegrationRequest(http))
-            {
-                var loc = http.RequestServices.GetRequiredService<IStringLocalizer<SharedResource>>();
-                http.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await http.Response.WriteAsJsonAsync(new IntegrationError(loc["Integrations.Error.HttpsRequired"].Value));
-                return;
-            }
-            await next(http);
-        });
-
     // Runs after UseStatusCodePagesWithReExecute: API responses keep their own (JSON) bodies.
     public static IApplicationBuilder UseIntegrationsWithoutStatusPages(this IApplicationBuilder app) =>
         app.Use((http, next) =>
