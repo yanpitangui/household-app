@@ -1,4 +1,13 @@
 using System.Globalization;
+using System.Threading.RateLimiting;
+using HouseholdApp.Application.Modules.Integrations;
+using HouseholdApp.Application.Modules.Integrations.Application.Ports;
+using HouseholdApp.Application.Shared.Compliance;
+using HouseholdApp.Web.Integrations;
+using HouseholdApp.Web.Shared.Localization;
+using Microsoft.Extensions.Compliance.Classification;
+using Microsoft.Extensions.Compliance.Redaction;
+using Microsoft.Extensions.Localization;
 using HouseholdApp.Application.Modules.Expenses;
 using HouseholdApp.Application.Modules.Expenses.Infrastructure;
 using HouseholdApp.Application.Modules.Households;
@@ -54,6 +63,21 @@ using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Classified log values are redacted before any logger sees them: secrets erased, what people said pseudonymized.
+builder.Logging.EnableRedaction();
+builder.Services.AddRedaction(redaction =>
+{
+    redaction.SetRedactor<ErasingRedactor>(new DataClassificationSet(DataTaxonomy.Secret));
+#pragma warning disable EXTEXP0002
+    redaction.SetHmacRedactor(builder.Configuration.GetSection("Redaction:Hmac"), new DataClassificationSet(DataTaxonomy.Private));
+#pragma warning restore EXTEXP0002
+});
+if (string.IsNullOrEmpty(builder.Configuration["Redaction:Hmac:Key"]))
+    throw new InvalidOperationException("Missing Redaction:Hmac:Key (base64, at least 44 characters) and Redaction:Hmac:KeyId.");
+// Throws a descriptive error when the key is absent, not base64, or shorter than 32 bytes.
+_ = (builder.Configuration.GetSection("Integrations").Get<IntegrationsOptions>() ?? new IntegrationsOptions()).DecodeTokenKey();
+
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddRazorPages(options =>
 {
@@ -92,6 +116,9 @@ builder.Services.AddRecipesModule();
 // clients to re-query — deferred handlers for the same event dispatch in registration order.
 builder.Services.AddEventHandler<RecipeCreated, RecipeRealtimeNotifier>();
 builder.Services.AddEventHandler<RecipeDeleted, RecipeRealtimeNotifier>();
+builder.Services.AddIntegrationsModule(builder.Configuration);
+builder.Services.AddScoped<IntegrationRequestContext>();
+builder.Services.AddScoped<IntegrationResponses>();
 builder.Services.AddHttpClient<IRecipeImporter, SchemaOrgRecipeImporter>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(10);
@@ -231,7 +258,8 @@ builder.Services.AddAuthentication(options =>
                 identity.AddClaim(new Claim("app_uid", user.Id.ToString()));
             }
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, AccessTokenAuthenticationHandler>(AccessTokenDefaults.Scheme, null);
 
 builder.Services.AddAuthorization(options =>
 {
@@ -243,6 +271,23 @@ builder.Services.AddAuthorization(options =>
                   var admins = builder.Configuration.GetSection("Admins").Get<string[]>() ?? [];
                   return admins.Contains(email, StringComparer.OrdinalIgnoreCase);
               }));
+    // Token requests authenticate only with ApiToken, so /api/integrations accepts access tokens alone.
+    options.AddPolicy(AccessTokenDefaults.Policy, policy =>
+        policy.AddAuthenticationSchemes(AccessTokenDefaults.Scheme).RequireAuthenticatedUser());
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, ct) =>
+    {
+        var loc = context.HttpContext.RequestServices.GetRequiredService<IStringLocalizer<SharedResource>>();
+        return new ValueTask(context.HttpContext.Response.WriteAsJsonAsync(
+            new IntegrationError(loc["Integrations.Error.RateLimited"].Value), ct));
+    };
+    options.AddPolicy(AccessTokenDefaults.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.User.FindFirstValue(AccessTokenDefaults.TokenIdClaim) ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
@@ -290,24 +335,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-var app = builder.Build();
-
-// DbUp applies the Dapper modules' scripts before hosted services start, so the scheduler and module jobs find their tables.
-if (!DatabaseMigrator.Migrate(connStr))
-    throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
-
-app.UseForwardedHeaders();
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/error");
-    app.UseHsts();
-}
-
-app.UseStatusCodePagesWithReExecute("/not-found");
-app.UseHttpsRedirection();
-app.MapDefaultEndpoints();
-
 // Every household keeps its books in reais, so each language formats money with R$.
 var supportedCultures = new[] { "en", "pt-BR" }.Select(name =>
 {
@@ -315,7 +342,7 @@ var supportedCultures = new[] { "en", "pt-BR" }.Select(name =>
     culture.NumberFormat.CurrencySymbol = "R$";
     return CultureInfo.ReadOnly(culture);
 }).ToList();
-app.UseRequestLocalization(options =>
+builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
     options.DefaultRequestCulture = new RequestCulture(supportedCultures[0]);
     options.SupportedCultures = supportedCultures;
@@ -327,9 +354,34 @@ app.UseRequestLocalization(options =>
     ];
 });
 
+var app = builder.Build();
+
+// DbUp applies the Dapper modules' scripts before hosted services start, so the scheduler and module jobs find their tables.
+if (!DatabaseMigrator.Migrate(connStr))
+    throw new InvalidOperationException("Database migration failed. Check DbUp output above for details.");
+
+app.UseForwardedHeaders();
+app.UseIntegrationsHttpsOnly(app.Environment);
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/error");
+    app.UseHsts();
+}
+
+app.UseStatusCodePagesWithReExecute("/not-found");
+app.UseIntegrationsWithoutStatusPages();
+// Token clients call https:// directly, so a wrong URL surfaces as a clear error right away.
+app.UseWhen(http => !IntegrationEndpoints.IsIntegrationRequest(http),
+    branch => branch.UseHttpsRedirection());
+app.MapDefaultEndpoints();
+
+app.UseRequestLocalization();
+
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseMiddleware<UserLocaleSyncMiddleware>();
 app.UseAntiforgery();
 
@@ -340,6 +392,7 @@ app.MapTaskStream();
 app.MapRecipeStream();
 app.MapExpenseStream();
 app.MapPushSubscriptions();
+app.MapIntegrations();
 app.MapQuartzDashboard().RequireAuthorization(SchedulerAdminPolicy);
 app.MapGet("/login", (HttpContext ctx, string? returnUrl) =>
 {

@@ -10,7 +10,9 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Marten" />
+    <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
     <PackageReference Include="Scrutor" />
     <PackageReference Include="Quartz" />
     <PackageReference Include="Quartz.Weasel.PostgreSQL" />

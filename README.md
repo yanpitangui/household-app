@@ -86,6 +86,61 @@ dotnet test tests/HouseholdApp.E2ETests/HouseholdApp.E2ETests.csproj
 
 Tests use [TUnit](https://tunit.dev) on Microsoft.Testing.Platform.
 
+## Integrations API
+
+Other apps and automations can add list items and record expenses with an **access token**
+(Household settings → Access tokens). A token belongs to one member and one household, can only do what its
+permissions allow, expires (30/90/365 days), and can be revoked at any time. It is shown once — store it safely.
+
+```
+POST /api/integrations/list-items
+POST /api/integrations/expenses
+Authorization: Bearer hha_…
+Content-Type: application/json
+```
+
+Send a sentence and let the server read it, or send fields directly (fields win over the sentence):
+
+```json
+{ "text": "milk, eggs and 2 kg rice to groceries" }
+{ "list": "groceries", "items": [{ "name": "rice", "quantity": "2", "unit": "kg" }] }
+{ "text": "50 reais mercado em despesas variáveis pago por Ana" }
+{ "text": "pizza", "amount": "50", "group": "Trip" }
+```
+
+Call the API over `https://` — outside development, plain `http://` requests get a `400`.
+
+Every response is JSON with a `message` ready to show or speak:
+
+| Status | Meaning |
+|---|---|
+| `201` | Saved. `parsed` shows how the sentence was read, `unparsed` lists anything ignored. |
+| `422` | Nothing was saved. Either something is missing or unclear — `issues` lists each `field` with a `reason` (`missing`, `ambiguous`, `notFound`) and `candidates` to choose from; send the request again with the sentence plus those fields — or a household rule refused it (only `message`). |
+| `400` | Malformed body, both or neither of `text`/`items`, or input over the size limits (text 1000 chars, 50 items, 64 KB body; `413` for an oversized body). |
+| `401` | Missing, invalid, expired or revoked token. |
+| `403` | The token lacks the permission for this endpoint. |
+| `404` | The token's owner is no longer in the household. |
+| `429` | More than 30 requests per minute for this token. |
+
+Expenses are split equally among current members; the payer is you unless the sentence says otherwise
+("pago por Ana", "paid by Leo").
+
+### Example: iOS Shortcut with Siri
+
+1. **Dictate Text** → **Get Contents of URL** (`POST`, header `Authorization: Bearer <token>`, JSON body
+   `text` = Dictated Text).
+2. **If** the status is 422: for each item in `issues` — `amount` → **Ask for Input** (Number); a field with
+   `candidates` → **Choose from List**; otherwise **Ask for Input** (Text). Send the request again with `text` plus
+   those fields.
+3. **Speak Text** → `message`.
+
+Name the Shortcut (e.g. "Add to groceries") and say "Hey Siri, add to groceries". When sharing it, use
+**Import Questions** for the token so each person pastes their own.
+
+### Deploy notes
+
+Production must set `Integrations__TokenKey` (base64, at least 32 bytes) and `Redaction__Hmac__Key` (base64, at least 44 characters) together with `Redaction__Hmac__KeyId`; the app refuses to start without them. Rotating `Integrations__TokenKey` invalidates every existing access token.
+
 ## Deployment
 
 CI builds a container image from the `Dockerfile` and pushes it to GitHub Container Registry. The image needs:
@@ -94,4 +149,5 @@ CI builds a container image from the `Dockerfile` and pushes it to GitHub Contai
 - `ConnectionStrings__redis` — Redis connection string
 - `Oidc__Authority`, `Oidc__ClientId`, `Oidc__ClientSecret`
 - `Push__VapidPublicKey`, `Push__VapidPrivateKey` (optional)
+- `Integrations__TokenKey`, `Redaction__Hmac__Key`, `Redaction__Hmac__KeyId` (see [Integrations API](#integrations-api))
 - `Admins__0` (and further indexes) — emails allowed into the Quartz dashboard
