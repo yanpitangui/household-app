@@ -1,4 +1,5 @@
 using HouseholdApp.Application.Modules.Identity.Application.Ports;
+using HouseholdApp.Web.Integrations;
 using Microsoft.AspNetCore.Localization;
 
 namespace HouseholdApp.Web.Shared.Web;
@@ -13,6 +14,13 @@ public sealed class UserLocaleSyncMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context, IUserLocales locales, TimeProvider time)
     {
+        // The stored language follows the user's browser; token requests read it as the owner's language.
+        if (context.User.Identity?.AuthenticationType == AccessTokenDefaults.Scheme)
+        {
+            await next(context);
+            return;
+        }
+
         if (context.User.FindFirst("app_uid")?.Value is { } uid && Guid.TryParse(uid, out var userId)
             && context.Features.Get<IRequestCultureFeature>()?.RequestCulture.UICulture.Name is { Length: > 0 } culture)
         {

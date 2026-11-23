@@ -122,6 +122,12 @@
     }
 }
 
+<p class="section-title">@L["Settings.AccessTokens.Title"]</p>
+<div class="app-card">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">@L["Settings.AccessTokens.Hint"]</div>
+    <a class="btn btn-sm btn-outline-secondary" href="/h/@Model.Id/settings/access-tokens">@L["Settings.AccessTokens.Manage"]</a>
+</div>
+
 <p class="section-title">@L["Settings.Household.Leave"]</p>
 <div class="app-card">
     @if (Model.Permissions.Can(HouseholdPermission.Leave))

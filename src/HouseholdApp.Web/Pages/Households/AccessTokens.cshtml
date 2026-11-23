@@ -1,0 +1,87 @@
+@page "/h/{id:guid}/settings/access-tokens"
+@model HouseholdApp.Web.Pages.Households.AccessTokensModel
+@using HouseholdApp.Application.Modules.Integrations.Application.Operations
+@using HouseholdApp.Application.Modules.Integrations.Application.Ports
+@{
+    ViewData["Title"] = L["Settings.AccessTokens.Title"];
+    var culture = System.Globalization.CultureInfo.CurrentCulture;
+}
+
+<div class="page-heading">
+    <span>@L["Settings.AccessTokens.Title"]</span>
+    <a href="/h/@Model.Id/settings" style="font-family:var(--font-body);font-size:13px;color:var(--text-muted);text-decoration:none;font-weight:500">← @L["Settings.Household.Title"]</a>
+</div>
+<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">@L["Settings.AccessTokens.Hint"]</div>
+
+@if (Model.CreatedToken is not null)
+{
+    <div class="invite-card" data-access-token="@Model.CreatedToken">
+        <div class="invite-card-label">@L["Settings.AccessTokens.CopyNow"]</div>
+        <div class="invite-card-url" style="word-break:break-all">@Model.CreatedToken</div>
+        <div class="invite-card-actions">
+            <button class="invite-card-btn invite-btn-copy" data-invite-url="@Model.CreatedToken" data-copied="@L["Dashboard.Copied"]" onclick="copyInviteUrl(this)">⧉ @L["Dashboard.Copy"]</button>
+        </div>
+    </div>
+}
+
+<div class="app-card">
+    @if (Model.Tokens.Count == 0)
+    {
+        <div style="font-size:13px;color:var(--text-muted)">@L["Settings.AccessTokens.Empty"]</div>
+    }
+    @foreach (var token in Model.Tokens)
+    {
+        <div class="member-item" data-token-id="@token.Id">
+            <div>
+                <div style="font-size:14px;font-weight:500;color:var(--text-secondary)">@token.Name <span style="color:var(--text-muted)">…@token.Hint</span></div>
+                <div style="font-size:11px;color:var(--text-muted)">
+                    @string.Join(" · ", token.Scopes.Select(s => L[$"Settings.AccessTokens.Scope.{s}"].Value))
+                    · @(token.LastUsedAt is { } used ? L["Settings.AccessTokens.LastUsed", used.ToString("d", culture)] : L["Settings.AccessTokens.NeverUsed"])
+                    · @(token.IsExpired ? L["Settings.AccessTokens.Expired"] : L["Settings.AccessTokens.Expires", token.ExpiresAt.ToString("d", culture)])
+                </div>
+            </div>
+            <form method="post" asp-page-handler="Revoke">
+                <input type="hidden" name="tokenId" value="@token.Id" />
+                <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="@L["Confirm.RevokeAccessToken", token.Name]">@L["Settings.AccessTokens.Revoke"]</button>
+            </form>
+        </div>
+    }
+</div>
+
+<p class="section-title">@L["Settings.AccessTokens.New"]</p>
+<form method="post" asp-page-handler="Create" class="app-card">
+    <div asp-validation-summary="ModelOnly" class="field-error"></div>
+
+    <label class="form-label" asp-for="Name">@L["Settings.AccessTokens.Name"]</label>
+    <input asp-for="Name" class="form-control" placeholder="@L["Settings.AccessTokens.NamePlaceholder"]" />
+    <span asp-validation-for="Name" class="field-error"></span>
+
+    <div class="form-label" style="margin-top:10px">@L["Settings.AccessTokens.Permissions"]</div>
+    @foreach (var scope in AccessTokenScopes.All)
+    {
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="Scopes" value="@scope" id="scope-@scope" checked="@Model.Scopes.Contains(scope)" />
+            <label class="form-check-label" for="scope-@scope">@L[$"Settings.AccessTokens.Scope.{scope}"]</label>
+        </div>
+    }
+    <span asp-validation-for="Scopes" class="field-error"></span>
+
+    <label class="form-label" style="margin-top:10px" asp-for="DefaultListId">@L["Settings.AccessTokens.DefaultList"]</label>
+    <select asp-for="DefaultListId" class="form-select">
+        <option value="">@L["Settings.AccessTokens.NoDefault"]</option>
+        @foreach (var list in Model.Lists) { <option value="@list.Id">@list.Name</option> }
+    </select>
+
+    <label class="form-label" style="margin-top:10px" asp-for="DefaultGroupId">@L["Settings.AccessTokens.DefaultGroup"]</label>
+    <select asp-for="DefaultGroupId" class="form-select">
+        <option value="">@L["Settings.AccessTokens.NoDefault"]</option>
+        @foreach (var group in Model.Groups) { <option value="@group.Id">@group.Name</option> }
+    </select>
+
+    <label class="form-label" style="margin-top:10px" asp-for="LifetimeDays">@L["Settings.AccessTokens.Lifetime"]</label>
+    <select asp-for="LifetimeDays" class="form-select">
+        @foreach (var days in AccessTokenService.Lifetimes) { <option value="@days">@L["Settings.AccessTokens.Days", days]</option> }
+    </select>
+
+    <button type="submit" class="btn btn-sm btn-primary" style="margin-top:12px">@L["Settings.AccessTokens.Create"]</button>
+</form>

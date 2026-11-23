@@ -743,4 +743,55 @@
   <data name="Landing.TaglineHighlight" xml:space="preserve">
     <value>casa</value>
   </data>
+  <data name="Integrations.Error.TokenMissing" xml:space="preserve"><value>Token de acesso ausente.</value></data>
+  <data name="Integrations.Error.TokenInvalid" xml:space="preserve"><value>Token de acesso inválido.</value></data>
+  <data name="Integrations.Error.TokenExpired" xml:space="preserve"><value>Token de acesso expirado. Crie um novo nas configurações da casa.</value></data>
+  <data name="Integrations.Error.Scope" xml:space="preserve"><value>Este token de acesso não permite isso.</value></data>
+  <data name="Integrations.Error.NotFound" xml:space="preserve"><value>Casa não encontrada.</value></data>
+  <data name="Integrations.Error.RateLimited" xml:space="preserve"><value>Muitas solicitações. Tente de novo em um minuto.</value></data>
+  <data name="Integrations.Error.HttpsRequired" xml:space="preserve"><value>Use https:// neste endereço.</value></data>
+  <data name="Integrations.Error.BadBody" xml:space="preserve"><value>O corpo da requisição deve ser JSON.</value></data>
+  <data name="Integrations.Error.TextOrItems" xml:space="preserve"><value>Envie text ou items.</value></data>
+  <data name="Integrations.Error.Unexpected" xml:space="preserve"><value>Algo deu errado. Tente de novo mais tarde.</value></data>
+  <data name="Integrations.Field.amount" xml:space="preserve"><value>o valor</value></data>
+  <data name="Integrations.Field.description" xml:space="preserve"><value>a descrição</value></data>
+  <data name="Integrations.Field.group" xml:space="preserve"><value>o grupo</value></data>
+  <data name="Integrations.Field.payer" xml:space="preserve"><value>quem pagou</value></data>
+  <data name="Integrations.Field.list" xml:space="preserve"><value>a lista</value></data>
+  <data name="Integrations.Field.items" xml:space="preserve"><value>os itens</value></data>
+  <data name="Integrations.Issue.Missing" xml:space="preserve"><value>Faltou {0}.</value></data>
+  <data name="Integrations.Issue.Ambiguous" xml:space="preserve"><value>Não ficou claro {0}: {1}?</value></data>
+  <data name="Integrations.Issue.NotFound" xml:space="preserve"><value>Não encontrei {0}. Opções: {1}.</value></data>
+  <data name="Integrations.ItemsAdded" xml:space="preserve"><value>Adicionei {0} em {1}.</value></data>
+  <data name="Integrations.ExpenseRecorded" xml:space="preserve"><value>Registrei {0} de {1} em {2}, pago por {3}.</value></data>
+  <data name="Integrations.Ignored" xml:space="preserve"><value>(ignorado: {0})</value></data>
+  <data name="Errors.AccessToken.Name" xml:space="preserve"><value>Dê ao token um nome de até 100 caracteres.</value></data>
+  <data name="Errors.AccessToken.Scopes" xml:space="preserve"><value>Escolha pelo menos uma permissão.</value></data>
+  <data name="Errors.AccessToken.Lifetime" xml:space="preserve"><value>Escolha uma validade válida.</value></data>
+  <data name="Settings.AccessTokens.Title" xml:space="preserve"><value>Tokens de acesso</value></data>
+  <data name="Settings.AccessTokens.Hint" xml:space="preserve"><value>Permita que outros apps e automações adicionem itens às listas e registrem despesas nesta casa.</value></data>
+  <data name="Settings.AccessTokens.Manage" xml:space="preserve"><value>Gerenciar tokens de acesso</value></data>
+  <data name="Settings.AccessTokens.New" xml:space="preserve"><value>Novo token de acesso</value></data>
+  <data name="Settings.AccessTokens.Name" xml:space="preserve"><value>Nome</value></data>
+  <data name="Settings.AccessTokens.NamePlaceholder" xml:space="preserve"><value>ex.: celular da Ana</value></data>
+  <data name="Settings.AccessTokens.Permissions" xml:space="preserve"><value>Permissões</value></data>
+  <data name="Settings.AccessTokens.Scope.lists:add" xml:space="preserve"><value>Adicionar itens às listas</value></data>
+  <data name="Settings.AccessTokens.Scope.expenses:record" xml:space="preserve"><value>Registrar despesas</value></data>
+  <data name="Settings.AccessTokens.DefaultList" xml:space="preserve"><value>Lista padrão</value></data>
+  <data name="Settings.AccessTokens.DefaultGroup" xml:space="preserve"><value>Grupo de despesas padrão</value></data>
+  <data name="Settings.AccessTokens.NoDefault" xml:space="preserve"><value>Nenhum</value></data>
+  <data name="Settings.AccessTokens.Lifetime" xml:space="preserve"><value>Expira em</value></data>
+  <data name="Settings.AccessTokens.Days" xml:space="preserve"><value>{0} dias</value></data>
+  <data name="Settings.AccessTokens.Create" xml:space="preserve"><value>Criar token</value></data>
+  <data name="Settings.AccessTokens.CopyNow" xml:space="preserve"><value>Copie este token agora. Ele não será mostrado de novo.</value></data>
+  <data name="Settings.AccessTokens.Empty" xml:space="preserve"><value>Nenhum token de acesso ainda.</value></data>
+  <data name="Settings.AccessTokens.LastUsed" xml:space="preserve"><value>Último uso {0}</value></data>
+  <data name="Settings.AccessTokens.NeverUsed" xml:space="preserve"><value>Nunca usado</value></data>
+  <data name="Settings.AccessTokens.Expires" xml:space="preserve"><value>Expira {0}</value></data>
+  <data name="Settings.AccessTokens.Expired" xml:space="preserve"><value>Expirado</value></data>
+  <data name="Settings.AccessTokens.Revoke" xml:space="preserve"><value>Revogar</value></data>
+  <data name="Settings.AccessTokens.ScopeRequired" xml:space="preserve"><value>Escolha pelo menos uma permissão.</value></data>
+  <data name="Confirm.RevokeAccessToken" xml:space="preserve"><value>Revogar {0}? Os apps que o usam vão parar de funcionar.</value></data>
+  <data name="Flash.AccessTokenRevoked" xml:space="preserve"><value>Token de acesso revogado.</value></data>
+  <data name="Integrations.Error.TooLarge" xml:space="preserve"><value>A requisição é grande demais.</value></data>
 </root>
