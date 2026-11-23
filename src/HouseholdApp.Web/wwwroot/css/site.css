@@ -247,15 +247,26 @@ html, body {
     line-height: 1.15;
 }
 
+/* A labelled pill so household settings stand out next to the name. */
 .household-settings-link {
-    margin-left: 8px;
-    font-size: 16px;
-    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 10px;
+    padding: 4px 12px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 999px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--text-secondary);
     text-decoration: none;
     vertical-align: middle;
+    white-space: nowrap;
 }
 
-.household-settings-link:hover { color: var(--text-primary); }
+.household-settings-link:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
 /* ── Feature card grid ────────────────────────── */
 .feature-grid {
