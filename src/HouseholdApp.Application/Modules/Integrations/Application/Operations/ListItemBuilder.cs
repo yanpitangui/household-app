@@ -67,10 +67,18 @@ public static class ListItemBuilder
     public static IReadOnlyList<string> SearchTerms(IReadOnlyList<ListItemInput> inputs) =>
         inputs.Where(i => !string.IsNullOrWhiteSpace(i.Name)).Select(i => i.Name.Trim()).Distinct().ToList();
 
-    private static BuiltItem ToItem(string name, string? quantity, string? unit, IReadOnlyDictionary<string, CatalogItemSuggestion> matches) =>
-        matches.TryGetValue(name, out var match)
+    // The catalog item is used when it has the spoken name; a merely similar item ("Leite de soja" for "leite")
+    // lends only its category, so the spoken word stays the item and the list files it in the right aisle.
+    private static BuiltItem ToItem(string name, string? quantity, string? unit, IReadOnlyDictionary<string, CatalogItemSuggestion> matches)
+    {
+        if (!matches.TryGetValue(name, out var match)) return new BuiltItem(Capitalize(name), quantity, unit, null, null);
+        return TextNormalizer.Normalize(match.Name) == TextNormalizer.Normalize(name)
             ? new BuiltItem(match.Name, quantity, unit, match.Id, match.CategoryId)
-            : new BuiltItem(name, quantity, unit, null, null);
+            : new BuiltItem(Capitalize(name), quantity, unit, null, match.CategoryId);
+    }
+
+    private static string Capitalize(string name) =>
+        name.Length == 0 ? name : char.ToUpper(name[0], System.Globalization.CultureInfo.InvariantCulture) + name[1..];
 
     private static string NameOf(string raw) => IngredientParser.Parse(raw).Name;
 

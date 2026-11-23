@@ -37,7 +37,7 @@ public sealed class ListItemBuilderTests
 
         var built = ListItemBuilder.Build(RiceAndBeans, matches);
 
-        await Assert.That(built.Items.Select(i => i.Name)).IsEquivalentTo(new[] { "arroz", "feijão" });
+        await Assert.That(built.Items.Select(i => i.Name)).IsEquivalentTo(new[] { "Arroz", "Feijão" });
     }
 
     [Test]
@@ -49,7 +49,7 @@ public sealed class ListItemBuilderTests
         var built = ListItemBuilder.Build([new ItemPiece("2 kg de arroz", null), new ItemPiece("3 eggs", null)], matches);
 
         await Assert.That(built.Items[0]).IsEqualTo(new BuiltItem("Arroz", "2", "kg", rice.Id, rice.CategoryId));
-        await Assert.That(built.Items[1]).IsEqualTo(new BuiltItem("eggs", "3", null, null, null));
+        await Assert.That(built.Items[1]).IsEqualTo(new BuiltItem("Eggs", "3", null, null, null));
     }
 
     [Test]
@@ -57,7 +57,7 @@ public sealed class ListItemBuilderTests
     {
         var built = ListItemBuilder.Build([new ItemPiece("milk", null), new ItemPiece("2 kg", null)], new Dictionary<string, CatalogItemSuggestion>());
 
-        await Assert.That(built.Items.Single().Name).IsEqualTo("milk");
+        await Assert.That(built.Items.Single().Name).IsEqualTo("Milk");
         await Assert.That(built.Unparsed).IsEquivalentTo(new[] { "2 kg" });
     }
 
@@ -70,5 +70,27 @@ public sealed class ListItemBuilderTests
         var built = ListItemBuilder.FromItems([new ListItemInput(" leite ", "2", "l"), new ListItemInput(" ", null, null)], matches);
 
         await Assert.That(built.Items.Single()).IsEqualTo(new BuiltItem("Leite", "2", "l", milk.Id, milk.CategoryId));
+    }
+
+    [Test]
+    public async Task A_similar_catalog_item_lends_its_category_and_keeps_the_spoken_name()
+    {
+        var soyMilk = Item("Leite de soja");
+        var matches = new Dictionary<string, CatalogItemSuggestion> { ["leite"] = soyMilk };
+
+        var built = ListItemBuilder.Build([new ItemPiece("leite", null)], matches);
+
+        await Assert.That(built.Items.Single()).IsEqualTo(new BuiltItem("Leite", null, null, null, soyMilk.CategoryId));
+    }
+
+    [Test]
+    public async Task An_exact_catalog_name_is_used_ignoring_accents_case_and_plurals()
+    {
+        var bread = Item("Pão");
+        var matches = new Dictionary<string, CatalogItemSuggestion> { ["paes"] = bread };
+
+        var built = ListItemBuilder.Build([new ItemPiece("paes", null)], matches);
+
+        await Assert.That(built.Items.Single()).IsEqualTo(new BuiltItem("Pão", null, null, bread.Id, bread.CategoryId));
     }
 }

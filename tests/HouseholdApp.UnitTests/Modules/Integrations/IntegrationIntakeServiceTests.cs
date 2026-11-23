@@ -84,7 +84,7 @@ public sealed class IntegrationIntakeServiceTests
         await _listCommands.Received(1).BulkAddItemsAsync(
             Groceries,
             Arg.Is<IReadOnlyList<BulkAddItem>>(items =>
-                items.Select(i => i.Name).SequenceEqual(new[] { "milk", "eggs", "rice" })
+                items.Select(i => i.Name).SequenceEqual(new[] { "Milk", "Eggs", "Rice" })
                 && items[2].Quantity == "2" && items[2].Unit == "kg"),
             Arg.Any<CancellationToken>());
     }
@@ -97,7 +97,7 @@ public sealed class IntegrationIntakeServiceTests
 
         await Assert.That(result.Added).IsTrue();
         await _listCommands.Received(1).BulkAddItemsAsync(
-            Pharmacy, Arg.Is<IReadOnlyList<BulkAddItem>>(items => items.Single().Name == "arroz e feijão"), Arg.Any<CancellationToken>());
+            Pharmacy, Arg.Is<IReadOnlyList<BulkAddItem>>(items => items.Single().Name == "Arroz e feijão"), Arg.Any<CancellationToken>());
     }
 
     [Test]
